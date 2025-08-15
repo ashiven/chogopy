@@ -145,10 +145,10 @@ type Token struct {
 func (t *Token) repr() string {
 	if t.kind == STRING {
 		valCopy := strings.Clone(t.value.(string))
-		strings.ReplaceAll(valCopy, "\\", "\\\\")
-		strings.ReplaceAll(valCopy, "\t", "\\t")
-		strings.ReplaceAll(valCopy, "\r", "\\r")
-		strings.ReplaceAll(valCopy, "\n", "\\n")
+		valCopy = strings.ReplaceAll(valCopy, "\\", "\\\\")
+		valCopy = strings.ReplaceAll(valCopy, "\t", "\\t")
+		valCopy = strings.ReplaceAll(valCopy, "\r", "\\r")
+		valCopy = strings.ReplaceAll(valCopy, "\n", "\\n")
 		// TODO:
 		// strings.Replace(t.value.(string), '"', '\\"', -1)
 		return t.kind.String() + ":" + valCopy
