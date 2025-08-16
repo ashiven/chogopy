@@ -9,22 +9,20 @@ import (
 )
 
 type Tokenizer struct {
-	scanner       Scanner
-	tokenBuffer   []Token
-	isNewLine     bool
-	isLogicalLine bool
-	indentLevel   int
-	indentStack   []int
+	scanner     Scanner
+	tokenBuffer []Token
+	isNewLine   bool
+	indentLevel int
+	indentStack []int
 }
 
 func NewTokenizer(scanner Scanner) Tokenizer {
 	return Tokenizer{
-		scanner:       scanner,
-		tokenBuffer:   []Token{},
-		isNewLine:     true,
-		isLogicalLine: false,
-		indentLevel:   0,
-		indentStack:   []int{0},
+		scanner:     scanner,
+		tokenBuffer: []Token{},
+		isNewLine:   true,
+		indentLevel: 0,
+		indentStack: []int{0},
 	}
 }
 
@@ -43,7 +41,7 @@ func (t *Tokenizer) Peek(tokenAmount int) []Token {
 var (
 	spaceSymbols      = []string{"\t", "\r", "\n", " "}
 	expressionSymbols = []string{"+", "-", "*", "%", "/", "=", "!", "<", ">", "(", ")", ":", "[", "]", ","}
-	identifierSymbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+	nameSymbols       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
 	integerSymbols    = "0123456789"
 )
 
@@ -65,12 +63,9 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 			t.handleComment(nextChar)
 			continue
 		} else if nextChar != "" && t.isNewLine {
-			// A logical line starts once we encounter the first symbol of a new line
+			// A new line ends once we encounter the first symbol of the new line
 			// which is not a space or a comment (already handled in the previous two cases)
-			t.isLogicalLine = true
 			t.isNewLine = false
-			// The current line has more spaces than the previous indented lines
-			// therefore it requires us to emit and save a new level of indentation
 			if t.indentLevel > t.indentStack[len(t.indentStack)-1] {
 				return t.handleIndent()
 			} else if t.indentLevel < t.indentStack[len(t.indentStack)-1] {
@@ -78,7 +73,7 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 			}
 		} else if slices.Contains(expressionSymbols, nextChar) {
 			return t.handleSymbols(nextChar)
-		} else if strings.Contains(identifierSymbols, nextChar) {
+		} else if strings.Contains(nameSymbols, nextChar) {
 			return t.handleName(nextChar)
 		} else if strings.Contains(integerSymbols, nextChar) {
 			return t.handleIntegerLiteral(nextChar)
@@ -92,7 +87,6 @@ func (t *Tokenizer) handleSpaces(nextChar string, keepBuffer bool) Token {
 	const tabSpaces = 8
 	switch nextChar {
 	case "\t":
-		// isNewLine only gets set after encountering \n or \r (we are processing the start of a new line)
 		if t.isNewLine {
 			// The reason we are subtracing (indentLevel mod tabSpaces) is to end up with proper indentation
 			// if for example the source text has been indented via '   \t' or ' \t' (both will lead to 8 spaces)
@@ -101,17 +95,13 @@ func (t *Tokenizer) handleSpaces(nextChar string, keepBuffer bool) Token {
 	case "\n", "\r":
 		t.indentLevel = 0
 		t.isNewLine = true
-		if t.isLogicalLine {
-			t.isLogicalLine = false
-			t.scanner.Consume()
-			return Token{NEWLINE, nil, t.scanner.offset}
-		}
+		t.scanner.Consume()
+		return Token{NEWLINE, nil, t.scanner.offset}
 	case " ":
 		if t.isNewLine {
 			t.indentLevel += 1
 		}
 	}
-	// Make sure to consume the nextChar which we have only peeked until now
 	t.scanner.Consume()
 	return t.Consume(keepBuffer)
 }
@@ -218,7 +208,7 @@ func (t *Tokenizer) handleSymbols(nextChar string) Token {
 
 func (t *Tokenizer) handleName(nextChar string) Token {
 	name := ""
-	for strings.Contains(identifierSymbols, nextChar) {
+	for strings.Contains(nameSymbols, nextChar) {
 		name += nextChar
 		t.scanner.Consume()
 		nextChar = t.scanner.Peek()
