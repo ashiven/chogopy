@@ -81,7 +81,9 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 		} else if strings.Contains(identifierSymbols, nextChar) {
 			return t.handleName(nextChar)
 		} else if strings.Contains(integerSymbols, nextChar) {
-			return t.handleInteger(nextChar)
+			return t.handleIntegerLiteral(nextChar)
+		} else if nextChar == string('"') {
+			return t.handleStringLiteral(nextChar)
 		}
 	}
 }
@@ -288,4 +290,10 @@ func (t *Tokenizer) handleIntegerLiteral(nextChar string) Token {
 	}
 
 	return Token{INTEGER, valueInt, t.scanner.offset - len(value)}
+}
+
+func (t *Tokenizer) handleStringLiteral(nextChar string) Token {
+	value := ""
+	_ = value
+	return Token{}
 }
