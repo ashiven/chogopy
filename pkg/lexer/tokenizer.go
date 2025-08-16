@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 type Tokenizer struct {
@@ -38,6 +40,13 @@ func (t *Tokenizer) Peek(tokenAmount int) []Token {
 	return t.tokenBuffer[:tokenAmount]
 }
 
+var (
+	spaceSymbols      = []string{"\t", "\r", "\n", " "}
+	expressionSymbols = []string{"+", "-", "*", "%", "/", "=", "!", "<", ">", "(", ")", ":", "[", "]", ","}
+	identifierSymbols = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+	integerSymbols    = "0123456789"
+)
+
 func (t *Tokenizer) Consume(keepBuffer bool) Token {
 	// :param keepBuffer:
 	// This is only useful for when we want to look ahead for more than one token. (Inside of Tokenizer.Peek())
@@ -48,12 +57,9 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 		return token
 	}
 
-	spaceChars := []string{"\t", "\r", "\n", " "}
-	symbols := []string{"+", "-", "*", "%", "/", "=", "!", "<", ">", "(", ")", ":", "[", "]", ","}
-
 	nextChar := t.scanner.Peek()
 	for {
-		if slices.Contains(spaceChars, nextChar) {
+		if slices.Contains(spaceSymbols, nextChar) {
 			return t.handleSpaces(nextChar, keepBuffer)
 		} else if nextChar == "#" {
 			t.handleComment(nextChar)
@@ -70,8 +76,12 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 			} else if t.indentLevel < t.indentStack[len(t.indentStack)-1] {
 				return t.handleDedent()
 			}
-		} else if slices.Contains(symbols, nextChar) {
+		} else if slices.Contains(expressionSymbols, nextChar) {
 			return t.handleSymbols(nextChar)
+		} else if strings.Contains(identifierSymbols, nextChar) {
+			return t.handleName(nextChar)
+		} else if strings.Contains(integerSymbols, nextChar) {
+			return t.handleInteger(nextChar)
 		}
 	}
 }
@@ -202,4 +212,80 @@ func (t *Tokenizer) handleSymbols(nextChar string) Token {
 		return Token{PLUS, "+", t.scanner.offset}
 	}
 	return Token{}
+}
+
+func (t *Tokenizer) handleName(nextChar string) Token {
+	name := ""
+	for strings.Contains(identifierSymbols, nextChar) {
+		name += nextChar
+		t.scanner.Consume()
+		nextChar = t.scanner.Peek()
+	}
+
+	switch name {
+	case "class":
+		return Token{CLASS, name, t.scanner.offset - len(name)}
+	case "def":
+		return Token{DEF, name, t.scanner.offset - len(name)}
+	case "global":
+		return Token{GLOBAL, name, t.scanner.offset - len(name)}
+	case "nonlocal":
+		return Token{NONLOCAL, name, t.scanner.offset - len(name)}
+	case "if":
+		return Token{IF, name, t.scanner.offset - len(name)}
+	case "elif":
+		return Token{ELIF, name, t.scanner.offset - len(name)}
+	case "else":
+		return Token{ELSE, name, t.scanner.offset - len(name)}
+	case "while":
+		return Token{WHILE, name, t.scanner.offset - len(name)}
+	case "for":
+		return Token{FOR, name, t.scanner.offset - len(name)}
+	case "in":
+		return Token{IN, name, t.scanner.offset - len(name)}
+	case "None":
+		return Token{NONE, name, t.scanner.offset - len(name)}
+	case "True":
+		return Token{TRUE, name, t.scanner.offset - len(name)}
+	case "False":
+		return Token{FALSE, name, t.scanner.offset - len(name)}
+	case "pass":
+		return Token{PASS, name, t.scanner.offset - len(name)}
+	case "or":
+		return Token{OR, name, t.scanner.offset - len(name)}
+	case "and":
+		return Token{AND, name, t.scanner.offset - len(name)}
+	case "not":
+		return Token{NOT, name, t.scanner.offset - len(name)}
+	case "is":
+		return Token{IS, name, t.scanner.offset - len(name)}
+	case "object":
+		return Token{OBJECT, name, t.scanner.offset - len(name)}
+	case "int":
+		return Token{INT, name, t.scanner.offset - len(name)}
+	case "bool":
+		return Token{BOOL, name, t.scanner.offset - len(name)}
+	case "str":
+		return Token{STR, name, t.scanner.offset - len(name)}
+	case "return":
+		return Token{RETURN, name, t.scanner.offset - len(name)}
+	}
+
+	return Token{IDENTIFIER, name, t.scanner.offset - len(name)}
+}
+
+func (t *Tokenizer) handleIntegerLiteral(nextChar string) Token {
+	value := ""
+	for strings.Contains(integerSymbols, nextChar) {
+		value += nextChar
+		t.scanner.Consume()
+		nextChar = t.scanner.Peek()
+	}
+
+	valueInt, err := strconv.Atoi(value)
+	if err != nil {
+		log.Fatal(errors.New("failed to convert integer literal"))
+	}
+
+	return Token{INTEGER, valueInt, t.scanner.offset - len(value)}
 }
