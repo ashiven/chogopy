@@ -287,10 +287,22 @@ func (t *Tokenizer) handleIntegerLiteral(nextChar string) Token {
 }
 
 func (t *Tokenizer) handleStringLiteral(nextChar string) Token {
-	// TODO: implement
-	value := ""
-	_ = value
-	return Token{}
+	value := nextChar
+	nextChar = t.scanner.Consume()
+
+	allowedEscapedChars := []string{"t", "n", "\\", string('"')}
+	for nextChar != string('"') {
+		if nextChar == "\\" {
+			escapedChar := t.scanner.Peek()
+			if !slices.Contains(allowedEscapedChars, escapedChar) {
+				log.Fatal(errors.New("unknown escape sequence"))
+			}
+		}
+		nextChar = t.scanner.Consume()
+		value += nextChar
+	}
+
+	return Token{STRING, value, t.scanner.offset - len(value)}
 }
 
 func (t *Tokenizer) handleEndOfFile() Token {
