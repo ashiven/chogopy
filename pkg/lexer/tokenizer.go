@@ -39,6 +39,7 @@ func (t *Tokenizer) Peek(tokenAmount int) []Token {
 }
 
 var (
+	tabSpaces         = 8
 	spaceSymbols      = []string{"\t", "\r", "\n", " "}
 	expressionSymbols = []string{"+", "-", "*", "%", "/", "=", "!", "<", ">", "(", ")", ":", "[", "]", ","}
 	nameSymbols       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
@@ -84,8 +85,11 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 }
 
 func (t *Tokenizer) handleSpaces(nextChar string, keepBuffer bool) Token {
-	const tabSpaces = 8
 	switch nextChar {
+	case " ":
+		if t.isNewLine {
+			t.indentLevel += 1
+		}
 	case "\t":
 		if t.isNewLine {
 			// The reason we are subtracing (indentLevel mod tabSpaces) is to end up with proper indentation
@@ -93,14 +97,10 @@ func (t *Tokenizer) handleSpaces(nextChar string, keepBuffer bool) Token {
 			t.indentLevel += tabSpaces - t.indentLevel%tabSpaces
 		}
 	case "\n", "\r":
-		t.indentLevel = 0
 		t.isNewLine = true
+		t.indentLevel = 0
 		t.scanner.Consume()
 		return Token{NEWLINE, nil, t.scanner.offset}
-	case " ":
-		if t.isNewLine {
-			t.indentLevel += 1
-		}
 	}
 	t.scanner.Consume()
 	return t.Consume(keepBuffer)
