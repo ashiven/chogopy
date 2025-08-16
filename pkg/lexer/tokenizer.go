@@ -1,5 +1,7 @@
 package lexer
 
+import "slices"
+
 type Tokenizer struct {
 	scanner       Scanner
 	tokenBuffer   []Token
@@ -32,6 +34,34 @@ func (t *Tokenizer) Peek(tokenAmount int) []Token {
 	return t.tokenBuffer[:tokenAmount]
 }
 
+func (t *Tokenizer) handleSpace(nextChar string, keepBuffer bool) Token {
+	const tabSpaces = 8
+	switch nextChar {
+	case "\t":
+		// isNewLine only gets set after encountering \n or \r (we are processing the start of a new line)
+		if t.isNewLine {
+			// The reason we are subtracing (indentLevel mod tabSpaces) is to end up with proper indentation
+			// if for example the source text has been indented via '   \t' or ' \t' (both will lead to 8 spaces)
+			t.indentLevel += tabSpaces - t.indentLevel%tabSpaces
+		}
+	case "\n", "\r":
+		t.indentLevel = 0
+		t.isNewLine = true
+		if t.isLogicalLine {
+			t.isLogicalLine = false
+			t.scanner.Consume()
+			return Token{NEWLINE, nil, t.scanner.offset}
+		}
+	case " ":
+		if t.isNewLine {
+			t.indentLevel += 1
+		}
+	}
+	// Make sure to consume the nextChar which we have only peeked until now
+	t.scanner.Consume()
+	return t.Consume(keepBuffer)
+}
+
 func (t *Tokenizer) Consume(keepBuffer bool) Token {
 	// :param keepBuffer:
 	// This is only useful for when we want to look ahead for more than one token. (Inside of Tokenizer.Peek())
@@ -42,11 +72,14 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 		return token
 	}
 
-	nextChar := t.scanner.Consume()
-	_ = nextChar
+	nextChar := t.scanner.Peek()
 
 	for {
-		break
+		spaceChars := []string{"\t", "\r", "\n", " "}
+		if slices.Contains(spaceChars, nextChar) {
+			return t.handleSpace(nextChar, keepBuffer)
+		}
+
 	}
 
 	return Token{}
