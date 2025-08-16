@@ -80,6 +80,10 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 			return t.handleIntegerLiteral(nextChar)
 		} else if nextChar == string('"') {
 			return t.handleStringLiteral(nextChar)
+		} else if nextChar == "" {
+			return t.handleEndOfFile()
+		} else {
+			log.Fatal(errors.New("invalid symbol in input"))
 		}
 	}
 }
@@ -283,7 +287,22 @@ func (t *Tokenizer) handleIntegerLiteral(nextChar string) Token {
 }
 
 func (t *Tokenizer) handleStringLiteral(nextChar string) Token {
+	// TODO: implement
 	value := ""
 	_ = value
 	return Token{}
+}
+
+func (t *Tokenizer) handleEndOfFile() Token {
+	// automatically emit a new line when at the end of the last line
+	if !t.isNewLine {
+		return Token{NEWLINE, nil, t.scanner.offset}
+	}
+	// emit a dedent token for all remaining indentation levels
+	if t.indentStack[len(t.indentStack)-1] > 0 {
+		dedentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentStack[len(t.indentStack)-2]
+		t.indentStack = t.indentStack[:len(t.indentStack)-1]
+		return Token{DEDENT, nil, t.scanner.offset - dedentTokenSize}
+	}
+	return Token{EOF, nil, t.scanner.offset}
 }
