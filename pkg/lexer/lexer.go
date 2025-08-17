@@ -285,11 +285,8 @@ func (t *Lexer) handleIntegerLiteral(nextChar string) Token {
 	value := ""
 	for slices.Contains(numbers, nextChar) {
 		value += nextChar
-		fmt.Println(t.scanner.offset)
 		t.scanner.Consume()
-		fmt.Println(t.scanner.offset)
 		nextChar = t.scanner.Peek()
-		fmt.Println(t.scanner.offset)
 	}
 
 	valueInt, err := strconv.Atoi(value)
@@ -322,6 +319,7 @@ func (t *Lexer) handleStringLiteral(nextChar string) Token {
 func (t *Lexer) handleEndOfFile() Token {
 	// automatically emit a new line when at the end of the last line
 	if !t.isNewLine {
+		t.isNewLine = true
 		return Token{NEWLINE, nil, t.scanner.offset}
 	}
 	// emit a dedent token for all remaining indentation levels
