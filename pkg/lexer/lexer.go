@@ -2,13 +2,21 @@ package lexer
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"slices"
 	"strconv"
-	"strings"
 )
 
-type Tokenizer struct {
+var (
+	tabSpaces = 8
+	spaces    = []string{"\t", "\r", "\n", " "}
+	symbols   = []string{"+", "-", "*", "%", "/", "=", "!", "<", ">", "(", ")", ":", "[", "]", ","}
+	numbers   = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+	letters   = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "J", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "_"}
+)
+
+type Lexer struct {
 	scanner     Scanner
 	tokenBuffer []Token
 	isNewLine   bool
@@ -16,8 +24,9 @@ type Tokenizer struct {
 	indentStack []int
 }
 
-func NewTokenizer(scanner Scanner) Tokenizer {
-	return Tokenizer{
+func NewLexer(stream string) Lexer {
+	scanner := NewScanner(stream)
+	return Lexer{
 		scanner:     scanner,
 		tokenBuffer: []Token{},
 		isNewLine:   true,
@@ -26,7 +35,7 @@ func NewTokenizer(scanner Scanner) Tokenizer {
 	}
 }
 
-func (t *Tokenizer) Peek(tokenAmount int) []Token {
+func (t *Lexer) Peek(tokenAmount int) []Token {
 	if len(t.tokenBuffer) == 0 {
 		t.tokenBuffer = append(t.tokenBuffer, t.Consume(false))
 	}
@@ -38,17 +47,9 @@ func (t *Tokenizer) Peek(tokenAmount int) []Token {
 	return t.tokenBuffer[:tokenAmount]
 }
 
-var (
-	tabSpaces         = 8
-	spaceSymbols      = []string{"\t", "\r", "\n", " "}
-	expressionSymbols = []string{"+", "-", "*", "%", "/", "=", "!", "<", ">", "(", ")", ":", "[", "]", ","}
-	nameSymbols       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-	integerSymbols    = "0123456789"
-)
-
-func (t *Tokenizer) Consume(keepBuffer bool) Token {
+func (t *Lexer) Consume(keepBuffer bool) Token {
 	// :param keepBuffer:
-	// This is only useful for when we want to look ahead for more than one token. (Inside of Tokenizer.Peek())
+	// This is only useful for when we want to look ahead for more than one token. (Inside of Lexer.Peek())
 	// In that case, only the first token is actually consumed and the rest of the tokens are only inspected.
 	if len(t.tokenBuffer) > 0 && !keepBuffer {
 		token := t.tokenBuffer[0]
@@ -58,9 +59,11 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 
 	nextChar := t.scanner.Peek()
 	for {
-		if slices.Contains(spaceSymbols, nextChar) {
+		if slices.Contains(spaces, nextChar) {
+			fmt.Printf("[%d] handling space\n", t.scanner.offset)
 			return t.handleSpaces(nextChar, keepBuffer)
 		} else if nextChar == "#" {
+			fmt.Printf("[%d] handling comment\n", t.scanner.offset)
 			t.handleComment(nextChar)
 			continue
 		} else if nextChar != "" && t.isNewLine {
@@ -68,19 +71,26 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 			// which is not a space or a comment (already handled in the previous two cases)
 			t.isNewLine = false
 			if t.indentLevel > t.indentStack[len(t.indentStack)-1] {
+				fmt.Printf("[%d] handling indent\n", t.scanner.offset)
 				return t.handleIndent()
 			} else if t.indentLevel < t.indentStack[len(t.indentStack)-1] {
+				fmt.Printf("[%d] handling dedent\n", t.scanner.offset)
 				return t.handleDedent()
 			}
-		} else if slices.Contains(expressionSymbols, nextChar) {
+		} else if slices.Contains(symbols, nextChar) {
+			fmt.Printf("[%d] handling symbol\n", t.scanner.offset)
 			return t.handleSymbols(nextChar)
-		} else if strings.Contains(nameSymbols, nextChar) {
+		} else if slices.Contains(letters, nextChar) {
+			fmt.Printf("[%d] handling name\n", t.scanner.offset)
 			return t.handleName(nextChar)
-		} else if strings.Contains(integerSymbols, nextChar) {
+		} else if slices.Contains(numbers, nextChar) {
+			fmt.Printf("[%d] handling int literal\n", t.scanner.offset)
 			return t.handleIntegerLiteral(nextChar)
 		} else if nextChar == string('"') {
+			fmt.Printf("[%d] handling string literal\n", t.scanner.offset)
 			return t.handleStringLiteral(nextChar)
 		} else if nextChar == "" {
+			fmt.Printf("[%d] handling eof\n", t.scanner.offset)
 			return t.handleEndOfFile()
 		} else {
 			log.Fatal(errors.New("invalid symbol in input"))
@@ -88,8 +98,13 @@ func (t *Tokenizer) Consume(keepBuffer bool) Token {
 	}
 }
 
-func (t *Tokenizer) handleSpaces(nextChar string, keepBuffer bool) Token {
+func (t *Lexer) handleSpaces(nextChar string, keepBuffer bool) Token {
 	switch nextChar {
+	case "\n", "\r":
+		t.isNewLine = true
+		t.indentLevel = 0
+		t.scanner.Consume()
+		return Token{NEWLINE, nil, t.scanner.offset - 1}
 	case " ":
 		if t.isNewLine {
 			t.indentLevel += 1
@@ -98,26 +113,22 @@ func (t *Tokenizer) handleSpaces(nextChar string, keepBuffer bool) Token {
 		if t.isNewLine {
 			// The reason we are subtracing (indentLevel mod tabSpaces) is to end up with proper indentation
 			// if for example the source text has been indented via '   \t' or ' \t' (both will lead to 8 spaces)
-			t.indentLevel += tabSpaces - t.indentLevel%tabSpaces
+			normalizedIndentLevel := tabSpaces - t.indentLevel%tabSpaces
+			t.indentLevel += normalizedIndentLevel
 		}
-	case "\n", "\r":
-		t.isNewLine = true
-		t.indentLevel = 0
-		t.scanner.Consume()
-		return Token{NEWLINE, nil, t.scanner.offset}
 	}
 	t.scanner.Consume()
 	return t.Consume(keepBuffer)
 }
 
-func (t *Tokenizer) handleComment(nextChar string) {
+func (t *Lexer) handleComment(nextChar string) {
 	for nextChar != "" && nextChar != "\n" && nextChar != "\r" {
 		t.scanner.Consume()
 		nextChar = t.scanner.Peek()
 	}
 }
 
-func (t *Tokenizer) handleIndent() Token {
+func (t *Lexer) handleIndent() Token {
 	t.indentStack = append(t.indentStack, t.indentLevel)
 	// The offset of the scanner needs to be adjusted to mark the beginning of the indent token
 	// (the beginning is actually on the same level as the end of the previous indentation)
@@ -125,7 +136,7 @@ func (t *Tokenizer) handleIndent() Token {
 	return Token{INDENT, nil, t.scanner.offset - indentTokenSize}
 }
 
-func (t *Tokenizer) handleDedent() Token {
+func (t *Lexer) handleDedent() Token {
 	dedentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentLevel
 	expectedDedentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentStack[len(t.indentStack)-2]
 	if dedentTokenSize != expectedDedentTokenSize {
@@ -135,84 +146,84 @@ func (t *Tokenizer) handleDedent() Token {
 	return Token{DEDENT, nil, t.scanner.offset - dedentTokenSize}
 }
 
-func (t *Tokenizer) handleSymbols(nextChar string) Token {
+func (t *Lexer) handleSymbols(nextChar string) Token {
 	switch nextChar {
 	case "+":
 		t.scanner.Consume()
-		return Token{PLUS, "+", t.scanner.offset}
+		return Token{PLUS, "+", t.scanner.offset - 1}
 	case "-":
 		t.scanner.Consume()
 		if t.scanner.Peek() == ">" {
 			t.scanner.Consume()
-			return Token{RARROW, "->", t.scanner.offset - 1}
+			return Token{RARROW, "->", t.scanner.offset - 2}
 		}
-		return Token{MINUS, "-", t.scanner.offset}
+		return Token{MINUS, "-", t.scanner.offset - 1}
 	case "*":
 		t.scanner.Consume()
-		return Token{MUL, "*", t.scanner.offset}
+		return Token{MUL, "*", t.scanner.offset - 1}
 	case "%":
 		t.scanner.Consume()
-		return Token{MOD, "%", t.scanner.offset}
+		return Token{MOD, "%", t.scanner.offset - 1}
 	case "/":
 		t.scanner.Consume()
 		if t.scanner.Peek() == "/" {
 			t.scanner.Consume()
-			return Token{DIV, "//", t.scanner.offset - 1}
+			return Token{DIV, "//", t.scanner.offset - 2}
 		}
 		log.Fatal(errors.New("unknown symbol: '/'"))
 	case "=":
 		t.scanner.Consume()
 		if t.scanner.Peek() == "=" {
 			t.scanner.Consume()
-			return Token{EQ, "==", t.scanner.offset - 1}
+			return Token{EQ, "==", t.scanner.offset - 2}
 		}
-		return Token{ASSIGN, "=", t.scanner.offset}
+		return Token{ASSIGN, "=", t.scanner.offset - 1}
 	case "!":
 		t.scanner.Consume()
 		if t.scanner.Peek() == "=" {
 			t.scanner.Consume()
-			return Token{NE, "!=", t.scanner.offset - 1}
+			return Token{NE, "!=", t.scanner.offset - 2}
 		}
 		log.Fatal(errors.New("unknown symbol: '!'"))
 	case "<":
 		t.scanner.Consume()
 		if t.scanner.Peek() == "=" {
 			t.scanner.Consume()
-			return Token{LE, "<=", t.scanner.offset - 1}
+			return Token{LE, "<=", t.scanner.offset - 2}
 		}
-		return Token{LT, "<", t.scanner.offset}
+		return Token{LT, "<", t.scanner.offset - 1}
 	case ">":
 		t.scanner.Consume()
 		if t.scanner.Peek() == "=" {
 			t.scanner.Consume()
-			return Token{GE, ">=", t.scanner.offset - 1}
+			return Token{GE, ">=", t.scanner.offset - 2}
 		}
-		return Token{GT, ">", t.scanner.offset}
+		return Token{GT, ">", t.scanner.offset - 1}
 	case "(":
 		t.scanner.Consume()
-		return Token{PLUS, "+", t.scanner.offset}
+		return Token{LROUNDBRACKET, "(", t.scanner.offset - 1}
 	case ")":
 		t.scanner.Consume()
-		return Token{PLUS, "+", t.scanner.offset}
+		return Token{RROUNDBRACKET, ")", t.scanner.offset - 1}
 	case ":":
 		t.scanner.Consume()
-		return Token{PLUS, "+", t.scanner.offset}
+		return Token{COLON, ":", t.scanner.offset - 1}
 	case "[":
 		t.scanner.Consume()
-		return Token{PLUS, "+", t.scanner.offset}
+		return Token{LSQUAREBRACKET, "[", t.scanner.offset - 1}
 	case "]":
 		t.scanner.Consume()
-		return Token{PLUS, "+", t.scanner.offset}
+		return Token{RSQAUREBRACKET, "]", t.scanner.offset - 1}
 	case ",":
 		t.scanner.Consume()
-		return Token{PLUS, "+", t.scanner.offset}
+		return Token{COMMA, ",", t.scanner.offset - 1}
 	}
 	return Token{}
 }
 
-func (t *Tokenizer) handleName(nextChar string) Token {
+func (t *Lexer) handleName(nextChar string) Token {
 	name := ""
-	for strings.Contains(nameSymbols, nextChar) {
+	for slices.Contains(letters, nextChar) || slices.Contains(numbers, nextChar) {
 		name += nextChar
 		t.scanner.Consume()
 		nextChar = t.scanner.Peek()
@@ -270,12 +281,15 @@ func (t *Tokenizer) handleName(nextChar string) Token {
 	return Token{IDENTIFIER, name, t.scanner.offset - len(name)}
 }
 
-func (t *Tokenizer) handleIntegerLiteral(nextChar string) Token {
+func (t *Lexer) handleIntegerLiteral(nextChar string) Token {
 	value := ""
-	for strings.Contains(integerSymbols, nextChar) {
+	for slices.Contains(numbers, nextChar) {
 		value += nextChar
+		fmt.Println(t.scanner.offset)
 		t.scanner.Consume()
+		fmt.Println(t.scanner.offset)
 		nextChar = t.scanner.Peek()
+		fmt.Println(t.scanner.offset)
 	}
 
 	valueInt, err := strconv.Atoi(value)
@@ -286,7 +300,7 @@ func (t *Tokenizer) handleIntegerLiteral(nextChar string) Token {
 	return Token{INTEGER, valueInt, t.scanner.offset - len(value)}
 }
 
-func (t *Tokenizer) handleStringLiteral(nextChar string) Token {
+func (t *Lexer) handleStringLiteral(nextChar string) Token {
 	value := nextChar
 	nextChar = t.scanner.Consume()
 
@@ -305,7 +319,7 @@ func (t *Tokenizer) handleStringLiteral(nextChar string) Token {
 	return Token{STRING, value, t.scanner.offset - len(value)}
 }
 
-func (t *Tokenizer) handleEndOfFile() Token {
+func (t *Lexer) handleEndOfFile() Token {
 	// automatically emit a new line when at the end of the last line
 	if !t.isNewLine {
 		return Token{NEWLINE, nil, t.scanner.offset}
