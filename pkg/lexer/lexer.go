@@ -66,9 +66,6 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 			t.handleComment(nextChar)
 			return t.Consume(keepBuffer)
 		} else if nextChar != "" && t.isNewLine {
-			// A new line ends once we encounter the first symbol of the new line
-			// which is not a space or a comment (already handled in the previous two cases)
-			t.isNewLine = false
 			if t.indentLevel > t.indentStack[len(t.indentStack)-1] {
 				// fmt.Printf("[%d] handling indent\n", t.scanner.offset)
 				return t.handleIndent()
@@ -76,6 +73,10 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 				// fmt.Printf("[%d] handling dedent\n", t.scanner.offset)
 				return t.handleDedent()
 			}
+			// A new line ends once we encounter the first symbol of the new line
+			// which is not a space or a comment (already handled in the previous two cases)
+			// AND after we have emitted all the necessary indent/dedent tokens
+			t.isNewLine = false
 		} else if slices.Contains(symbols, nextChar) {
 			// fmt.Printf("[%d] handling symbol\n", t.scanner.offset)
 			return t.handleSymbols(nextChar)
@@ -141,9 +142,7 @@ func (t *Lexer) handleIndent() Token {
 }
 
 func (t *Lexer) handleDedent() Token {
-	dedentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentLevel
-	expectedDedentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentStack[len(t.indentStack)-2]
-	if dedentTokenSize != expectedDedentTokenSize {
+	if !slices.Contains(t.indentStack, t.indentLevel) {
 		log.Fatal(errors.New("indentation: mismatched blocks"))
 	}
 	t.indentStack = t.indentStack[:len(t.indentStack)-1]
