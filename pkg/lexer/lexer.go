@@ -64,7 +64,7 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 		} else if nextChar == "#" {
 			// fmt.Printf("[%d] handling comment\n", t.scanner.offset)
 			t.handleComment(nextChar)
-			continue
+			return t.Consume(keepBuffer)
 		} else if nextChar != "" && t.isNewLine {
 			// A new line ends once we encounter the first symbol of the new line
 			// which is not a space or a comment (already handled in the previous two cases)
@@ -324,7 +324,9 @@ func (t *Lexer) handleEndOfFile() Token {
 	// automatically emit a new line when at the end of the last line
 	if !t.isNewLine {
 		t.isNewLine = true
-		return Token{NEWLINE, nil, t.scanner.offset}
+		// Act as if we had consumed a newline token in the scanner to keep the offsets consistent
+		t.scanner.offset += 1
+		return Token{NEWLINE, nil, t.scanner.offset - 1}
 	}
 	// emit a dedent token for all remaining indentation levels
 	if t.indentStack[len(t.indentStack)-1] > 0 {

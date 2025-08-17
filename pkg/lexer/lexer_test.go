@@ -19,8 +19,8 @@ func TestArithmetic(t *testing.T) {
 		{PLUS, "+", 15},
 		{INTEGER, 2, 17},
 		{NEWLINE, nil, 18},
-		{DEDENT, nil, 18},
-		{EOF, nil, 18},
+		{DEDENT, nil, 19},
+		{EOF, nil, 19},
 	}
 
 	lexer := NewLexer(stream)
@@ -51,8 +51,8 @@ func TestBrackets(t *testing.T) {
 		{INTEGER, 0, 16},
 		{RSQUAREBRACKET, "]", 17},
 		{NEWLINE, nil, 18},
-		{DEDENT, nil, 18},
-		{EOF, nil, 18},
+		{DEDENT, nil, 19},
+		{EOF, nil, 19},
 	}
 
 	lexer := NewLexer(stream)
@@ -73,7 +73,7 @@ func TestDivision(t *testing.T) {
 		{DIV, "//", 2},
 		{INTEGER, 1, 5},
 		{NEWLINE, nil, 6},
-		{EOF, nil, 6},
+		{EOF, nil, 7},
 	}
 
 	lexer := NewLexer(stream)
@@ -98,18 +98,18 @@ func TestEndWithComment(t *testing.T) {
 		{RROUNDBRACKET, ")", 8},
 		{COLON, ":", 9},
 		{NEWLINE, nil, 10},
-		{INDENT, nil, 15},
-		{INTEGER, 0, 16},
-		{NEWLINE, nil, 18},
-		{DEDENT, nil, 18},
-		{EOF, nil, 18},
+		{INDENT, nil, 13},
+		{INTEGER, 0, 13},
+		{NEWLINE, nil, 37},
+		{DEDENT, nil, 38},
+		{EOF, nil, 38},
 	}
 
 	lexer := NewLexer(stream)
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value {
+		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
 			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
 		}
 	}
