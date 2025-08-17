@@ -2,7 +2,6 @@ package lexer
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"slices"
 	"strconv"
@@ -60,10 +59,10 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 	nextChar := t.scanner.Peek()
 	for {
 		if slices.Contains(spaces, nextChar) {
-			fmt.Printf("[%d] handling space\n", t.scanner.offset)
+			// fmt.Printf("[%d] handling space\n", t.scanner.offset)
 			return t.handleSpaces(nextChar, keepBuffer)
 		} else if nextChar == "#" {
-			fmt.Printf("[%d] handling comment\n", t.scanner.offset)
+			// fmt.Printf("[%d] handling comment\n", t.scanner.offset)
 			t.handleComment(nextChar)
 			continue
 		} else if nextChar != "" && t.isNewLine {
@@ -71,26 +70,26 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 			// which is not a space or a comment (already handled in the previous two cases)
 			t.isNewLine = false
 			if t.indentLevel > t.indentStack[len(t.indentStack)-1] {
-				fmt.Printf("[%d] handling indent\n", t.scanner.offset)
+				// fmt.Printf("[%d] handling indent\n", t.scanner.offset)
 				return t.handleIndent()
 			} else if t.indentLevel < t.indentStack[len(t.indentStack)-1] {
-				fmt.Printf("[%d] handling dedent\n", t.scanner.offset)
+				// fmt.Printf("[%d] handling dedent\n", t.scanner.offset)
 				return t.handleDedent()
 			}
 		} else if slices.Contains(symbols, nextChar) {
-			fmt.Printf("[%d] handling symbol\n", t.scanner.offset)
+			// fmt.Printf("[%d] handling symbol\n", t.scanner.offset)
 			return t.handleSymbols(nextChar)
 		} else if slices.Contains(letters, nextChar) {
-			fmt.Printf("[%d] handling name\n", t.scanner.offset)
+			// fmt.Printf("[%d] handling name\n", t.scanner.offset)
 			return t.handleName(nextChar)
 		} else if slices.Contains(numbers, nextChar) {
-			fmt.Printf("[%d] handling int literal\n", t.scanner.offset)
+			// fmt.Printf("[%d] handling int literal\n", t.scanner.offset)
 			return t.handleIntegerLiteral(nextChar)
 		} else if nextChar == string('"') {
-			fmt.Printf("[%d] handling string literal\n", t.scanner.offset)
+			// fmt.Printf("[%d] handling string literal\n", t.scanner.offset)
 			return t.handleStringLiteral(nextChar)
 		} else if nextChar == "" {
-			fmt.Printf("[%d] handling eof\n", t.scanner.offset)
+			// fmt.Printf("[%d] handling eof\n", t.scanner.offset)
 			return t.handleEndOfFile()
 		} else {
 			log.Fatal(errors.New("invalid symbol in input"))
