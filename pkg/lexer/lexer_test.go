@@ -208,3 +208,50 @@ False
 		}
 	}
 }
+
+func TestPartialDedent(t *testing.T) {
+	stream := `
+def foo():
+	if True:
+		pass
+	elif False:
+		return
+`
+
+	expectedTokenList := []Token{
+		{DEF, "def", 0},
+		{IDENTIFIER, "foo", 0},
+		{LROUNDBRACKET, "(", 0},
+		{RROUNDBRACKET, ")", 0},
+		{COLON, ":", 0},
+		{NEWLINE, nil, 0},
+		{INDENT, nil, 0},
+		{IF, "if", 0},
+		{TRUE, "True", 0},
+		{COLON, ":", 0},
+		{NEWLINE, nil, 0},
+		{INDENT, nil, 0},
+		{PASS, "pass", 0},
+		{NEWLINE, nil, 0},
+		{DEDENT, nil, 0},
+		{ELIF, "elif", 0},
+		{FALSE, "False", 0},
+		{COLON, ":", 0},
+		{NEWLINE, nil, 0},
+		{INDENT, nil, 0},
+		{RETURN, "return", 0},
+		{NEWLINE, nil, 0},
+		{DEDENT, nil, 0},
+		{DEDENT, nil, 0},
+		{EOF, nil, 0},
+	}
+
+	lexer := NewLexer(stream)
+
+	for _, expectedToken := range expectedTokenList {
+		token := lexer.Consume(false)
+		if token.kind != expectedToken.kind || token.value != expectedToken.value {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		}
+	}
+}

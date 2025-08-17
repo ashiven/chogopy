@@ -59,18 +59,14 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 	nextChar := t.scanner.Peek()
 	for {
 		if slices.Contains(spaces, nextChar) {
-			// fmt.Printf("[%d] handling space\n", t.scanner.offset)
 			return t.handleSpaces(nextChar, keepBuffer)
 		} else if nextChar == "#" {
-			// fmt.Printf("[%d] handling comment\n", t.scanner.offset)
 			t.handleComment(nextChar)
 			return t.Consume(keepBuffer)
 		} else if nextChar != "" && t.isNewLine {
 			if t.indentLevel > t.indentStack[len(t.indentStack)-1] {
-				// fmt.Printf("[%d] handling indent\n", t.scanner.offset)
 				return t.handleIndent()
 			} else if t.indentLevel < t.indentStack[len(t.indentStack)-1] {
-				// fmt.Printf("[%d] handling dedent\n", t.scanner.offset)
 				return t.handleDedent()
 			}
 			// A new line ends once we encounter the first symbol of the new line
@@ -78,19 +74,14 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 			// AND after we have emitted all the necessary indent/dedent tokens
 			t.isNewLine = false
 		} else if slices.Contains(symbols, nextChar) {
-			// fmt.Printf("[%d] handling symbol\n", t.scanner.offset)
 			return t.handleSymbols(nextChar)
 		} else if slices.Contains(letters, nextChar) {
-			// fmt.Printf("[%d] handling name\n", t.scanner.offset)
 			return t.handleName(nextChar)
 		} else if slices.Contains(numbers, nextChar) {
-			// fmt.Printf("[%d] handling int literal\n", t.scanner.offset)
 			return t.handleIntegerLiteral(nextChar)
 		} else if nextChar == string('"') {
-			// fmt.Printf("[%d] handling string literal\n", t.scanner.offset)
 			return t.handleStringLiteral()
 		} else if nextChar == "" {
-			// fmt.Printf("[%d] handling eof\n", t.scanner.offset)
 			return t.handleEndOfFile()
 		} else {
 			log.Fatal(errors.New("invalid symbol in input"))
@@ -134,14 +125,13 @@ func (t *Lexer) handleComment(nextChar string) {
 
 func (t *Lexer) handleIndent() Token {
 	t.indentStack = append(t.indentStack, t.indentLevel)
-	// The offset of the scanner needs to be adjusted to mark the beginning of the indent token
-	// (the beginning is actually on the same level as the end of the previous indentation)
 	indentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentStack[len(t.indentStack)-2]
 	_ = indentTokenSize
 	return Token{INDENT, nil, t.scanner.offset}
 }
 
 func (t *Lexer) handleDedent() Token {
+	// if the current indentation doesn't match any of the previous ones -> mismatch
 	if !slices.Contains(t.indentStack, t.indentLevel) {
 		log.Fatal(errors.New("indentation: mismatched blocks"))
 	}
