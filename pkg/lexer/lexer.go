@@ -101,10 +101,14 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 func (t *Lexer) handleSpaces(nextChar string, keepBuffer bool) Token {
 	switch nextChar {
 	case "\n", "\r":
-		t.isNewLine = true
-		t.indentLevel = 0
-		t.scanner.Consume()
-		return Token{NEWLINE, nil, t.scanner.offset - 1}
+		// We only want to emit a newline token after a regular line has ended
+		// This prevents emitting multiple newline tokens for a series of newlines and instead only emits a single newline for them
+		if !t.isNewLine {
+			t.isNewLine = true
+			t.indentLevel = 0
+			t.scanner.Consume()
+			return Token{NEWLINE, nil, t.scanner.offset - 1}
+		}
 	case " ":
 		if t.isNewLine {
 			t.indentLevel += 1
@@ -133,7 +137,8 @@ func (t *Lexer) handleIndent() Token {
 	// The offset of the scanner needs to be adjusted to mark the beginning of the indent token
 	// (the beginning is actually on the same level as the end of the previous indentation)
 	indentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentStack[len(t.indentStack)-2]
-	return Token{INDENT, nil, t.scanner.offset - indentTokenSize}
+	_ = indentTokenSize
+	return Token{INDENT, nil, t.scanner.offset}
 }
 
 func (t *Lexer) handleDedent() Token {
@@ -143,7 +148,7 @@ func (t *Lexer) handleDedent() Token {
 		log.Fatal(errors.New("indentation: mismatched blocks"))
 	}
 	t.indentStack = t.indentStack[:len(t.indentStack)-1]
-	return Token{DEDENT, nil, t.scanner.offset - dedentTokenSize}
+	return Token{DEDENT, nil, t.scanner.offset}
 }
 
 func (t *Lexer) handleSymbols(nextChar string) Token {
@@ -213,7 +218,7 @@ func (t *Lexer) handleSymbols(nextChar string) Token {
 		return Token{LSQUAREBRACKET, "[", t.scanner.offset - 1}
 	case "]":
 		t.scanner.Consume()
-		return Token{RSQAUREBRACKET, "]", t.scanner.offset - 1}
+		return Token{RSQUAREBRACKET, "]", t.scanner.offset - 1}
 	case ",":
 		t.scanner.Consume()
 		return Token{COMMA, ",", t.scanner.offset - 1}
@@ -325,8 +330,9 @@ func (t *Lexer) handleEndOfFile() Token {
 	// emit a dedent token for all remaining indentation levels
 	if t.indentStack[len(t.indentStack)-1] > 0 {
 		dedentTokenSize := t.indentStack[len(t.indentStack)-1] - t.indentStack[len(t.indentStack)-2]
+		_ = dedentTokenSize
 		t.indentStack = t.indentStack[:len(t.indentStack)-1]
-		return Token{DEDENT, nil, t.scanner.offset - dedentTokenSize}
+		return Token{DEDENT, nil, t.scanner.offset}
 	}
 	return Token{EOF, nil, t.scanner.offset}
 }
