@@ -171,3 +171,40 @@ pass
 		}
 	}
 }
+
+func TestLiterals(t *testing.T) {
+	stream := `
+None
+True
+False
+"Hello"
+"He\"ll\"o"
+"He\nllo"
+"He\\\"llo"
+`
+
+	expectedTokenList := []Token{
+		{NONE, "None", 1},
+		{NEWLINE, nil, 5},
+		{TRUE, "True", 6},
+		{NEWLINE, nil, 10},
+		{FALSE, "False", 11},
+		{NEWLINE, nil, 16},
+		{STRING, "Hello", 17},
+		{NEWLINE, nil, 24},
+		{STRING, "He\\\"ll\\\"o", 25},
+		{NEWLINE, nil, 36},
+		{STRING, "He\\nllo", 37},
+		{NEWLINE, nil, 46},
+		{STRING, "He\\\\\\\"llo", 47},
+	}
+
+	lexer := NewLexer(stream)
+
+	for _, expectedToken := range expectedTokenList {
+		token := lexer.Consume(false)
+		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		}
+	}
+}

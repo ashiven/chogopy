@@ -88,7 +88,7 @@ func (t *Lexer) Consume(keepBuffer bool) Token {
 			return t.handleIntegerLiteral(nextChar)
 		} else if nextChar == string('"') {
 			// fmt.Printf("[%d] handling string literal\n", t.scanner.offset)
-			return t.handleStringLiteral(nextChar)
+			return t.handleStringLiteral()
 		} else if nextChar == "" {
 			// fmt.Printf("[%d] handling eof\n", t.scanner.offset)
 			return t.handleEndOfFile()
@@ -300,30 +300,38 @@ func (t *Lexer) handleIntegerLiteral(nextChar string) Token {
 	return Token{INTEGER, valueInt, t.scanner.offset - len(value)}
 }
 
-func (t *Lexer) handleStringLiteral(nextChar string) Token {
-	value := nextChar
-	nextChar = t.scanner.Consume()
+func (t *Lexer) handleStringLiteral() Token {
+	value := ""
+	t.scanner.Consume()
+	nextChar := t.scanner.Peek()
 
 	allowedEscapedChars := []string{"t", "n", "\\", string('"')}
 	for nextChar != string('"') {
 		if nextChar == "\\" {
-			escapedChar := t.scanner.Peek()
-			if !slices.Contains(allowedEscapedChars, escapedChar) {
+			value += nextChar
+			t.scanner.Consume()
+			nextChar = t.scanner.Peek()
+			if !slices.Contains(allowedEscapedChars, nextChar) {
 				log.Fatal(errors.New("unknown escape sequence"))
 			}
 		}
-		nextChar = t.scanner.Consume()
 		value += nextChar
+		t.scanner.Consume()
+		nextChar = t.scanner.Peek()
 	}
 
-	return Token{STRING, value, t.scanner.offset - len(value)}
+	// consume the closing " without adding it to the value
+	// and adjust the offset for the length of the surrounding "" that are not part of the value
+	t.scanner.Consume()
+
+	return Token{STRING, value, t.scanner.offset - len(value) - 2}
 }
 
 func (t *Lexer) handleEndOfFile() Token {
 	// automatically emit a new line when at the end of the last line
 	if !t.isNewLine {
 		t.isNewLine = true
-		// Act as if we had consumed a newline token in the scanner to keep the offsets consistent
+		// act as if we had consumed a newline token in the scanner to keep the offsets consistent
 		t.scanner.offset += 1
 		return Token{NEWLINE, nil, t.scanner.offset - 1}
 	}
