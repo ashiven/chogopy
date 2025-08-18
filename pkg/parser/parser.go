@@ -64,7 +64,7 @@ func (p *Parser) match(expected []*lexer.Token) lexer.Token {
 	return lexer.Token{}
 }
 
-func (p *Parser) parseProgram() astProgram {
+func (p *Parser) ParseProgram() astProgram {
 	definitions := p.parseDefinitions()
 	statements := p.parseStatements()
 
@@ -180,7 +180,42 @@ func (p *Parser) parseType() Operation {
 }
 
 func (p *Parser) parseLiteral() Operation {
-	return nil
+	if p.check(lexer.TokenSlice(lexer.NONE)) {
+		p.match(lexer.TokenSlice(lexer.NONE))
+		return &literalExpr{
+			nil,
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.TRUE)) {
+		p.match(lexer.TokenSlice(lexer.TRUE))
+		return &literalExpr{
+			true,
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.FALSE)) {
+		p.match(lexer.TokenSlice(lexer.FALSE))
+		return &literalExpr{
+			false,
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.INTEGER)) {
+		integerToken := p.match(lexer.TokenSlice(lexer.INTEGER))
+		integerValue := integerToken.Value.(int)
+		return &literalExpr{
+			integerValue,
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.STRING)) {
+		stringToken := p.match(lexer.TokenSlice(lexer.STRING))
+		stringValue := stringToken.Value.(string)
+		return &literalExpr{
+			stringValue,
+			nil,
+		}
+	} else {
+		return nil
+		// TODO: error invalid literal
+	}
 }
 
 func (p *Parser) parseFuncDef() Operation {

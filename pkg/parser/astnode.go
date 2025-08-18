@@ -91,14 +91,8 @@ type assignStmt struct {
 
 /* Expressions */
 
-// Uses *int so the literal can also be nil
-type literalType interface {
-	string | int | bool | *int
-}
-
-type literalExpr[T literalType] struct {
-	// TODO: if this leads to complications just replace with any
-	value T
+type literalExpr struct {
+	value any
 	Operation
 }
 
