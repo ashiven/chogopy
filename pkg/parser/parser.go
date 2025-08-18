@@ -207,6 +207,95 @@ func (p *Parser) parseLiteral() Operation {
 }
 
 func (p *Parser) parseFuncDef() Operation {
+	p.match(lexer.TokenSlice(lexer.DEF))
+	functionNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	functionName := functionNameToken.Value.(string)
+
+	if !p.check(lexer.TokenSlice(lexer.LROUNDBRACKET)) {
+		// TODO: syntax error
+	}
+	p.match(lexer.TokenSlice(lexer.LROUNDBRACKET))
+
+	parameters := p.parseFuncParams()
+
+	if !p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) {
+		// TODO: syntax error
+	}
+	p.match(lexer.TokenSlice(lexer.RROUNDBRACKET))
+
+	returnType := p.parseFuncReturnType()
+
+	if !p.check(lexer.TokenSlice(lexer.COLON)) {
+		// TODO: syntax error
+	}
+	p.match(lexer.TokenSlice(lexer.COLON))
+
+	if !p.check(lexer.TokenSlice(lexer.NEWLINE)) {
+		// TODO: syntax error
+	}
+	p.match(lexer.TokenSlice(lexer.NEWLINE))
+
+	if !p.check(lexer.TokenSlice(lexer.INDENT)) {
+		// TODO: syntax error
+	}
+	p.match(lexer.TokenSlice(lexer.INDENT))
+
+	funcDeclarations := p.parseFuncDeclarations()
+	funcStatements := p.parseStatements()
+	funcBody := append(funcDeclarations, funcStatements...)
+
+	// TODO: multiple syntax errors
+
+	p.match(lexer.TokenSlice(lexer.DEDENT))
+
+	return &FuncDef{
+		FuncName:   functionName,
+		Parameters: parameters,
+		FuncBody:   funcBody,
+		ReturnType: returnType,
+	}
+}
+
+func (p *Parser) parseFuncParams() []Operation {
+	parameters := []Operation{}
+
+	paramIndex := 0
+	for p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
+		if p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) || p.check(lexer.TokenSlice(lexer.NEWLINE)) {
+			break
+		}
+		if paramIndex > 0 && !p.check(lexer.TokenSlice(lexer.COMMA)) {
+			// TODO: syntax error
+		}
+
+		varNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+		varName := varNameToken.Value.(string)
+
+		p.match(lexer.TokenSlice(lexer.COLON))
+
+		varType := p.parseType()
+
+		parameter := &TypedVar{VarName: varName, VarType: varType}
+		parameters = append(parameters, parameter)
+		paramIndex++
+	}
+
+	return parameters
+}
+
+func (p *Parser) parseFuncReturnType() Operation {
+	returnNone := &NamedType{TypeName: "<None>"}
+
+	if p.check(lexer.TokenSlice(lexer.RARROW)) {
+		p.match(lexer.TokenSlice(lexer.RARROW))
+		returnType := p.parseType()
+		return returnType
+	}
+
+	return returnNone
+}
+
+func (p *Parser) parseFuncDeclarations() []Operation {
 	return nil
 }
 
