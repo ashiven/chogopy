@@ -296,7 +296,43 @@ func (p *Parser) parseFuncReturnType() Operation {
 }
 
 func (p *Parser) parseFuncDeclarations() []Operation {
-	return nil
+	funcDeclarations := []Operation{}
+
+	if p.check(lexer.TokenSlice(lexer.NONLOCAL)) {
+		p.match(lexer.TokenSlice(lexer.NONLOCAL))
+
+		if !p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
+			// TODO: syntax error
+		}
+		p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+
+		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+		declName := declNameToken.Value.(string)
+
+		nonLocalDecl := &NonLocalDecl{DeclName: declName}
+		funcDeclarations = append(funcDeclarations, nonLocalDecl)
+		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
+	} else if p.check(lexer.TokenSlice(lexer.GLOBAL)) {
+		p.match(lexer.TokenSlice(lexer.GLOBAL))
+
+		if !p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
+			// TODO: syntax error
+		}
+		p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+
+		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+		declName := declNameToken.Value.(string)
+
+		globalDecl := &GlobalDecl{DeclName: declName}
+		funcDeclarations = append(funcDeclarations, globalDecl)
+		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
+	} else if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
+		varDef := p.parseVarDef()
+		funcDeclarations = append(funcDeclarations, varDef)
+		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
+	}
+
+	return funcDeclarations
 }
 
 func (p *Parser) parseStatement() Operation {
