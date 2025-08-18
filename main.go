@@ -5,6 +5,8 @@ import (
 	"chogopy/pkg/parser"
 	"fmt"
 	"os"
+
+	"github.com/kr/pretty"
 )
 
 func main() {
@@ -25,8 +27,5 @@ func main() {
 	parser := parser.NewParser(&lexer)
 
 	program := parser.ParseProgram()
-
-	fmt.Println(program)
-	fmt.Println(program.Definitions)
-	fmt.Printf("%#v\n", program)
+	fmt.Printf("%# v\n", pretty.Formatter(program))
 }

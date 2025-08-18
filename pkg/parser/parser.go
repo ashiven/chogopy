@@ -129,8 +129,8 @@ func (p *Parser) parseVarDef() Operation {
 	}
 	p.match(lexer.TokenSlice(lexer.NEWLINE))
 
-	return &varDef{
-		TypedVar: &typedVar{
+	return &VarDef{
+		TypedVar: &TypedVar{
 			VarName: varName,
 			VarType: varType,
 		},
@@ -141,29 +141,29 @@ func (p *Parser) parseVarDef() Operation {
 func (p *Parser) parseType() Operation {
 	if p.check(lexer.TokenSlice(lexer.INT)) {
 		p.match(lexer.TokenSlice(lexer.INT))
-		return &namedType{
+		return &NamedType{
 			TypeName: "int",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.STR)) {
 		p.match(lexer.TokenSlice(lexer.STR))
-		return &namedType{
+		return &NamedType{
 			TypeName: "str",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.BOOL)) {
 		p.match(lexer.TokenSlice(lexer.BOOL))
-		return &namedType{
+		return &NamedType{
 			TypeName: "bool",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.OBJECT)) {
 		p.match(lexer.TokenSlice(lexer.OBJECT))
-		return &namedType{
+		return &NamedType{
 			TypeName: "object",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET)) {
 		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
 		elemType := p.parseType()
 		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
-		return &listType{
+		return &ListType{
 			ElemType: elemType,
 		}
 	} else {
@@ -175,29 +175,29 @@ func (p *Parser) parseType() Operation {
 func (p *Parser) parseLiteral() Operation {
 	if p.check(lexer.TokenSlice(lexer.NONE)) {
 		p.match(lexer.TokenSlice(lexer.NONE))
-		return &literalExpr{
+		return &LiteralExpr{
 			Value: nil,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.TRUE)) {
 		p.match(lexer.TokenSlice(lexer.TRUE))
-		return &literalExpr{
+		return &LiteralExpr{
 			Value: true,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.FALSE)) {
 		p.match(lexer.TokenSlice(lexer.FALSE))
-		return &literalExpr{
+		return &LiteralExpr{
 			Value: false,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.INTEGER)) {
 		integerToken := p.match(lexer.TokenSlice(lexer.INTEGER))
 		integerValue := integerToken.Value.(int)
-		return &literalExpr{
+		return &LiteralExpr{
 			Value: integerValue,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.STRING)) {
 		stringToken := p.match(lexer.TokenSlice(lexer.STRING))
 		stringValue := stringToken.Value.(string)
-		return &literalExpr{
+		return &LiteralExpr{
 			Value: stringValue,
 		}
 	} else {
