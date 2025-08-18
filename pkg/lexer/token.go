@@ -137,36 +137,36 @@ func (tk TokenKind) String() string {
 }
 
 type Token struct {
-	kind   TokenKind
-	value  any
-	offset int
+	Kind   TokenKind
+	Value  any
+	Offset int
 }
 
 func (t *Token) Repr() string {
-	if t.kind == STRING {
-		valCopy := strings.Clone(t.value.(string))
+	if t.Kind == STRING {
+		valCopy := strings.Clone(t.Value.(string))
 		valCopy = strings.ReplaceAll(valCopy, "\\", "\\\\")
 		valCopy = strings.ReplaceAll(valCopy, "\t", "\\t")
 		valCopy = strings.ReplaceAll(valCopy, "\r", "\\r")
 		valCopy = strings.ReplaceAll(valCopy, "\n", "\\n")
 		// TODO:
 		// strings.Replace(t.value.(string), '"', '\\"', -1)
-		return t.kind.String() + ":" + valCopy
+		return t.Kind.String() + ":" + valCopy
 	}
-	return t.kind.String() + fmt.Sprintf("%#v", t.value)
+	return t.Kind.String() + fmt.Sprintf("%#v", t.Value)
 }
 
 // KindToken creates a token that can be used for kind comparisons in the Parser and
 // is populated with dummy values for other attributes.
 func KindToken(kind TokenKind) *Token {
 	return &Token{
-		kind:   kind,
-		value:  nil,
-		offset: 0,
+		Kind:   kind,
+		Value:  nil,
+		Offset: 0,
 	}
 }
 
-// TokenSlice is a utility function to return a slice containing a pointer to a single token.
+// TokenSlice is a utility function to return a slice containing a pointer to a slice of tokens.
 // It can be used by the parser for simple arg construction for match and check.
 func TokenSlice(kinds ...TokenKind) []*Token {
 	tokenSlice := []*Token{}
@@ -179,5 +179,5 @@ func TokenSlice(kinds ...TokenKind) []*Token {
 
 // KindEquals is a utility function to compare two tokens only by their kind, which can be used in the Parser.
 func (t *Token) KindEquals(other *Token) bool {
-	return t.kind == other.kind
+	return t.Kind == other.Kind
 }

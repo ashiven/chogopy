@@ -10,29 +10,29 @@ type namedType struct {
 }
 
 type listType struct {
-	elemType *Operation
+	elemType Operation
 	Operation
 }
 
 /* Definitions */
 
 type astProgram struct {
-	definitions []*Operation
-	statements  []*Operation
+	definitions []Operation
+	statements  []Operation
 	Operation
 }
 
 type astFuncDef struct {
 	funcName   string
-	parameters []*Operation
-	funcBody   []*Operation
-	returnType *Operation
+	parameters []Operation
+	funcBody   []Operation
+	returnType Operation
 	Operation
 }
 
 type typedVar struct {
 	varName string
-	varType *Operation
+	varType Operation
 	Operation
 }
 
@@ -48,29 +48,29 @@ type nonLocalDecl struct {
 
 type varDef struct {
 	typedVar *typedVar
-	literal  *Operation
+	literal  Operation
 	Operation
 }
 
 /* Statements */
 
 type ifStmt struct {
-	condition *Operation
-	ifBody    []*Operation
-	elseBody  []*Operation
+	condition Operation
+	ifBody    []Operation
+	elseBody  []Operation
 	Operation
 }
 
 type whileStmt struct {
-	condition *Operation
-	body      []*Operation
+	condition Operation
+	body      []Operation
 	Operation
 }
 
 type forStmt struct {
 	iterName string
-	iter     *Operation
-	body     []*Operation
+	iter     Operation
+	body     []Operation
 	Operation
 }
 
@@ -79,13 +79,13 @@ type passStmt struct {
 }
 
 type returnStmt struct {
-	returnVal *Operation
+	returnVal Operation
 	Operation
 }
 
 type assignStmt struct {
-	target *Operation
-	value  *Operation
+	target Operation
+	value  Operation
 	Operation
 }
 
@@ -109,37 +109,37 @@ type identExpr struct {
 
 type unaryExpr struct {
 	operation string
-	value     *Operation
+	value     Operation
 	Operation
 }
 
 type binaryExpr struct {
 	operation string
-	lhs       *Operation
-	rhs       *Operation
+	lhs       Operation
+	rhs       Operation
 	Operation
 }
 
 type ifExpr struct {
-	condition *Operation
-	ifOp      *Operation
-	elseOp    *Operation
+	condition Operation
+	ifOp      Operation
+	elseOp    Operation
 	Operation
 }
 
 type listExpr struct {
-	elements []*Operation
+	elements []Operation
 	Operation
 }
 
 type callExpr struct {
 	funcName  string
-	arguments []*Operation
+	arguments []Operation
 	Operation
 }
 
 type indexExpr struct {
-	value *Operation
-	index *Operation
+	value Operation
+	index Operation
 	Operation
 }

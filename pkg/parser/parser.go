@@ -76,8 +76,8 @@ func (p *Parser) parseProgram() astProgram {
 	}
 }
 
-func (p *Parser) parseDefinitions() []*Operation {
-	definitions := []*Operation{}
+func (p *Parser) parseDefinitions() []Operation {
+	definitions := []Operation{}
 
 	for {
 		if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
@@ -96,12 +96,12 @@ func (p *Parser) parseDefinitions() []*Operation {
 	return definitions
 }
 
-func (p *Parser) parseStatements() []*Operation {
-	statements := []*Operation{}
+func (p *Parser) parseStatements() []Operation {
+	statements := []Operation{}
 
 	peekedTokens := p.lexer.Peek(1)
 	peekToken := &peekedTokens[0]
-	// TODO: this is a problem becase the peekToken will actually have a real value and offset
+	// TODO: this is a problem because the peekToken will actually have a real value and offset
 	// while the expressionTokens/statementTokens are only dummies without real values -> slices.Contains always returns false
 	for slices.Contains(expressionTokens, peekToken) || slices.Contains(statementTokens, peekToken) {
 		statement := p.parseStatement()
@@ -109,4 +109,84 @@ func (p *Parser) parseStatements() []*Operation {
 	}
 
 	return statements
+}
+
+func (p *Parser) parseVarDef() Operation {
+	varNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	varName := varNameToken.Value.(string)
+	p.match(lexer.TokenSlice(lexer.COLON))
+	varType := p.parseType()
+
+	if !p.check(lexer.TokenSlice(lexer.ASSIGN)) {
+		// TODO: syntax error
+	}
+	p.match(lexer.TokenSlice(lexer.ASSIGN))
+
+	literal := p.parseLiteral()
+
+	if !p.check(lexer.TokenSlice(lexer.NEWLINE)) {
+		// TODO: syntax error
+	}
+	p.match(lexer.TokenSlice(lexer.NEWLINE))
+
+	return &varDef{
+		&typedVar{
+			varName,
+			varType,
+			nil,
+		},
+		literal,
+		nil,
+	}
+}
+
+func (p *Parser) parseType() Operation {
+	if p.check(lexer.TokenSlice(lexer.INT)) {
+		p.match(lexer.TokenSlice(lexer.INT))
+		return &namedType{
+			"int",
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.STR)) {
+		p.match(lexer.TokenSlice(lexer.STR))
+		return &namedType{
+			"str",
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.BOOL)) {
+		p.match(lexer.TokenSlice(lexer.BOOL))
+		return &namedType{
+			"bool",
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.OBJECT)) {
+		p.match(lexer.TokenSlice(lexer.OBJECT))
+		return &namedType{
+			"object",
+			nil,
+		}
+	} else if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET)) {
+		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+		elemType := p.parseType()
+		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+		return &listType{
+			elemType,
+			nil,
+		}
+	} else {
+		// TODO: syntax error
+		return nil
+	}
+}
+
+func (p *Parser) parseLiteral() Operation {
+	return nil
+}
+
+func (p *Parser) parseFuncDef() Operation {
+	return nil
+}
+
+func (p *Parser) parseStatement() Operation {
+	return nil
 }
