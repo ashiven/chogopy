@@ -304,10 +304,11 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 		if !p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
 			// TODO: syntax error
 		}
-		p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 
 		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 		declName := declNameToken.Value.(string)
+
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
 
 		nonLocalDecl := &NonLocalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, nonLocalDecl)
@@ -318,10 +319,11 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 		if !p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
 			// TODO: syntax error
 		}
-		p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 
 		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 		declName := declNameToken.Value.(string)
+
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
 
 		globalDecl := &GlobalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, globalDecl)

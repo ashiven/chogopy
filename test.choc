@@ -1,1 +1,4 @@
-a: int = 1
+def fun() -> str:
+  global a
+  nonlocal b
+  c: int = 2
