@@ -28,8 +28,8 @@ func TestArithmetic(t *testing.T) {
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
-			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		if token.Kind != expectedToken.Kind || token.Value != expectedToken.Value || token.Offset != expectedToken.Offset {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.Kind.String(), expectedToken, token.Kind.String(), token)
 		}
 	}
 }
@@ -61,8 +61,8 @@ def foo():
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
-			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		if token.Kind != expectedToken.Kind || token.Value != expectedToken.Value || token.Offset != expectedToken.Offset {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.Kind.String(), expectedToken, token.Kind.String(), token)
 		}
 	}
 }
@@ -82,8 +82,8 @@ func TestDivision(t *testing.T) {
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
-			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		if token.Kind != expectedToken.Kind || token.Value != expectedToken.Value || token.Offset != expectedToken.Offset {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.Kind.String(), expectedToken, token.Kind.String(), token)
 		}
 	}
 }
@@ -112,8 +112,8 @@ def foo():
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
-			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		if token.Kind != expectedToken.Kind || token.Value != expectedToken.Value || token.Offset != expectedToken.Offset {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.Kind.String(), expectedToken, token.Kind.String(), token)
 		}
 	}
 }
@@ -166,8 +166,8 @@ pass
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
-			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		if token.Kind != expectedToken.Kind || token.Value != expectedToken.Value || token.Offset != expectedToken.Offset {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.Kind.String(), expectedToken, token.Kind.String(), token)
 		}
 	}
 }
@@ -203,8 +203,8 @@ False
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value || token.offset != expectedToken.offset {
-			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		if token.Kind != expectedToken.Kind || token.Value != expectedToken.Value || token.Offset != expectedToken.Offset {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.Kind.String(), expectedToken, token.Kind.String(), token)
 		}
 	}
 }
@@ -250,8 +250,8 @@ def foo():
 
 	for _, expectedToken := range expectedTokenList {
 		token := lexer.Consume(false)
-		if token.kind != expectedToken.kind || token.value != expectedToken.value {
-			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.kind.String(), expectedToken, token.kind.String(), token)
+		if token.Kind != expectedToken.Kind || token.Value != expectedToken.Value {
+			t.Fatalf("expected: %v (%v) got: %v (%v)", expectedToken.Kind.String(), expectedToken, token.Kind.String(), token)
 		}
 	}
 }

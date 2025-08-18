@@ -2,18 +2,27 @@ package main
 
 import (
 	"chogopy/pkg/lexer"
+	"chogopy/pkg/parser"
 	"fmt"
 	"os"
 )
 
 func main() {
-	stream, err := os.ReadFile("test.txt")
+	filename := "test.choc"
+	if len(os.Args) > 1 {
+		filename = os.Args[1]
+	}
+
+	byteStream, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
+	stream := string(byteStream)
 
-	fmt.Println(string(stream))
+	fmt.Println(stream)
 
-	scanner := lexer.NewScanner(string(stream))
-	fmt.Println(scanner.Consume())
+	lexer := lexer.NewLexer(stream)
+	parser := parser.NewParser(&lexer)
+
+	fmt.Println(parser.ParseProgram())
 }
