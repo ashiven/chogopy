@@ -64,15 +64,15 @@ func (p *Parser) match(expected []*lexer.Token) lexer.Token {
 	return lexer.Token{}
 }
 
-func (p *Parser) ParseProgram() astProgram {
+func (p *Parser) ParseProgram() Program {
 	definitions := p.parseDefinitions()
 	statements := p.parseStatements()
 
 	p.match(lexer.TokenSlice(lexer.EOF))
 
-	return astProgram{
-		definitions: definitions,
-		statements:  statements,
+	return Program{
+		Definitions: definitions,
+		Statements:  statements,
 	}
 }
 
@@ -130,13 +130,11 @@ func (p *Parser) parseVarDef() Operation {
 	p.match(lexer.TokenSlice(lexer.NEWLINE))
 
 	return &varDef{
-		&typedVar{
-			varName,
-			varType,
-			nil,
+		TypedVar: &typedVar{
+			VarName: varName,
+			VarType: varType,
 		},
-		literal,
-		nil,
+		Literal: literal,
 	}
 }
 
@@ -144,34 +142,29 @@ func (p *Parser) parseType() Operation {
 	if p.check(lexer.TokenSlice(lexer.INT)) {
 		p.match(lexer.TokenSlice(lexer.INT))
 		return &namedType{
-			"int",
-			nil,
+			TypeName: "int",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.STR)) {
 		p.match(lexer.TokenSlice(lexer.STR))
 		return &namedType{
-			"str",
-			nil,
+			TypeName: "str",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.BOOL)) {
 		p.match(lexer.TokenSlice(lexer.BOOL))
 		return &namedType{
-			"bool",
-			nil,
+			TypeName: "bool",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.OBJECT)) {
 		p.match(lexer.TokenSlice(lexer.OBJECT))
 		return &namedType{
-			"object",
-			nil,
+			TypeName: "object",
 		}
 	} else if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET)) {
 		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
 		elemType := p.parseType()
 		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
 		return &listType{
-			elemType,
-			nil,
+			ElemType: elemType,
 		}
 	} else {
 		// TODO: syntax error
@@ -183,34 +176,29 @@ func (p *Parser) parseLiteral() Operation {
 	if p.check(lexer.TokenSlice(lexer.NONE)) {
 		p.match(lexer.TokenSlice(lexer.NONE))
 		return &literalExpr{
-			nil,
-			nil,
+			Value: nil,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.TRUE)) {
 		p.match(lexer.TokenSlice(lexer.TRUE))
 		return &literalExpr{
-			true,
-			nil,
+			Value: true,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.FALSE)) {
 		p.match(lexer.TokenSlice(lexer.FALSE))
 		return &literalExpr{
-			false,
-			nil,
+			Value: false,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.INTEGER)) {
 		integerToken := p.match(lexer.TokenSlice(lexer.INTEGER))
 		integerValue := integerToken.Value.(int)
 		return &literalExpr{
-			integerValue,
-			nil,
+			Value: integerValue,
 		}
 	} else if p.check(lexer.TokenSlice(lexer.STRING)) {
 		stringToken := p.match(lexer.TokenSlice(lexer.STRING))
 		stringValue := stringToken.Value.(string)
 		return &literalExpr{
-			stringValue,
-			nil,
+			Value: stringValue,
 		}
 	} else {
 		return nil

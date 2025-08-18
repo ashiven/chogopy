@@ -5,72 +5,72 @@ package parser
 type Operation any
 
 type namedType struct {
-	typeName string
+	TypeName string
 	Operation
 }
 
 type listType struct {
-	elemType Operation
+	ElemType Operation
 	Operation
 }
 
 /* Definitions */
 
-type astProgram struct {
-	definitions []Operation
-	statements  []Operation
+type Program struct {
+	Definitions []Operation
+	Statements  []Operation
 	Operation
 }
 
-type astFuncDef struct {
-	funcName   string
-	parameters []Operation
-	funcBody   []Operation
-	returnType Operation
+type funcDef struct {
+	FuncName   string
+	Parameters []Operation
+	FuncBody   []Operation
+	ReturnType Operation
 	Operation
 }
 
 type typedVar struct {
-	varName string
-	varType Operation
+	VarName string
+	VarType Operation
 	Operation
 }
 
 type globalDecl struct {
-	declName string
+	DeclName string
 	Operation
 }
 
 type nonLocalDecl struct {
-	declName string
+	DeclName string
 	Operation
 }
 
 type varDef struct {
-	typedVar *typedVar
-	literal  Operation
+	TypedVar *typedVar
+	Literal  Operation
 	Operation
 }
 
 /* Statements */
 
 type ifStmt struct {
-	condition Operation
-	ifBody    []Operation
-	elseBody  []Operation
+	Condition Operation
+	IfBody    []Operation
+	ElseBody  []Operation
 	Operation
 }
 
 type whileStmt struct {
-	condition Operation
-	body      []Operation
+	Condition Operation
+	Body      []Operation
 	Operation
 }
 
 type forStmt struct {
-	iterName string
-	iter     Operation
-	body     []Operation
+	IterName string
+	Iter     Operation
+	Body     []Operation
 	Operation
 }
 
@@ -79,61 +79,61 @@ type passStmt struct {
 }
 
 type returnStmt struct {
-	returnVal Operation
+	ReturnVal Operation
 	Operation
 }
 
 type assignStmt struct {
-	target Operation
-	value  Operation
+	Target Operation
+	Value  Operation
 	Operation
 }
 
 /* Expressions */
 
 type literalExpr struct {
-	value any
+	Value any
 	Operation
 }
 
 type identExpr struct {
-	identifier string
+	Identifier string
 	Operation
 }
 
 type unaryExpr struct {
-	operation string
-	value     Operation
+	Op    string
+	Value Operation
 	Operation
 }
 
 type binaryExpr struct {
-	operation string
-	lhs       Operation
-	rhs       Operation
+	Op  string
+	Lhs Operation
+	Rhs Operation
 	Operation
 }
 
 type ifExpr struct {
-	condition Operation
-	ifOp      Operation
-	elseOp    Operation
+	Condition Operation
+	IfOp      Operation
+	ElseOp    Operation
 	Operation
 }
 
 type listExpr struct {
-	elements []Operation
+	Elements []Operation
 	Operation
 }
 
 type callExpr struct {
-	funcName  string
-	arguments []Operation
+	FuncName  string
+	Arguments []Operation
 	Operation
 }
 
 type indexExpr struct {
-	value Operation
-	index Operation
+	Value Operation
+	Index Operation
 	Operation
 }

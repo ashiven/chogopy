@@ -24,5 +24,9 @@ func main() {
 	lexer := lexer.NewLexer(stream)
 	parser := parser.NewParser(&lexer)
 
-	fmt.Println(parser.ParseProgram())
+	program := parser.ParseProgram()
+
+	fmt.Println(program)
+	fmt.Println(program.Definitions)
+	fmt.Printf("%#v\n", program)
 }
