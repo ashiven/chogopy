@@ -142,7 +142,7 @@ type Token struct {
 	offset int
 }
 
-func (t *Token) repr() string {
+func (t *Token) Repr() string {
 	if t.kind == STRING {
 		valCopy := strings.Clone(t.value.(string))
 		valCopy = strings.ReplaceAll(valCopy, "\\", "\\\\")
@@ -154,4 +154,11 @@ func (t *Token) repr() string {
 		return t.kind.String() + ":" + valCopy
 	}
 	return t.kind.String() + fmt.Sprintf("%#v", t.value)
+}
+
+func (t *Token) Equals(other *Token) bool {
+	if t.kind != other.kind || t.value != other.value {
+		return false
+	}
+	return true
 }
