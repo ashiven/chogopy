@@ -44,7 +44,7 @@ type Program struct {
 	Operation
 }
 
-func (p Program) Name() string {
+func (p *Program) Name() string {
 	if p.name == "" {
 		p.name = "Program"
 	}
@@ -60,7 +60,7 @@ type FuncDef struct {
 	Operation
 }
 
-func (fd FuncDef) Name() string {
+func (fd *FuncDef) Name() string {
 	if fd.name == "" {
 		fd.name = "FuncDef"
 	}
@@ -74,7 +74,7 @@ type TypedVar struct {
 	Operation
 }
 
-func (tv TypedVar) Name() string {
+func (tv *TypedVar) Name() string {
 	if tv.name == "" {
 		tv.name = "TypedVar"
 	}
@@ -87,7 +87,7 @@ type GlobalDecl struct {
 	Operation
 }
 
-func (gd GlobalDecl) Name() string {
+func (gd *GlobalDecl) Name() string {
 	if gd.name == "" {
 		gd.name = "GlobalDecl"
 	}
@@ -100,7 +100,7 @@ type NonLocalDecl struct {
 	Operation
 }
 
-func (nl NonLocalDecl) Name() string {
+func (nl *NonLocalDecl) Name() string {
 	if nl.name == "" {
 		nl.name = "NonLocalDecl"
 	}
@@ -114,7 +114,7 @@ type VarDef struct {
 	Operation
 }
 
-func (vd VarDef) Name() string {
+func (vd *VarDef) Name() string {
 	if vd.name == "" {
 		vd.name = "VarDef"
 	}
@@ -131,7 +131,7 @@ type IfStmt struct {
 	Operation
 }
 
-func (is IfStmt) Name() string {
+func (is *IfStmt) Name() string {
 	if is.name == "" {
 		is.name = "IfStmt"
 	}
@@ -145,7 +145,7 @@ type WhileStmt struct {
 	Operation
 }
 
-func (ws WhileStmt) Name() string {
+func (ws *WhileStmt) Name() string {
 	if ws.name == "" {
 		ws.name = "WhileStmt"
 	}
@@ -160,7 +160,7 @@ type ForStmt struct {
 	Operation
 }
 
-func (fs ForStmt) Name() string {
+func (fs *ForStmt) Name() string {
 	if fs.name == "" {
 		fs.name = "ForStmt"
 	}
@@ -172,7 +172,7 @@ type PassStmt struct {
 	Operation
 }
 
-func (ps PassStmt) Name() string {
+func (ps *PassStmt) Name() string {
 	if ps.name == "" {
 		ps.name = "PassStmt"
 	}
@@ -185,7 +185,7 @@ type ReturnStmt struct {
 	Operation
 }
 
-func (rs ReturnStmt) Name() string {
+func (rs *ReturnStmt) Name() string {
 	if rs.name == "" {
 		rs.name = "ReturnStmt"
 	}
@@ -199,7 +199,7 @@ type AssignStmt struct {
 	Operation
 }
 
-func (as AssignStmt) Name() string {
+func (as *AssignStmt) Name() string {
 	if as.name == "" {
 		as.name = "AssignStmt"
 	}
@@ -214,7 +214,7 @@ type LiteralExpr struct {
 	Operation
 }
 
-func (le LiteralExpr) Name() string {
+func (le *LiteralExpr) Name() string {
 	if le.name == "" {
 		le.name = "LiteralExpr"
 	}
@@ -227,7 +227,7 @@ type IdentExpr struct {
 	Operation
 }
 
-func (ie IdentExpr) Name() string {
+func (ie *IdentExpr) Name() string {
 	if ie.name == "" {
 		ie.name = "IdentExpr"
 	}
@@ -241,7 +241,7 @@ type UnaryExpr struct {
 	Operation
 }
 
-func (ue UnaryExpr) Name() string {
+func (ue *UnaryExpr) Name() string {
 	if ue.name == "" {
 		ue.name = "UnaryExpr"
 	}
@@ -256,7 +256,7 @@ type BinaryExpr struct {
 	Operation
 }
 
-func (be BinaryExpr) Name() string {
+func (be *BinaryExpr) Name() string {
 	if be.name == "" {
 		be.name = "BinaryExpr"
 	}
@@ -271,7 +271,7 @@ type IfExpr struct {
 	Operation
 }
 
-func (ie IfExpr) Name() string {
+func (ie *IfExpr) Name() string {
 	if ie.name == "" {
 		ie.name = "IfExpr"
 	}
@@ -284,7 +284,7 @@ type ListExpr struct {
 	Operation
 }
 
-func (le ListExpr) Name() string {
+func (le *ListExpr) Name() string {
 	if le.name == "" {
 		le.name = "ListExpr"
 	}
@@ -298,7 +298,7 @@ type CallExpr struct {
 	Operation
 }
 
-func (ce CallExpr) Name() string {
+func (ce *CallExpr) Name() string {
 	if ce.name == "" {
 		ce.name = "CallExpr"
 	}
@@ -312,7 +312,7 @@ type IndexExpr struct {
 	Operation
 }
 
-func (ie IndexExpr) Name() string {
+func (ie *IndexExpr) Name() string {
 	if ie.name == "" {
 		ie.name = "IndexExpr"
 	}
