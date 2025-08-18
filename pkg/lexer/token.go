@@ -156,9 +156,28 @@ func (t *Token) Repr() string {
 	return t.kind.String() + fmt.Sprintf("%#v", t.value)
 }
 
-func (t *Token) Equals(other *Token) bool {
-	if t.kind != other.kind || t.value != other.value {
-		return false
+// KindToken creates a token that can be used for kind comparisons in the Parser and
+// is populated with dummy values for other attributes.
+func KindToken(kind TokenKind) *Token {
+	return &Token{
+		kind:   kind,
+		value:  nil,
+		offset: 0,
 	}
-	return true
+}
+
+// TokenSlice is a utility function to return a slice containing a pointer to a single token.
+// It can be used by the parser for simple arg construction for match and check.
+func TokenSlice(kinds ...TokenKind) []*Token {
+	tokenSlice := []*Token{}
+
+	for _, kind := range kinds {
+		tokenSlice = append(tokenSlice, KindToken(kind))
+	}
+	return tokenSlice
+}
+
+// KindEquals is a utility function to compare two tokens only by their kind, which can be used in the Parser.
+func (t *Token) KindEquals(other *Token) bool {
+	return t.kind == other.kind
 }
