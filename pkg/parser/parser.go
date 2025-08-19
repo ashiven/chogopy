@@ -60,6 +60,8 @@ func (p *Parser) match(expected []*lexer.Token) lexer.Token {
 		return token
 	}
 
+	// TODO: syntax error
+	// just print a syntax error right here instead of the unnecessary checks before each match
 	log.Fatal(errors.New("match: expected token"))
 	return lexer.Token{}
 }
@@ -117,16 +119,10 @@ func (p *Parser) parseVarDef() Operation {
 	p.match(lexer.TokenSlice(lexer.COLON))
 	varType := p.parseType()
 
-	if !p.check(lexer.TokenSlice(lexer.ASSIGN)) {
-		// TODO: syntax error
-	}
 	p.match(lexer.TokenSlice(lexer.ASSIGN))
 
 	literal := p.parseLiteral()
 
-	if !p.check(lexer.TokenSlice(lexer.NEWLINE)) {
-		// TODO: syntax error
-	}
 	p.match(lexer.TokenSlice(lexer.NEWLINE))
 
 	return &VarDef{
@@ -144,32 +140,40 @@ func (p *Parser) parseType() Operation {
 		return &NamedType{
 			TypeName: "int",
 		}
-	} else if p.check(lexer.TokenSlice(lexer.STR)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.STR)) {
 		p.match(lexer.TokenSlice(lexer.STR))
 		return &NamedType{
 			TypeName: "str",
 		}
-	} else if p.check(lexer.TokenSlice(lexer.BOOL)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.BOOL)) {
 		p.match(lexer.TokenSlice(lexer.BOOL))
 		return &NamedType{
 			TypeName: "bool",
 		}
-	} else if p.check(lexer.TokenSlice(lexer.OBJECT)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.OBJECT)) {
 		p.match(lexer.TokenSlice(lexer.OBJECT))
 		return &NamedType{
 			TypeName: "object",
 		}
-	} else if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET)) {
 		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
 		elemType := p.parseType()
 		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
 		return &ListType{
 			ElemType: elemType,
 		}
-	} else {
-		// TODO: syntax error
-		return nil
 	}
+
+	// TODO: syntax error
+	return nil
 }
 
 func (p *Parser) parseLiteral() Operation {
@@ -178,32 +182,40 @@ func (p *Parser) parseLiteral() Operation {
 		return &LiteralExpr{
 			Value: nil,
 		}
-	} else if p.check(lexer.TokenSlice(lexer.TRUE)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.TRUE)) {
 		p.match(lexer.TokenSlice(lexer.TRUE))
 		return &LiteralExpr{
 			Value: true,
 		}
-	} else if p.check(lexer.TokenSlice(lexer.FALSE)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.FALSE)) {
 		p.match(lexer.TokenSlice(lexer.FALSE))
 		return &LiteralExpr{
 			Value: false,
 		}
-	} else if p.check(lexer.TokenSlice(lexer.INTEGER)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.INTEGER)) {
 		integerToken := p.match(lexer.TokenSlice(lexer.INTEGER))
 		integerValue := integerToken.Value.(int)
 		return &LiteralExpr{
 			Value: integerValue,
 		}
-	} else if p.check(lexer.TokenSlice(lexer.STRING)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.STRING)) {
 		stringToken := p.match(lexer.TokenSlice(lexer.STRING))
 		stringValue := stringToken.Value.(string)
 		return &LiteralExpr{
 			Value: stringValue,
 		}
-	} else {
-		return nil
-		// TODO: error invalid literal
 	}
+
+	// TODO: error invalid literal
+	return nil
 }
 
 func (p *Parser) parseFuncDef() Operation {
@@ -211,33 +223,16 @@ func (p *Parser) parseFuncDef() Operation {
 	functionNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 	functionName := functionNameToken.Value.(string)
 
-	if !p.check(lexer.TokenSlice(lexer.LROUNDBRACKET)) {
-		// TODO: syntax error
-	}
 	p.match(lexer.TokenSlice(lexer.LROUNDBRACKET))
 
 	parameters := p.parseFuncParams()
 
-	if !p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) {
-		// TODO: syntax error
-	}
 	p.match(lexer.TokenSlice(lexer.RROUNDBRACKET))
 
 	returnType := p.parseFuncReturnType()
 
-	if !p.check(lexer.TokenSlice(lexer.COLON)) {
-		// TODO: syntax error
-	}
 	p.match(lexer.TokenSlice(lexer.COLON))
-
-	if !p.check(lexer.TokenSlice(lexer.NEWLINE)) {
-		// TODO: syntax error
-	}
 	p.match(lexer.TokenSlice(lexer.NEWLINE))
-
-	if !p.check(lexer.TokenSlice(lexer.INDENT)) {
-		// TODO: syntax error
-	}
 	p.match(lexer.TokenSlice(lexer.INDENT))
 
 	funcDeclarations := p.parseFuncDeclarations()
@@ -261,9 +256,12 @@ func (p *Parser) parseFuncParams() []Operation {
 
 	paramIndex := 0
 	for p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
-		if p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) || p.check(lexer.TokenSlice(lexer.NEWLINE)) {
+
+		if p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) ||
+			p.check(lexer.TokenSlice(lexer.NEWLINE)) {
 			break
 		}
+
 		if paramIndex > 0 && !p.check(lexer.TokenSlice(lexer.COMMA)) {
 			// TODO: syntax error
 		}
@@ -301,10 +299,6 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 	if p.check(lexer.TokenSlice(lexer.NONLOCAL)) {
 		p.match(lexer.TokenSlice(lexer.NONLOCAL))
 
-		if !p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
-			// TODO: syntax error
-		}
-
 		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 		declName := declNameToken.Value.(string)
 
@@ -313,12 +307,10 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 		nonLocalDecl := &NonLocalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, nonLocalDecl)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
-	} else if p.check(lexer.TokenSlice(lexer.GLOBAL)) {
-		p.match(lexer.TokenSlice(lexer.GLOBAL))
+	}
 
-		if !p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
-			// TODO: syntax error
-		}
+	if p.check(lexer.TokenSlice(lexer.GLOBAL)) {
+		p.match(lexer.TokenSlice(lexer.GLOBAL))
 
 		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 		declName := declNameToken.Value.(string)
@@ -328,7 +320,9 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 		globalDecl := &GlobalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, globalDecl)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
-	} else if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
+	}
+
+	if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
 		varDef := p.parseVarDef()
 		funcDeclarations = append(funcDeclarations, varDef)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
@@ -338,5 +332,131 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 }
 
 func (p *Parser) parseStatement() Operation {
+	peekedTokens := p.lexer.Peek(1)
+	peekToken := &peekedTokens[0]
+
+	if slices.Contains(expressionTokens, peekToken) ||
+		p.check(lexer.TokenSlice(lexer.PASS)) ||
+		p.check(lexer.TokenSlice(lexer.RETURN)) {
+		simpleStatement := p.parseSimpleStatement()
+
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
+
+		return simpleStatement
+	}
+
+	if p.check(lexer.TokenSlice(lexer.IF)) {
+		p.match(lexer.TokenSlice(lexer.IF))
+
+		condition := p.parseExpression()
+		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
+
+		p.match(lexer.TokenSlice(lexer.COLON))
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.TokenSlice(lexer.INDENT))
+
+		ifBody := p.parseStatements()
+		if len(ifBody) == 0 {
+			// TODO: syntax error
+		}
+		elseBody := p.parseElseBody()
+
+		p.match(lexer.TokenSlice(lexer.DEDENT))
+
+		return &IfStmt{Condition: condition, IfBody: ifBody, ElseBody: elseBody}
+	}
+
+	if p.check(lexer.TokenSlice(lexer.WHILE)) {
+		p.match(lexer.TokenSlice(lexer.WHILE))
+
+		condition := p.parseExpression()
+		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
+
+		p.match(lexer.TokenSlice(lexer.COLON))
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.TokenSlice(lexer.INDENT))
+
+		body := p.parseStatements()
+		if len(body) == 0 {
+			// TODO: syntax error
+		}
+
+		p.match(lexer.TokenSlice(lexer.DEDENT))
+
+		return &WhileStmt{Condition: condition, Body: body}
+	}
+
+	if p.check(lexer.TokenSlice(lexer.FOR)) {
+		p.match(lexer.TokenSlice(lexer.FOR))
+
+		iterNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+		iterName := iterNameToken.Value.(string)
+
+		p.match(lexer.TokenSlice(lexer.IN))
+
+		iter := p.parseExpression()
+
+		p.match(lexer.TokenSlice(lexer.COLON))
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.TokenSlice(lexer.INDENT))
+
+		body := p.parseStatements()
+		if len(body) == 0 {
+			// TODO: syntax error
+		}
+
+		p.match(lexer.TokenSlice(lexer.DEDENT))
+
+		return &ForStmt{IterName: iterName, Iter: iter, Body: body}
+	}
+
+	// TODO: error invalid stmt
+	return nil
+}
+
+func (p *Parser) parseSimpleStatement() Operation {
+	if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
+		// TODO: syntax error: variable defined later
+	}
+
+	if p.check(lexer.TokenSlice(lexer.PASS)) {
+		p.match(lexer.TokenSlice(lexer.PASS))
+		return &PassStmt{}
+	}
+
+	if p.check(lexer.TokenSlice(lexer.RETURN)) {
+		p.match(lexer.TokenSlice(lexer.RETURN))
+
+		peekedTokens := p.lexer.Peek(1)
+		peekedToken := &peekedTokens[0]
+
+		// TODO: check if this is correct
+		var returnVal Operation
+		if slices.Contains(expressionTokens, peekedToken) {
+			returnVal = p.parseExpression()
+		}
+
+		return &ReturnStmt{ReturnVal: returnVal}
+	}
+
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+	if slices.Contains(expressionTokens, peekedToken) {
+		return p.parseExpressionAssignList()
+	}
+
+	// TODO: raise error invalid simple stmt
+	return nil
+}
+
+func (p *Parser) parseExpression() Operation {
+	return nil
+}
+
+func (p *Parser) parseElseBody() []Operation {
+	return nil
+}
+
+func (p *Parser) parseExpressionAssignList() Operation {
 	return nil
 }
