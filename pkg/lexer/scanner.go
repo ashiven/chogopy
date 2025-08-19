@@ -1,16 +1,24 @@
 package lexer
 
+import "strings"
+
 type Scanner struct {
-	stream     string
-	peekBuffer string
-	offset     int
+	stream       string
+	streamLookup string
+	peekBuffer   string
+	offset       int
 }
 
 func NewScanner(stream string) Scanner {
+	// This is an unmodified copy of the input stream which can
+	// later be used to search for token locations etc. (for example in Lexer.GetLocation)
+	streamLookup := strings.Clone(stream)
+
 	return Scanner{
-		stream:     stream,
-		peekBuffer: "",
-		offset:     0,
+		stream:       stream,
+		streamLookup: streamLookup,
+		peekBuffer:   "",
+		offset:       0,
 	}
 }
 

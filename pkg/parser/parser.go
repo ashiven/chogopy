@@ -3,9 +3,10 @@ package parser
 
 import (
 	"chogopy/pkg/lexer"
-	"errors"
-	"log"
+	"fmt"
+	"os"
 	"slices"
+	"strings"
 )
 
 var addTokens = []lexer.TokenKind{
@@ -58,6 +59,21 @@ var statementTokens = []lexer.TokenKind{
 	lexer.FOR,
 }
 
+type SyntaxErrorKind int
+
+const (
+	CommaExpected SyntaxErrorKind = iota
+	ComparisonNotAssociative
+	ExpectedExpression
+	Indentation
+	NoLhsInAssignment
+	TokenNotFound
+	UnexpectedIndentation
+	UnknownType
+	UnmatchedParantheses
+	VariableDefinedLater
+)
+
 type Parser struct {
 	lexer *lexer.Lexer
 }
@@ -66,6 +82,39 @@ func NewParser(lexer *lexer.Lexer) Parser {
 	return Parser{
 		lexer,
 	}
+}
+
+func (p *Parser) syntaxError(errorKind SyntaxErrorKind) {
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+	locationInfo := p.lexer.GetLocation(peekedToken)
+
+	switch errorKind {
+	case CommaExpected:
+		fmt.Printf("SyntaxError (line %d, column %d): Comma expected.\n", locationInfo.Line, locationInfo.Column)
+	case ComparisonNotAssociative:
+		fmt.Printf("SyntaxError (line %d, column %d): Comparison operators are not associative.\n", locationInfo.Line, locationInfo.Column)
+	case ExpectedExpression:
+		fmt.Printf("SyntaxError (line %d, column %d): Expected Expression.\n", locationInfo.Line, locationInfo.Column)
+	case Indentation:
+		fmt.Printf("SyntaxError (line %d, column %d): Expected at least one indented statement.\n", locationInfo.Line, locationInfo.Column)
+	case NoLhsInAssignment:
+		fmt.Printf("SyntaxError (line %d, column %d): No left-hand side in assign statement.\n", locationInfo.Line, locationInfo.Column)
+	case TokenNotFound:
+		fmt.Printf("SyntaxError (line %d, column %d): Expected token not found.\n", locationInfo.Line, locationInfo.Column)
+	case UnexpectedIndentation:
+		fmt.Printf("SyntaxError (line %d, column %d): Unexpected indentation.\n", locationInfo.Line, locationInfo.Column)
+	case UnknownType:
+		fmt.Printf("SyntaxError (line %d, column %d): Unknown type.\n", locationInfo.Line, locationInfo.Column)
+	case UnmatchedParantheses:
+		fmt.Printf("SyntaxError (line %d, column %d): Unmatched ')'.\n", locationInfo.Line, locationInfo.Column)
+	case VariableDefinedLater:
+		fmt.Printf("SyntaxError (line %d, column %d): Variable declaration after non-declaration statement.\n", locationInfo.Line, locationInfo.Column)
+	}
+
+	fmt.Printf(">>>%s\n", locationInfo.LineLiteral)
+	fmt.Println(">>>" + strings.Repeat("-", locationInfo.Column-1) + "^")
+	os.Exit(0)
 }
 
 func (p *Parser) nextTokenIn(tokenKindSlice []lexer.TokenKind) bool {
@@ -96,9 +145,7 @@ func (p *Parser) match(expected lexer.TokenKind) lexer.Token {
 		return token
 	}
 
-	// TODO: syntax error
-	// just print a syntax error right here instead of the unnecessary checks before each match
-	log.Fatal(errors.New("match: expected token"))
+	p.syntaxError(TokenNotFound)
 	return lexer.Token{}
 }
 
@@ -201,7 +248,7 @@ func (p *Parser) parseType() Operation {
 		}
 	}
 
-	// TODO: syntax error
+	p.syntaxError(UnknownType)
 	return nil
 }
 
@@ -243,7 +290,7 @@ func (p *Parser) parseLiteral() Operation {
 		}
 	}
 
-	// TODO: error invalid literal
+	p.syntaxError(TokenNotFound)
 	return nil
 }
 
@@ -253,9 +300,7 @@ func (p *Parser) parseFuncDef() Operation {
 	functionName := functionNameToken.Value.(string)
 
 	p.match(lexer.LROUNDBRACKET)
-
 	parameters := p.parseFuncParams()
-
 	p.match(lexer.RROUNDBRACKET)
 
 	returnType := p.parseFuncReturnType()
@@ -268,7 +313,15 @@ func (p *Parser) parseFuncDef() Operation {
 	funcStatements := p.parseStatements()
 	funcBody := append(funcDeclarations, funcStatements...)
 
-	// TODO: multiple syntax errors
+	if p.check(lexer.ASSIGN) {
+		p.syntaxError(NoLhsInAssignment)
+	}
+	if p.check(lexer.INDENT) {
+		p.syntaxError(UnexpectedIndentation)
+	}
+	if len(funcBody) == 0 {
+		p.syntaxError(Indentation)
+	}
 
 	p.match(lexer.DEDENT)
 
@@ -292,14 +345,12 @@ func (p *Parser) parseFuncParams() []Operation {
 		}
 
 		if paramIndex > 0 && !p.check(lexer.COMMA) {
-			// TODO: syntax error
+			p.syntaxError(CommaExpected)
 		}
 
 		varNameToken := p.match(lexer.IDENTIFIER)
 		varName := varNameToken.Value.(string)
-
 		p.match(lexer.COLON)
-
 		varType := p.parseType()
 
 		parameter := &TypedVar{VarName: varName, VarType: varType}
@@ -366,13 +417,15 @@ func (p *Parser) parseStatement() Operation {
 	if p.check(lexer.IF) {
 		p.match(lexer.IF)
 		condition := p.parseExpression(false, false)
-		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
 		p.match(lexer.COLON)
 		p.match(lexer.NEWLINE)
 		p.match(lexer.INDENT)
 		ifBody := p.parseStatements()
 		if len(ifBody) == 0 {
-			// TODO: syntax error
+			p.syntaxError(Indentation)
+		}
+		if p.check(lexer.INDENT) {
+			p.syntaxError(UnexpectedIndentation)
 		}
 		elseBody := p.parseElseBody()
 		p.match(lexer.DEDENT)
@@ -382,13 +435,15 @@ func (p *Parser) parseStatement() Operation {
 	if p.check(lexer.WHILE) {
 		p.match(lexer.WHILE)
 		condition := p.parseExpression(false, false)
-		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
 		p.match(lexer.COLON)
 		p.match(lexer.NEWLINE)
 		p.match(lexer.INDENT)
 		body := p.parseStatements()
 		if len(body) == 0 {
-			// TODO: syntax error
+			p.syntaxError(Indentation)
+		}
+		if p.check(lexer.INDENT) {
+			p.syntaxError(UnexpectedIndentation)
 		}
 		p.match(lexer.DEDENT)
 		return &WhileStmt{Condition: condition, Body: body}
@@ -405,13 +460,16 @@ func (p *Parser) parseStatement() Operation {
 		p.match(lexer.INDENT)
 		body := p.parseStatements()
 		if len(body) == 0 {
-			// TODO: syntax error
+			p.syntaxError(Indentation)
+		}
+		if p.check(lexer.INDENT) {
+			p.syntaxError(UnexpectedIndentation)
 		}
 		p.match(lexer.DEDENT)
 		return &ForStmt{IterName: iterName, Iter: iter, Body: body}
 	}
 
-	// TODO: error invalid stmt
+	p.syntaxError(TokenNotFound)
 	return nil
 }
 
@@ -422,7 +480,6 @@ func (p *Parser) parseElseBody() []Operation {
 		p.match(lexer.ELIF)
 
 		condition := p.parseExpression(false, false)
-		// TODO: handle no expression inside parseExpression
 
 		p.match(lexer.COLON)
 		p.match(lexer.NEWLINE)
@@ -430,7 +487,10 @@ func (p *Parser) parseElseBody() []Operation {
 
 		elifIfBody := p.parseStatements()
 		if len(elifIfBody) == 0 {
-			// TODO: syntax error
+			p.syntaxError(Indentation)
+		}
+		if p.check(lexer.INDENT) {
+			p.syntaxError(UnexpectedIndentation)
 		}
 		elifElseBody := p.parseElseBody()
 
@@ -454,7 +514,7 @@ func (p *Parser) parseElseBody() []Operation {
 
 func (p *Parser) parseSimpleStatement() Operation {
 	if p.check(lexer.IDENTIFIER, lexer.COLON) {
-		// TODO: syntax error: variable defined later
+		p.syntaxError(VariableDefinedLater)
 	}
 
 	if p.check(lexer.PASS) {
@@ -464,7 +524,6 @@ func (p *Parser) parseSimpleStatement() Operation {
 
 	if p.check(lexer.RETURN) {
 		p.match(lexer.RETURN)
-		// TODO: check if this is correct
 		var returnVal Operation
 		if p.nextTokenIn(expressionTokens) {
 			returnVal = p.parseExpression(false, false)
@@ -476,7 +535,7 @@ func (p *Parser) parseSimpleStatement() Operation {
 		return p.parseExpressionAssignList()
 	}
 
-	// TODO: raise error invalid simple stmt
+	p.syntaxError(TokenNotFound)
 	return nil
 }
 
@@ -519,7 +578,7 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
 	}
 
 	if expression == nil {
-		// TODO: syntax error no valid expression found
+		p.syntaxError(TokenNotFound)
 	}
 	return expression
 }
@@ -613,7 +672,7 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 	}
 
 	if compoundExpression == nil {
-		// TODO: syntax error
+		p.syntaxError(TokenNotFound)
 	}
 	return compoundExpression
 }
@@ -698,7 +757,7 @@ func (p *Parser) parseCompareExpression(compoundExpression Operation) Operation 
 	peekedTokens = p.lexer.Peek(1)
 	peekedToken = &peekedTokens[0]
 	if slices.Contains(compareTokens, peekedToken.Kind) {
-		// TODO: syntax error comparison not associative
+		p.syntaxError(ComparisonNotAssociative)
 	}
 
 	return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
