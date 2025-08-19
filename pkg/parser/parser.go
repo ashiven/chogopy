@@ -147,11 +147,8 @@ func (p *Parser) parseVarDef() Operation {
 	varName := varNameToken.Value.(string)
 	p.match(lexer.TokenSlice(lexer.COLON))
 	varType := p.parseType()
-
 	p.match(lexer.TokenSlice(lexer.ASSIGN))
-
 	literal := p.parseLiteral()
-
 	p.match(lexer.TokenSlice(lexer.NEWLINE))
 
 	return &VarDef{
@@ -327,12 +324,9 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 
 	if p.check(lexer.TokenSlice(lexer.NONLOCAL)) {
 		p.match(lexer.TokenSlice(lexer.NONLOCAL))
-
 		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 		declName := declNameToken.Value.(string)
-
 		p.match(lexer.TokenSlice(lexer.NEWLINE))
-
 		nonLocalDecl := &NonLocalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, nonLocalDecl)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
@@ -340,12 +334,9 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 
 	if p.check(lexer.TokenSlice(lexer.GLOBAL)) {
 		p.match(lexer.TokenSlice(lexer.GLOBAL))
-
 		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 		declName := declNameToken.Value.(string)
-
 		p.match(lexer.TokenSlice(lexer.NEWLINE))
-
 		globalDecl := &GlobalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, globalDecl)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
@@ -368,74 +359,55 @@ func (p *Parser) parseStatement() Operation {
 		p.check(lexer.TokenSlice(lexer.PASS)) ||
 		p.check(lexer.TokenSlice(lexer.RETURN)) {
 		simpleStatement := p.parseSimpleStatement()
-
 		p.match(lexer.TokenSlice(lexer.NEWLINE))
-
 		return simpleStatement
 	}
 
 	if p.check(lexer.TokenSlice(lexer.IF)) {
 		p.match(lexer.TokenSlice(lexer.IF))
-
 		condition := p.parseExpression(false, false)
 		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
-
 		p.match(lexer.TokenSlice(lexer.COLON))
 		p.match(lexer.TokenSlice(lexer.NEWLINE))
 		p.match(lexer.TokenSlice(lexer.INDENT))
-
 		ifBody := p.parseStatements()
 		if len(ifBody) == 0 {
 			// TODO: syntax error
 		}
 		elseBody := p.parseElseBody()
-
 		p.match(lexer.TokenSlice(lexer.DEDENT))
-
 		return &IfStmt{Condition: condition, IfBody: ifBody, ElseBody: elseBody}
 	}
 
 	if p.check(lexer.TokenSlice(lexer.WHILE)) {
 		p.match(lexer.TokenSlice(lexer.WHILE))
-
 		condition := p.parseExpression(false, false)
 		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
-
 		p.match(lexer.TokenSlice(lexer.COLON))
 		p.match(lexer.TokenSlice(lexer.NEWLINE))
 		p.match(lexer.TokenSlice(lexer.INDENT))
-
 		body := p.parseStatements()
 		if len(body) == 0 {
 			// TODO: syntax error
 		}
-
 		p.match(lexer.TokenSlice(lexer.DEDENT))
-
 		return &WhileStmt{Condition: condition, Body: body}
 	}
 
 	if p.check(lexer.TokenSlice(lexer.FOR)) {
 		p.match(lexer.TokenSlice(lexer.FOR))
-
 		iterNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
 		iterName := iterNameToken.Value.(string)
-
 		p.match(lexer.TokenSlice(lexer.IN))
-
 		iter := p.parseExpression(false, false)
-
 		p.match(lexer.TokenSlice(lexer.COLON))
 		p.match(lexer.TokenSlice(lexer.NEWLINE))
 		p.match(lexer.TokenSlice(lexer.INDENT))
-
 		body := p.parseStatements()
 		if len(body) == 0 {
 			// TODO: syntax error
 		}
-
 		p.match(lexer.TokenSlice(lexer.DEDENT))
-
 		return &ForStmt{IterName: iterName, Iter: iter, Body: body}
 	}
 
