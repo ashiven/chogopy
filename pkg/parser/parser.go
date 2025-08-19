@@ -348,7 +348,7 @@ func (p *Parser) parseStatement() Operation {
 	if p.check(lexer.TokenSlice(lexer.IF)) {
 		p.match(lexer.TokenSlice(lexer.IF))
 
-		condition := p.parseExpression()
+		condition := p.parseExpression(false, false)
 		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
 
 		p.match(lexer.TokenSlice(lexer.COLON))
@@ -369,7 +369,7 @@ func (p *Parser) parseStatement() Operation {
 	if p.check(lexer.TokenSlice(lexer.WHILE)) {
 		p.match(lexer.TokenSlice(lexer.WHILE))
 
-		condition := p.parseExpression()
+		condition := p.parseExpression(false, false)
 		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
 
 		p.match(lexer.TokenSlice(lexer.COLON))
@@ -394,7 +394,7 @@ func (p *Parser) parseStatement() Operation {
 
 		p.match(lexer.TokenSlice(lexer.IN))
 
-		iter := p.parseExpression()
+		iter := p.parseExpression(false, false)
 
 		p.match(lexer.TokenSlice(lexer.COLON))
 		p.match(lexer.TokenSlice(lexer.NEWLINE))
@@ -412,6 +412,43 @@ func (p *Parser) parseStatement() Operation {
 
 	// TODO: error invalid stmt
 	return nil
+}
+
+func (p *Parser) parseElseBody() []Operation {
+	elseBody := []Operation{}
+
+	if p.check(lexer.TokenSlice(lexer.ELIF)) {
+		p.match(lexer.TokenSlice(lexer.ELIF))
+
+		condition := p.parseExpression(false, false)
+		// TODO: handle no expression inside parseExpression
+
+		p.match(lexer.TokenSlice(lexer.COLON))
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.TokenSlice(lexer.INDENT))
+
+		elifIfBody := p.parseStatements()
+		if len(elifIfBody) == 0 {
+			// TODO: syntax error
+		}
+		elifElseBody := p.parseElseBody()
+
+		elif := &IfStmt{Condition: condition, IfBody: elifIfBody, ElseBody: elifElseBody}
+
+		elseBody = append(elseBody, elif)
+		return elseBody
+	}
+
+	if p.check(lexer.TokenSlice(lexer.ELSE)) {
+		p.match(lexer.TokenSlice(lexer.ELSE))
+		p.match(lexer.TokenSlice(lexer.COLON))
+		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.TokenSlice(lexer.INDENT))
+
+		return p.parseStatements()
+	}
+
+	return elseBody
 }
 
 func (p *Parser) parseSimpleStatement() Operation {
@@ -433,7 +470,7 @@ func (p *Parser) parseSimpleStatement() Operation {
 		// TODO: check if this is correct
 		var returnVal Operation
 		if slices.Contains(expressionTokens, peekedToken) {
-			returnVal = p.parseExpression()
+			returnVal = p.parseExpression(false, false)
 		}
 
 		return &ReturnStmt{ReturnVal: returnVal}
@@ -449,14 +486,92 @@ func (p *Parser) parseSimpleStatement() Operation {
 	return nil
 }
 
-func (p *Parser) parseExpression() Operation {
-	return nil
-}
-
-func (p *Parser) parseElseBody() []Operation {
-	return nil
-}
-
 func (p *Parser) parseExpressionAssignList() Operation {
+	expression := p.parseExpression(false, false)
+
+	if p.check(lexer.TokenSlice(lexer.ASSIGN)) {
+		p.match(lexer.TokenSlice(lexer.ASSIGN))
+		return &AssignStmt{Target: expression, Value: p.parseExpressionAssignList()}
+	}
+
+	return expression
+}
+
+func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
+	var expression Operation
+
+	if p.check(lexer.TokenSlice(lexer.NOT)) {
+		expression = p.parseNotExpression()
+	}
+
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+	if slices.Contains(expressionTokens, peekedToken) {
+		expression = p.parseCompoundExpression()
+	}
+
+	if p.check(lexer.TokenSlice(lexer.AND)) && !insideAnd {
+		expression = p.parseAndExpression(expression)
+	}
+
+	if p.check(lexer.TokenSlice(lexer.OR)) && !insideAnd && !insideOr {
+		expression = p.parseOrExpression(expression)
+	}
+
+	if p.check(lexer.TokenSlice(lexer.IF)) && !insideAnd && !insideOr {
+		p.match(lexer.TokenSlice(lexer.IF))
+
+		condition := p.parseExpression(false, false)
+
+		p.match(lexer.TokenSlice(lexer.ELSE))
+
+		elseOp := p.parseExpression(false, false)
+
+		return &IfExpr{Condition: condition, IfOp: expression, ElseOp: elseOp}
+	}
+
+	if expression == nil {
+		// TODO: syntax error no valid expression found
+	}
+	return expression
+}
+
+func (p *Parser) parseNotExpression() Operation {
+	p.match(lexer.TokenSlice(lexer.NOT))
+
+	if p.check(lexer.TokenSlice(lexer.NOT)) {
+		return &UnaryExpr{Op: "not", Value: p.parseNotExpression()}
+	}
+
+	return &UnaryExpr{Op: "not", Value: p.parseCompoundExpression()}
+}
+
+func (p *Parser) parseAndExpression(expression Operation) Operation {
+	if p.check(lexer.TokenSlice(lexer.AND)) {
+		p.match(lexer.TokenSlice(lexer.AND))
+
+		rhs := p.parseExpression(true, false)
+		andExpression := &BinaryExpr{Op: "and", Lhs: expression, Rhs: rhs}
+
+		return p.parseAndExpression(andExpression)
+	}
+
+	return expression
+}
+
+func (p *Parser) parseOrExpression(expression Operation) Operation {
+	if p.check(lexer.TokenSlice(lexer.OR)) {
+		p.match(lexer.TokenSlice(lexer.OR))
+
+		rhs := p.parseExpression(false, true)
+		orExpression := &BinaryExpr{Op: "or", Lhs: expression, Rhs: rhs}
+
+		return p.parseOrExpression(orExpression)
+	}
+
+	return expression
+}
+
+func (p *Parser) parseCompoundExpression() Operation {
 	return nil
 }
