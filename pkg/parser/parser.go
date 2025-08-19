@@ -72,29 +72,25 @@ func (p *Parser) nextTokenIn(tokenKindSlice []lexer.TokenKind) bool {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
 
-	if slices.Contains(tokenKindSlice, peekedToken.Kind) {
-		return true
-	}
-
-	return false
+	return slices.Contains(tokenKindSlice, peekedToken.Kind)
 }
 
-func (p *Parser) check(expected []*lexer.Token) bool {
-	peekedTokens := p.lexer.Peek(len(expected))
-	if len(peekedTokens) < len(expected) {
+func (p *Parser) check(expectedTokenKinds ...lexer.TokenKind) bool {
+	peekedTokens := p.lexer.Peek(len(expectedTokenKinds))
+	if len(peekedTokens) < len(expectedTokenKinds) {
 		return false
 	}
 
-	for i, expectedToken := range expected {
+	for i, expectedTokenKind := range expectedTokenKinds {
 		peekedToken := &peekedTokens[i]
-		if !expectedToken.KindEquals(peekedToken) {
+		if expectedTokenKind != peekedToken.Kind {
 			return false
 		}
 	}
 	return true
 }
 
-func (p *Parser) match(expected []*lexer.Token) lexer.Token {
+func (p *Parser) match(expected lexer.TokenKind) lexer.Token {
 	if p.check(expected) {
 		token := p.lexer.Consume(false)
 		return token
@@ -110,7 +106,7 @@ func (p *Parser) ParseProgram() Program {
 	definitions := p.parseDefinitions()
 	statements := p.parseStatements()
 
-	p.match(lexer.TokenSlice(lexer.EOF))
+	p.match(lexer.EOF)
 
 	return Program{
 		Definitions: definitions,
@@ -122,12 +118,12 @@ func (p *Parser) parseDefinitions() []Operation {
 	definitions := []Operation{}
 
 	for {
-		if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
+		if p.check(lexer.IDENTIFIER, lexer.COLON) {
 			varDef := p.parseVarDef()
 			definitions = append(definitions, varDef)
 			continue
 		}
-		if p.check(lexer.TokenSlice(lexer.DEF)) {
+		if p.check(lexer.DEF) {
 			funcDef := p.parseFuncDef()
 			definitions = append(definitions, funcDef)
 			continue
@@ -150,13 +146,13 @@ func (p *Parser) parseStatements() []Operation {
 }
 
 func (p *Parser) parseVarDef() Operation {
-	varNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	varNameToken := p.match(lexer.IDENTIFIER)
 	varName := varNameToken.Value.(string)
-	p.match(lexer.TokenSlice(lexer.COLON))
+	p.match(lexer.COLON)
 	varType := p.parseType()
-	p.match(lexer.TokenSlice(lexer.ASSIGN))
+	p.match(lexer.ASSIGN)
 	literal := p.parseLiteral()
-	p.match(lexer.TokenSlice(lexer.NEWLINE))
+	p.match(lexer.NEWLINE)
 
 	return &VarDef{
 		TypedVar: &TypedVar{
@@ -168,38 +164,38 @@ func (p *Parser) parseVarDef() Operation {
 }
 
 func (p *Parser) parseType() Operation {
-	if p.check(lexer.TokenSlice(lexer.INT)) {
-		p.match(lexer.TokenSlice(lexer.INT))
+	if p.check(lexer.INT) {
+		p.match(lexer.INT)
 		return &NamedType{
 			TypeName: "int",
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.STR)) {
-		p.match(lexer.TokenSlice(lexer.STR))
+	if p.check(lexer.STR) {
+		p.match(lexer.STR)
 		return &NamedType{
 			TypeName: "str",
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.BOOL)) {
-		p.match(lexer.TokenSlice(lexer.BOOL))
+	if p.check(lexer.BOOL) {
+		p.match(lexer.BOOL)
 		return &NamedType{
 			TypeName: "bool",
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.OBJECT)) {
-		p.match(lexer.TokenSlice(lexer.OBJECT))
+	if p.check(lexer.OBJECT) {
+		p.match(lexer.OBJECT)
 		return &NamedType{
 			TypeName: "object",
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET)) {
-		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+	if p.check(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET) {
+		p.match(lexer.LSQUAREBRACKET)
 		elemType := p.parseType()
-		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+		p.match(lexer.RSQUAREBRACKET)
 		return &ListType{
 			ElemType: elemType,
 		}
@@ -210,37 +206,37 @@ func (p *Parser) parseType() Operation {
 }
 
 func (p *Parser) parseLiteral() Operation {
-	if p.check(lexer.TokenSlice(lexer.NONE)) {
-		p.match(lexer.TokenSlice(lexer.NONE))
+	if p.check(lexer.NONE) {
+		p.match(lexer.NONE)
 		return &LiteralExpr{
 			Value: nil,
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.TRUE)) {
-		p.match(lexer.TokenSlice(lexer.TRUE))
+	if p.check(lexer.TRUE) {
+		p.match(lexer.TRUE)
 		return &LiteralExpr{
 			Value: true,
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.FALSE)) {
-		p.match(lexer.TokenSlice(lexer.FALSE))
+	if p.check(lexer.FALSE) {
+		p.match(lexer.FALSE)
 		return &LiteralExpr{
 			Value: false,
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.INTEGER)) {
-		integerToken := p.match(lexer.TokenSlice(lexer.INTEGER))
+	if p.check(lexer.INTEGER) {
+		integerToken := p.match(lexer.INTEGER)
 		integerValue := integerToken.Value.(int)
 		return &LiteralExpr{
 			Value: integerValue,
 		}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.STRING)) {
-		stringToken := p.match(lexer.TokenSlice(lexer.STRING))
+	if p.check(lexer.STRING) {
+		stringToken := p.match(lexer.STRING)
 		stringValue := stringToken.Value.(string)
 		return &LiteralExpr{
 			Value: stringValue,
@@ -252,21 +248,21 @@ func (p *Parser) parseLiteral() Operation {
 }
 
 func (p *Parser) parseFuncDef() Operation {
-	p.match(lexer.TokenSlice(lexer.DEF))
-	functionNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	p.match(lexer.DEF)
+	functionNameToken := p.match(lexer.IDENTIFIER)
 	functionName := functionNameToken.Value.(string)
 
-	p.match(lexer.TokenSlice(lexer.LROUNDBRACKET))
+	p.match(lexer.LROUNDBRACKET)
 
 	parameters := p.parseFuncParams()
 
-	p.match(lexer.TokenSlice(lexer.RROUNDBRACKET))
+	p.match(lexer.RROUNDBRACKET)
 
 	returnType := p.parseFuncReturnType()
 
-	p.match(lexer.TokenSlice(lexer.COLON))
-	p.match(lexer.TokenSlice(lexer.NEWLINE))
-	p.match(lexer.TokenSlice(lexer.INDENT))
+	p.match(lexer.COLON)
+	p.match(lexer.NEWLINE)
+	p.match(lexer.INDENT)
 
 	funcDeclarations := p.parseFuncDeclarations()
 	funcStatements := p.parseStatements()
@@ -274,7 +270,7 @@ func (p *Parser) parseFuncDef() Operation {
 
 	// TODO: multiple syntax errors
 
-	p.match(lexer.TokenSlice(lexer.DEDENT))
+	p.match(lexer.DEDENT)
 
 	return &FuncDef{
 		FuncName:   functionName,
@@ -288,21 +284,21 @@ func (p *Parser) parseFuncParams() []Operation {
 	parameters := []Operation{}
 
 	paramIndex := 0
-	for p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
+	for p.check(lexer.IDENTIFIER) {
 
-		if p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) ||
-			p.check(lexer.TokenSlice(lexer.NEWLINE)) {
+		if p.check(lexer.RROUNDBRACKET) ||
+			p.check(lexer.NEWLINE) {
 			break
 		}
 
-		if paramIndex > 0 && !p.check(lexer.TokenSlice(lexer.COMMA)) {
+		if paramIndex > 0 && !p.check(lexer.COMMA) {
 			// TODO: syntax error
 		}
 
-		varNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+		varNameToken := p.match(lexer.IDENTIFIER)
 		varName := varNameToken.Value.(string)
 
-		p.match(lexer.TokenSlice(lexer.COLON))
+		p.match(lexer.COLON)
 
 		varType := p.parseType()
 
@@ -317,8 +313,8 @@ func (p *Parser) parseFuncParams() []Operation {
 func (p *Parser) parseFuncReturnType() Operation {
 	returnNone := &NamedType{TypeName: "<None>"}
 
-	if p.check(lexer.TokenSlice(lexer.RARROW)) {
-		p.match(lexer.TokenSlice(lexer.RARROW))
+	if p.check(lexer.RARROW) {
+		p.match(lexer.RARROW)
 		returnType := p.parseType()
 		return returnType
 	}
@@ -329,27 +325,27 @@ func (p *Parser) parseFuncReturnType() Operation {
 func (p *Parser) parseFuncDeclarations() []Operation {
 	funcDeclarations := []Operation{}
 
-	if p.check(lexer.TokenSlice(lexer.NONLOCAL)) {
-		p.match(lexer.TokenSlice(lexer.NONLOCAL))
-		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	if p.check(lexer.NONLOCAL) {
+		p.match(lexer.NONLOCAL)
+		declNameToken := p.match(lexer.IDENTIFIER)
 		declName := declNameToken.Value.(string)
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.NEWLINE)
 		nonLocalDecl := &NonLocalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, nonLocalDecl)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
 	}
 
-	if p.check(lexer.TokenSlice(lexer.GLOBAL)) {
-		p.match(lexer.TokenSlice(lexer.GLOBAL))
-		declNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	if p.check(lexer.GLOBAL) {
+		p.match(lexer.GLOBAL)
+		declNameToken := p.match(lexer.IDENTIFIER)
 		declName := declNameToken.Value.(string)
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.NEWLINE)
 		globalDecl := &GlobalDecl{DeclName: declName}
 		funcDeclarations = append(funcDeclarations, globalDecl)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
 	}
 
-	if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
+	if p.check(lexer.IDENTIFIER, lexer.COLON) {
 		varDef := p.parseVarDef()
 		funcDeclarations = append(funcDeclarations, varDef)
 		funcDeclarations = append(funcDeclarations, p.parseFuncDeclarations()...)
@@ -360,58 +356,58 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 
 func (p *Parser) parseStatement() Operation {
 	if p.nextTokenIn(expressionTokens) ||
-		p.check(lexer.TokenSlice(lexer.PASS)) ||
-		p.check(lexer.TokenSlice(lexer.RETURN)) {
+		p.check(lexer.PASS) ||
+		p.check(lexer.RETURN) {
 		simpleStatement := p.parseSimpleStatement()
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
+		p.match(lexer.NEWLINE)
 		return simpleStatement
 	}
 
-	if p.check(lexer.TokenSlice(lexer.IF)) {
-		p.match(lexer.TokenSlice(lexer.IF))
+	if p.check(lexer.IF) {
+		p.match(lexer.IF)
 		condition := p.parseExpression(false, false)
 		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
-		p.match(lexer.TokenSlice(lexer.COLON))
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
-		p.match(lexer.TokenSlice(lexer.INDENT))
+		p.match(lexer.COLON)
+		p.match(lexer.NEWLINE)
+		p.match(lexer.INDENT)
 		ifBody := p.parseStatements()
 		if len(ifBody) == 0 {
 			// TODO: syntax error
 		}
 		elseBody := p.parseElseBody()
-		p.match(lexer.TokenSlice(lexer.DEDENT))
+		p.match(lexer.DEDENT)
 		return &IfStmt{Condition: condition, IfBody: ifBody, ElseBody: elseBody}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.WHILE)) {
-		p.match(lexer.TokenSlice(lexer.WHILE))
+	if p.check(lexer.WHILE) {
+		p.match(lexer.WHILE)
 		condition := p.parseExpression(false, false)
 		// TODO: don't check for cond nil here but rather error in parseExpr with syntax err if expr is nil
-		p.match(lexer.TokenSlice(lexer.COLON))
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
-		p.match(lexer.TokenSlice(lexer.INDENT))
+		p.match(lexer.COLON)
+		p.match(lexer.NEWLINE)
+		p.match(lexer.INDENT)
 		body := p.parseStatements()
 		if len(body) == 0 {
 			// TODO: syntax error
 		}
-		p.match(lexer.TokenSlice(lexer.DEDENT))
+		p.match(lexer.DEDENT)
 		return &WhileStmt{Condition: condition, Body: body}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.FOR)) {
-		p.match(lexer.TokenSlice(lexer.FOR))
-		iterNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	if p.check(lexer.FOR) {
+		p.match(lexer.FOR)
+		iterNameToken := p.match(lexer.IDENTIFIER)
 		iterName := iterNameToken.Value.(string)
-		p.match(lexer.TokenSlice(lexer.IN))
+		p.match(lexer.IN)
 		iter := p.parseExpression(false, false)
-		p.match(lexer.TokenSlice(lexer.COLON))
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
-		p.match(lexer.TokenSlice(lexer.INDENT))
+		p.match(lexer.COLON)
+		p.match(lexer.NEWLINE)
+		p.match(lexer.INDENT)
 		body := p.parseStatements()
 		if len(body) == 0 {
 			// TODO: syntax error
 		}
-		p.match(lexer.TokenSlice(lexer.DEDENT))
+		p.match(lexer.DEDENT)
 		return &ForStmt{IterName: iterName, Iter: iter, Body: body}
 	}
 
@@ -422,15 +418,15 @@ func (p *Parser) parseStatement() Operation {
 func (p *Parser) parseElseBody() []Operation {
 	elseBody := []Operation{}
 
-	if p.check(lexer.TokenSlice(lexer.ELIF)) {
-		p.match(lexer.TokenSlice(lexer.ELIF))
+	if p.check(lexer.ELIF) {
+		p.match(lexer.ELIF)
 
 		condition := p.parseExpression(false, false)
 		// TODO: handle no expression inside parseExpression
 
-		p.match(lexer.TokenSlice(lexer.COLON))
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
-		p.match(lexer.TokenSlice(lexer.INDENT))
+		p.match(lexer.COLON)
+		p.match(lexer.NEWLINE)
+		p.match(lexer.INDENT)
 
 		elifIfBody := p.parseStatements()
 		if len(elifIfBody) == 0 {
@@ -444,11 +440,11 @@ func (p *Parser) parseElseBody() []Operation {
 		return elseBody
 	}
 
-	if p.check(lexer.TokenSlice(lexer.ELSE)) {
-		p.match(lexer.TokenSlice(lexer.ELSE))
-		p.match(lexer.TokenSlice(lexer.COLON))
-		p.match(lexer.TokenSlice(lexer.NEWLINE))
-		p.match(lexer.TokenSlice(lexer.INDENT))
+	if p.check(lexer.ELSE) {
+		p.match(lexer.ELSE)
+		p.match(lexer.COLON)
+		p.match(lexer.NEWLINE)
+		p.match(lexer.INDENT)
 
 		return p.parseStatements()
 	}
@@ -457,17 +453,17 @@ func (p *Parser) parseElseBody() []Operation {
 }
 
 func (p *Parser) parseSimpleStatement() Operation {
-	if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.COLON)) {
+	if p.check(lexer.IDENTIFIER, lexer.COLON) {
 		// TODO: syntax error: variable defined later
 	}
 
-	if p.check(lexer.TokenSlice(lexer.PASS)) {
-		p.match(lexer.TokenSlice(lexer.PASS))
+	if p.check(lexer.PASS) {
+		p.match(lexer.PASS)
 		return &PassStmt{}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.RETURN)) {
-		p.match(lexer.TokenSlice(lexer.RETURN))
+	if p.check(lexer.RETURN) {
+		p.match(lexer.RETURN)
 		// TODO: check if this is correct
 		var returnVal Operation
 		if p.nextTokenIn(expressionTokens) {
@@ -487,8 +483,8 @@ func (p *Parser) parseSimpleStatement() Operation {
 func (p *Parser) parseExpressionAssignList() Operation {
 	expression := p.parseExpression(false, false)
 
-	if p.check(lexer.TokenSlice(lexer.ASSIGN)) {
-		p.match(lexer.TokenSlice(lexer.ASSIGN))
+	if p.check(lexer.ASSIGN) {
+		p.match(lexer.ASSIGN)
 		return &AssignStmt{Target: expression, Value: p.parseExpressionAssignList()}
 	}
 
@@ -498,7 +494,7 @@ func (p *Parser) parseExpressionAssignList() Operation {
 func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
 	var expression Operation
 
-	if p.check(lexer.TokenSlice(lexer.NOT)) {
+	if p.check(lexer.NOT) {
 		expression = p.parseNotExpression()
 	}
 
@@ -506,18 +502,18 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
 		expression = p.parseCompoundExpression(false, false, false, false)
 	}
 
-	if p.check(lexer.TokenSlice(lexer.AND)) && !insideAnd {
+	if p.check(lexer.AND) && !insideAnd {
 		expression = p.parseAndExpression(expression)
 	}
 
-	if p.check(lexer.TokenSlice(lexer.OR)) && !insideAnd && !insideOr {
+	if p.check(lexer.OR) && !insideAnd && !insideOr {
 		expression = p.parseOrExpression(expression)
 	}
 
-	if p.check(lexer.TokenSlice(lexer.IF)) && !insideAnd && !insideOr {
-		p.match(lexer.TokenSlice(lexer.IF))
+	if p.check(lexer.IF) && !insideAnd && !insideOr {
+		p.match(lexer.IF)
 		condition := p.parseExpression(false, false)
-		p.match(lexer.TokenSlice(lexer.ELSE))
+		p.match(lexer.ELSE)
 		elseOp := p.parseExpression(false, false)
 		return &IfExpr{Condition: condition, IfOp: expression, ElseOp: elseOp}
 	}
@@ -529,9 +525,9 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
 }
 
 func (p *Parser) parseNotExpression() Operation {
-	p.match(lexer.TokenSlice(lexer.NOT))
+	p.match(lexer.NOT)
 
-	if p.check(lexer.TokenSlice(lexer.NOT)) {
+	if p.check(lexer.NOT) {
 		return &UnaryExpr{Op: "not", Value: p.parseNotExpression()}
 	}
 
@@ -539,8 +535,8 @@ func (p *Parser) parseNotExpression() Operation {
 }
 
 func (p *Parser) parseAndExpression(expression Operation) Operation {
-	if p.check(lexer.TokenSlice(lexer.AND)) {
-		p.match(lexer.TokenSlice(lexer.AND))
+	if p.check(lexer.AND) {
+		p.match(lexer.AND)
 		rhs := p.parseExpression(true, false)
 		andExpression := &BinaryExpr{Op: "and", Lhs: expression, Rhs: rhs}
 		return p.parseAndExpression(andExpression)
@@ -550,8 +546,8 @@ func (p *Parser) parseAndExpression(expression Operation) Operation {
 }
 
 func (p *Parser) parseOrExpression(expression Operation) Operation {
-	if p.check(lexer.TokenSlice(lexer.OR)) {
-		p.match(lexer.TokenSlice(lexer.OR))
+	if p.check(lexer.OR) {
+		p.match(lexer.OR)
 		rhs := p.parseExpression(false, true)
 		orExpression := &BinaryExpr{Op: "or", Lhs: expression, Rhs: rhs}
 		return p.parseOrExpression(orExpression)
@@ -567,40 +563,40 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 		compoundExpression = p.parseLiteral()
 	}
 
-	if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.LROUNDBRACKET)) {
-		funcNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	if p.check(lexer.IDENTIFIER, lexer.LROUNDBRACKET) {
+		funcNameToken := p.match(lexer.IDENTIFIER)
 		funcName := funcNameToken.Value.(string)
-		p.match(lexer.TokenSlice(lexer.LROUNDBRACKET))
+		p.match(lexer.LROUNDBRACKET)
 		arguments := p.parseExpressionList()
-		p.match(lexer.TokenSlice(lexer.RROUNDBRACKET))
+		p.match(lexer.RROUNDBRACKET)
 		compoundExpression = &CallExpr{FuncName: funcName, Arguments: arguments}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
-		identifierToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+	if p.check(lexer.IDENTIFIER) {
+		identifierToken := p.match(lexer.IDENTIFIER)
 		identifier := identifierToken.Value.(string)
 		compoundExpression = &IdentExpr{Identifier: identifier}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET)) {
-		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+	if p.check(lexer.LSQUAREBRACKET) {
+		p.match(lexer.LSQUAREBRACKET)
 		elements := p.parseExpressionList()
-		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+		p.match(lexer.RSQUAREBRACKET)
 		compoundExpression = &ListExpr{Elements: elements}
 	}
 
-	if p.check(lexer.TokenSlice(lexer.LROUNDBRACKET)) {
-		p.match(lexer.TokenSlice(lexer.LROUNDBRACKET))
+	if p.check(lexer.LROUNDBRACKET) {
+		p.match(lexer.LROUNDBRACKET)
 		expression := p.parseExpression(false, false)
-		p.match(lexer.TokenSlice(lexer.RROUNDBRACKET))
+		p.match(lexer.RROUNDBRACKET)
 		compoundExpression = expression
 	}
 
-	if p.check(lexer.TokenSlice(lexer.MINUS)) {
+	if p.check(lexer.MINUS) {
 		compoundExpression = p.parseUnaryNegation()
 	}
 
-	if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET)) {
+	if p.check(lexer.LSQUAREBRACKET) {
 		compoundExpression = p.parseIndexExpression(compoundExpression)
 	}
 
@@ -628,10 +624,10 @@ func (p *Parser) parseExpressionList() []Operation {
 	if p.nextTokenIn(expressionTokens) {
 		expressionList = append(expressionList, p.parseExpression(false, false))
 
-		for !p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) &&
-			!p.check(lexer.TokenSlice(lexer.RSQUAREBRACKET)) &&
-			!p.check(lexer.TokenSlice(lexer.NEWLINE)) {
-			p.match(lexer.TokenSlice(lexer.COMMA))
+		for !p.check(lexer.RROUNDBRACKET) &&
+			!p.check(lexer.RSQUAREBRACKET) &&
+			!p.check(lexer.NEWLINE) {
+			p.match(lexer.COMMA)
 			expressionList = append(expressionList, p.parseExpression(false, false))
 		}
 	}
@@ -640,9 +636,9 @@ func (p *Parser) parseExpressionList() []Operation {
 }
 
 func (p *Parser) parseUnaryNegation() Operation {
-	p.match(lexer.TokenSlice(lexer.MINUS))
+	p.match(lexer.MINUS)
 
-	if p.check(lexer.TokenSlice(lexer.MINUS)) {
+	if p.check(lexer.MINUS) {
 		return &UnaryExpr{Op: "-", Value: p.parseUnaryNegation()}
 	}
 
@@ -650,15 +646,15 @@ func (p *Parser) parseUnaryNegation() Operation {
 }
 
 func (p *Parser) parseIndexExpression(compoundExpression Operation) Operation {
-	p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+	p.match(lexer.LSQUAREBRACKET)
 	index := p.parseExpression(false, false)
-	p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+	p.match(lexer.RSQUAREBRACKET)
 
 	indexExpression := &IndexExpr{Value: compoundExpression, Index: index}
-	for p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET)) {
-		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+	for p.check(lexer.LSQUAREBRACKET) {
+		p.match(lexer.LSQUAREBRACKET)
 		index = p.parseExpression(false, false)
-		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+		p.match(lexer.RSQUAREBRACKET)
 		indexExpression = &IndexExpr{Value: indexExpression, Index: index}
 	}
 
