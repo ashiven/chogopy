@@ -8,6 +8,35 @@ import (
 	"slices"
 )
 
+var addTokens = lexer.TokenSlice(
+	lexer.PLUS,
+	lexer.MINUS,
+)
+
+var multTokens = lexer.TokenSlice(
+	lexer.MUL,
+	lexer.DIV,
+	lexer.MOD,
+)
+
+var compareTokens = lexer.TokenSlice(
+	lexer.EQ,
+	lexer.NE,
+	lexer.LE,
+	lexer.GE,
+	lexer.LT,
+	lexer.GT,
+	lexer.IS,
+)
+
+var literalTokens = lexer.TokenSlice(
+	lexer.NONE,
+	lexer.TRUE,
+	lexer.FALSE,
+	lexer.INTEGER,
+	lexer.STRING,
+)
+
 var expressionTokens = lexer.TokenSlice(
 	lexer.NOT,
 	lexer.IDENTIFIER,
@@ -507,7 +536,7 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
 	if slices.Contains(expressionTokens, peekedToken) {
-		expression = p.parseCompoundExpression()
+		expression = p.parseCompoundExpression(false, false, false, false)
 	}
 
 	if p.check(lexer.TokenSlice(lexer.AND)) && !insideAnd {
@@ -520,13 +549,9 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
 
 	if p.check(lexer.TokenSlice(lexer.IF)) && !insideAnd && !insideOr {
 		p.match(lexer.TokenSlice(lexer.IF))
-
 		condition := p.parseExpression(false, false)
-
 		p.match(lexer.TokenSlice(lexer.ELSE))
-
 		elseOp := p.parseExpression(false, false)
-
 		return &IfExpr{Condition: condition, IfOp: expression, ElseOp: elseOp}
 	}
 
@@ -543,16 +568,14 @@ func (p *Parser) parseNotExpression() Operation {
 		return &UnaryExpr{Op: "not", Value: p.parseNotExpression()}
 	}
 
-	return &UnaryExpr{Op: "not", Value: p.parseCompoundExpression()}
+	return &UnaryExpr{Op: "not", Value: p.parseCompoundExpression(false, false, false, false)}
 }
 
 func (p *Parser) parseAndExpression(expression Operation) Operation {
 	if p.check(lexer.TokenSlice(lexer.AND)) {
 		p.match(lexer.TokenSlice(lexer.AND))
-
 		rhs := p.parseExpression(true, false)
 		andExpression := &BinaryExpr{Op: "and", Lhs: expression, Rhs: rhs}
-
 		return p.parseAndExpression(andExpression)
 	}
 
@@ -562,16 +585,121 @@ func (p *Parser) parseAndExpression(expression Operation) Operation {
 func (p *Parser) parseOrExpression(expression Operation) Operation {
 	if p.check(lexer.TokenSlice(lexer.OR)) {
 		p.match(lexer.TokenSlice(lexer.OR))
-
 		rhs := p.parseExpression(false, true)
 		orExpression := &BinaryExpr{Op: "or", Lhs: expression, Rhs: rhs}
-
 		return p.parseOrExpression(orExpression)
 	}
 
 	return expression
 }
 
-func (p *Parser) parseCompoundExpression() Operation {
+func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, insideAdd bool, insideCompare bool) Operation {
+	var compoundExpression Operation
+
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+
+	if slices.Contains(literalTokens, peekedToken) {
+		compoundExpression = p.parseLiteral()
+	}
+
+	if p.check(lexer.TokenSlice(lexer.IDENTIFIER, lexer.LROUNDBRACKET)) {
+		funcNameToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+		funcName := funcNameToken.Value.(string)
+		p.match(lexer.TokenSlice(lexer.LROUNDBRACKET))
+		arguments := p.parseExpressionList()
+		p.match(lexer.TokenSlice(lexer.RROUNDBRACKET))
+		compoundExpression = &CallExpr{FuncName: funcName, Arguments: arguments}
+	}
+
+	if p.check(lexer.TokenSlice(lexer.IDENTIFIER)) {
+		identifierToken := p.match(lexer.TokenSlice(lexer.IDENTIFIER))
+		identifier := identifierToken.Value.(string)
+		compoundExpression = &IdentExpr{Identifier: identifier}
+	}
+
+	if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET)) {
+		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+		elements := p.parseExpressionList()
+		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+		compoundExpression = &ListExpr{Elements: elements}
+	}
+
+	if p.check(lexer.TokenSlice(lexer.LROUNDBRACKET)) {
+		p.match(lexer.TokenSlice(lexer.LROUNDBRACKET))
+		expression := p.parseExpression(false, false)
+		p.match(lexer.TokenSlice(lexer.RROUNDBRACKET))
+		compoundExpression = expression
+	}
+
+	if p.check(lexer.TokenSlice(lexer.MINUS)) {
+		compoundExpression = p.parseUnaryNegation()
+	}
+
+	if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET)) {
+		compoundExpression = p.parseIndexExpression()
+	}
+
+	if slices.Contains(multTokens, peekedToken) && !insideNegation && !insideMult {
+		compoundExpression = p.parseMultExpression()
+	}
+
+	if slices.Contains(addTokens, peekedToken) && !insideNegation && !insideMult && !insideAdd {
+		compoundExpression = p.parseAddExpression()
+	}
+
+	if slices.Contains(compareTokens, peekedToken) && !insideNegation && !insideMult && !insideAdd && !insideCompare {
+		compoundExpression = p.parseCompareExpression()
+	}
+
+	if compoundExpression == nil {
+		// TODO: syntax error
+	}
+	return compoundExpression
+}
+
+func (p *Parser) parseExpressionList() []Operation {
+	expressionList := []Operation{}
+
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+
+	if slices.Contains(expressionTokens, peekedToken) {
+		expressionList = append(expressionList, p.parseExpression(false, false))
+
+		for !p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) &&
+			!p.check(lexer.TokenSlice(lexer.RSQUAREBRACKET)) &&
+			!p.check(lexer.TokenSlice(lexer.NEWLINE)) {
+			p.match(lexer.TokenSlice(lexer.COMMA))
+			expressionList = append(expressionList, p.parseExpression(false, false))
+		}
+	}
+
+	return expressionList
+}
+
+func (p *Parser) parseUnaryNegation() Operation {
+	p.match(lexer.TokenSlice(lexer.MINUS))
+
+	if p.check(lexer.TokenSlice(lexer.MINUS)) {
+		return &UnaryExpr{Op: "-", Value: p.parseUnaryNegation()}
+	}
+
+	return &UnaryExpr{Op: "-", Value: p.parseCompoundExpression(true, false, false, false)}
+}
+
+func (p *Parser) parseIndexExpression() Operation {
+	return nil
+}
+
+func (p *Parser) parseMultExpression() Operation {
+	return nil
+}
+
+func (p *Parser) parseAddExpression() Operation {
+	return nil
+}
+
+func (p *Parser) parseCompareExpression() Operation {
 	return nil
 }
