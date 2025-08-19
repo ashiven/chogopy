@@ -8,18 +8,18 @@ import (
 	"slices"
 )
 
-var addTokens = lexer.TokenSlice(
+var addTokens = []lexer.TokenKind{
 	lexer.PLUS,
 	lexer.MINUS,
-)
+}
 
-var multTokens = lexer.TokenSlice(
+var multTokens = []lexer.TokenKind{
 	lexer.MUL,
 	lexer.DIV,
 	lexer.MOD,
-)
+}
 
-var compareTokens = lexer.TokenSlice(
+var compareTokens = []lexer.TokenKind{
 	lexer.EQ,
 	lexer.NE,
 	lexer.LE,
@@ -27,17 +27,17 @@ var compareTokens = lexer.TokenSlice(
 	lexer.LT,
 	lexer.GT,
 	lexer.IS,
-)
+}
 
-var literalTokens = lexer.TokenSlice(
+var literalTokens = []lexer.TokenKind{
 	lexer.NONE,
 	lexer.TRUE,
 	lexer.FALSE,
 	lexer.INTEGER,
 	lexer.STRING,
-)
+}
 
-var expressionTokens = lexer.TokenSlice(
+var expressionTokens = []lexer.TokenKind{
 	lexer.NOT,
 	lexer.IDENTIFIER,
 	lexer.NONE,
@@ -48,15 +48,15 @@ var expressionTokens = lexer.TokenSlice(
 	lexer.LSQUAREBRACKET,
 	lexer.LROUNDBRACKET,
 	lexer.MINUS,
-)
+}
 
-var statementTokens = lexer.TokenSlice(
+var statementTokens = []lexer.TokenKind{
 	lexer.PASS,
 	lexer.RETURN,
 	lexer.IF,
 	lexer.WHILE,
 	lexer.FOR,
-)
+}
 
 type Parser struct {
 	lexer *lexer.Lexer
@@ -66,6 +66,17 @@ func NewParser(lexer *lexer.Lexer) Parser {
 	return Parser{
 		lexer,
 	}
+}
+
+func (p *Parser) nextTokenIn(tokenKindSlice []lexer.TokenKind) bool {
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+
+	if slices.Contains(tokenKindSlice, peekedToken.Kind) {
+		return true
+	}
+
+	return false
 }
 
 func (p *Parser) check(expected []*lexer.Token) bool {
@@ -130,11 +141,7 @@ func (p *Parser) parseDefinitions() []Operation {
 func (p *Parser) parseStatements() []Operation {
 	statements := []Operation{}
 
-	peekedTokens := p.lexer.Peek(1)
-	peekToken := &peekedTokens[0]
-	// TODO: this is a problem because the peekToken will actually have a real value and offset
-	// while the expressionTokens/statementTokens are only dummies without real values -> slices.Contains always returns false
-	for slices.Contains(expressionTokens, peekToken) || slices.Contains(statementTokens, peekToken) {
+	for p.nextTokenIn(expressionTokens) || p.nextTokenIn(statementTokens) {
 		statement := p.parseStatement()
 		statements = append(statements, statement)
 	}
@@ -352,10 +359,7 @@ func (p *Parser) parseFuncDeclarations() []Operation {
 }
 
 func (p *Parser) parseStatement() Operation {
-	peekedTokens := p.lexer.Peek(1)
-	peekToken := &peekedTokens[0]
-
-	if slices.Contains(expressionTokens, peekToken) ||
+	if p.nextTokenIn(expressionTokens) ||
 		p.check(lexer.TokenSlice(lexer.PASS)) ||
 		p.check(lexer.TokenSlice(lexer.RETURN)) {
 		simpleStatement := p.parseSimpleStatement()
@@ -464,22 +468,15 @@ func (p *Parser) parseSimpleStatement() Operation {
 
 	if p.check(lexer.TokenSlice(lexer.RETURN)) {
 		p.match(lexer.TokenSlice(lexer.RETURN))
-
-		peekedTokens := p.lexer.Peek(1)
-		peekedToken := &peekedTokens[0]
-
 		// TODO: check if this is correct
 		var returnVal Operation
-		if slices.Contains(expressionTokens, peekedToken) {
+		if p.nextTokenIn(expressionTokens) {
 			returnVal = p.parseExpression(false, false)
 		}
-
 		return &ReturnStmt{ReturnVal: returnVal}
 	}
 
-	peekedTokens := p.lexer.Peek(1)
-	peekedToken := &peekedTokens[0]
-	if slices.Contains(expressionTokens, peekedToken) {
+	if p.nextTokenIn(expressionTokens) {
 		return p.parseExpressionAssignList()
 	}
 
@@ -505,9 +502,7 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) Operation {
 		expression = p.parseNotExpression()
 	}
 
-	peekedTokens := p.lexer.Peek(1)
-	peekedToken := &peekedTokens[0]
-	if slices.Contains(expressionTokens, peekedToken) {
+	if p.nextTokenIn(expressionTokens) {
 		expression = p.parseCompoundExpression(false, false, false, false)
 	}
 
@@ -568,10 +563,7 @@ func (p *Parser) parseOrExpression(expression Operation) Operation {
 func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, insideAdd bool, insideCompare bool) Operation {
 	var compoundExpression Operation
 
-	peekedTokens := p.lexer.Peek(1)
-	peekedToken := &peekedTokens[0]
-
-	if slices.Contains(literalTokens, peekedToken) {
+	if p.nextTokenIn(literalTokens) {
 		compoundExpression = p.parseLiteral()
 	}
 
@@ -612,15 +604,15 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 		compoundExpression = p.parseIndexExpression(compoundExpression)
 	}
 
-	if slices.Contains(multTokens, peekedToken) && !insideNegation && !insideMult {
+	if p.nextTokenIn(multTokens) && !insideNegation && !insideMult {
 		compoundExpression = p.parseMultExpression(compoundExpression)
 	}
 
-	if slices.Contains(addTokens, peekedToken) && !insideNegation && !insideMult && !insideAdd {
+	if p.nextTokenIn(addTokens) && !insideNegation && !insideMult && !insideAdd {
 		compoundExpression = p.parseAddExpression(compoundExpression)
 	}
 
-	if slices.Contains(compareTokens, peekedToken) && !insideNegation && !insideMult && !insideAdd && !insideCompare {
+	if p.nextTokenIn(compareTokens) && !insideNegation && !insideMult && !insideAdd && !insideCompare {
 		compoundExpression = p.parseCompareExpression(compoundExpression)
 	}
 
@@ -633,10 +625,7 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 func (p *Parser) parseExpressionList() []Operation {
 	expressionList := []Operation{}
 
-	peekedTokens := p.lexer.Peek(1)
-	peekedToken := &peekedTokens[0]
-
-	if slices.Contains(expressionTokens, peekedToken) {
+	if p.nextTokenIn(expressionTokens) {
 		expressionList = append(expressionList, p.parseExpression(false, false))
 
 		for !p.check(lexer.TokenSlice(lexer.RROUNDBRACKET)) &&
@@ -680,7 +669,7 @@ func (p *Parser) parseMultExpression(compoundExpression Operation) Operation {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
 
-	if slices.Contains(multTokens, peekedToken) {
+	if slices.Contains(multTokens, peekedToken.Kind) {
 		op := peekedToken.Value.(string)
 		rhs := p.parseCompoundExpression(false, true, false, false)
 		return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
@@ -693,7 +682,7 @@ func (p *Parser) parseAddExpression(compoundExpression Operation) Operation {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
 
-	if slices.Contains(addTokens, peekedToken) {
+	if slices.Contains(addTokens, peekedToken.Kind) {
 		op := peekedToken.Value.(string)
 		rhs := p.parseCompoundExpression(false, false, true, false)
 		return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
@@ -712,7 +701,7 @@ func (p *Parser) parseCompareExpression(compoundExpression Operation) Operation 
 	// Comparison binary operations can not be nested
 	peekedTokens = p.lexer.Peek(1)
 	peekedToken = &peekedTokens[0]
-	if slices.Contains(compareTokens, peekedToken) {
+	if slices.Contains(compareTokens, peekedToken.Kind) {
 		// TODO: syntax error comparison not associative
 	}
 
