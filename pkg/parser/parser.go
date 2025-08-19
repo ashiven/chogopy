@@ -637,19 +637,19 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 	}
 
 	if p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET)) {
-		compoundExpression = p.parseIndexExpression()
+		compoundExpression = p.parseIndexExpression(compoundExpression)
 	}
 
 	if slices.Contains(multTokens, peekedToken) && !insideNegation && !insideMult {
-		compoundExpression = p.parseMultExpression()
+		compoundExpression = p.parseMultExpression(compoundExpression)
 	}
 
 	if slices.Contains(addTokens, peekedToken) && !insideNegation && !insideMult && !insideAdd {
-		compoundExpression = p.parseAddExpression()
+		compoundExpression = p.parseAddExpression(compoundExpression)
 	}
 
 	if slices.Contains(compareTokens, peekedToken) && !insideNegation && !insideMult && !insideAdd && !insideCompare {
-		compoundExpression = p.parseCompareExpression()
+		compoundExpression = p.parseCompareExpression(compoundExpression)
 	}
 
 	if compoundExpression == nil {
@@ -688,18 +688,61 @@ func (p *Parser) parseUnaryNegation() Operation {
 	return &UnaryExpr{Op: "-", Value: p.parseCompoundExpression(true, false, false, false)}
 }
 
-func (p *Parser) parseIndexExpression() Operation {
-	return nil
+func (p *Parser) parseIndexExpression(compoundExpression Operation) Operation {
+	p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+	index := p.parseExpression(false, false)
+	p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+
+	indexExpression := &IndexExpr{Value: compoundExpression, Index: index}
+	for p.check(lexer.TokenSlice(lexer.LSQUAREBRACKET)) {
+		p.match(lexer.TokenSlice(lexer.LSQUAREBRACKET))
+		index = p.parseExpression(false, false)
+		p.match(lexer.TokenSlice(lexer.RSQUAREBRACKET))
+		indexExpression = &IndexExpr{Value: indexExpression, Index: index}
+	}
+
+	return indexExpression
 }
 
-func (p *Parser) parseMultExpression() Operation {
-	return nil
+func (p *Parser) parseMultExpression(compoundExpression Operation) Operation {
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+
+	if slices.Contains(multTokens, peekedToken) {
+		op := peekedToken.Value.(string)
+		rhs := p.parseCompoundExpression(false, true, false, false)
+		return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
+	}
+
+	return compoundExpression
 }
 
-func (p *Parser) parseAddExpression() Operation {
-	return nil
+func (p *Parser) parseAddExpression(compoundExpression Operation) Operation {
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+
+	if slices.Contains(addTokens, peekedToken) {
+		op := peekedToken.Value.(string)
+		rhs := p.parseCompoundExpression(false, false, true, false)
+		return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
+	}
+
+	return compoundExpression
 }
 
-func (p *Parser) parseCompareExpression() Operation {
-	return nil
+func (p *Parser) parseCompareExpression(compoundExpression Operation) Operation {
+	peekedTokens := p.lexer.Peek(1)
+	peekedToken := &peekedTokens[0]
+
+	op := peekedToken.Value.(string)
+	rhs := p.parseCompoundExpression(false, false, false, true)
+
+	// Comparison binary operations can not be nested
+	peekedTokens = p.lexer.Peek(1)
+	peekedToken = &peekedTokens[0]
+	if slices.Contains(compareTokens, peekedToken) {
+		// TODO: syntax error comparison not associative
+	}
+
+	return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
 }
