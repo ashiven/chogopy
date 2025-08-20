@@ -4,6 +4,7 @@ package astanalysis
 import (
 	"chogopy/pkg/parser"
 	"fmt"
+	"os"
 )
 
 type AssignTargetVisitor struct {
@@ -23,9 +24,12 @@ func NewAssignTargetVisitor() *AssignTargetVisitor {
 }
 
 func (av *AssignTargetVisitor) VisitAssignStmt(as *parser.AssignStmt) {
-	fmt.Println("hello from the assign target visitor")
-	fmt.Println(as.Name())
-	fmt.Println("end communication")
+	if as.Target.Name() != "IdentExpr" && as.Target.Name() != "IndexExpr" {
+		fmt.Printf("Semantic Error: Found %s as the left hand side of an assignment.\n", as.Target.Name())
+		fmt.Println("Expected variable name or index expression.")
+		os.Exit(0)
+	}
+
 	av.VisitNext(as.Target)
 	av.VisitNext(as.Value)
 }
