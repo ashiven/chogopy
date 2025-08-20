@@ -1,8 +1,12 @@
 package parser
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 type Visitor interface {
+	Analyze(p *Program)
 	VisitNamedType(nt *NamedType)
 	VisitListType(lt *ListType)
 	VisitProgram(p *Program)
@@ -27,52 +31,152 @@ type Visitor interface {
 	VisitIndexExpr(ie *IndexExpr)
 }
 
-type BaseVisitor struct{}
+type BaseVisitor struct {
+	ChildVisitor Visitor
+}
 
-func (bv *BaseVisitor) visitNext(operation Operation) {
+func (bv *BaseVisitor) Analyze(p *Program) {
+	bv.VisitProgram(p)
+}
+
+func (bv *BaseVisitor) ChildImplements(visitMethodName string) bool {
+	st := reflect.TypeOf(bv.ChildVisitor)
+	_, ok := st.MethodByName(visitMethodName)
+	return ok
+}
+
+// VisitNext will call the next visit method of the visitor according to
+// the type of the given operation.
+// If the ChildVisitor that extends the BaseVisitor implements an "overriding"
+// visit method, it will be called instead of the one defined on the BaseVisitor.
+func (bv *BaseVisitor) VisitNext(operation Operation) {
 	switch operation := operation.(type) {
 	case *NamedType:
-		bv.VisitNamedType(operation)
+		if bv.ChildImplements("VisitNamedType") {
+			bv.ChildVisitor.VisitNamedType(operation)
+		} else {
+			bv.VisitNamedType(operation)
+		}
 	case *ListType:
-		bv.VisitListType(operation)
+		if bv.ChildImplements("VisitListType") {
+			bv.ChildVisitor.VisitListType(operation)
+		} else {
+			bv.VisitListType(operation)
+		}
 	case *FuncDef:
-		bv.VisitFuncDef(operation)
+		if bv.ChildImplements("VisitFuncDef") {
+			bv.ChildVisitor.VisitFuncDef(operation)
+		} else {
+			bv.VisitFuncDef(operation)
+		}
 	case *TypedVar:
-		bv.VisitTypedVar(operation)
+		if bv.ChildImplements("VisitTypedVar") {
+			bv.ChildVisitor.VisitTypedVar(operation)
+		} else {
+			bv.VisitTypedVar(operation)
+		}
 	case *GlobalDecl:
-		bv.VisitGlobalDecl(operation)
+		if bv.ChildImplements("VisitGlobalDecl") {
+			bv.ChildVisitor.VisitGlobalDecl(operation)
+		} else {
+			bv.VisitGlobalDecl(operation)
+		}
 	case *NonLocalDecl:
-		bv.VisitNonLocalDecl(operation)
+		if bv.ChildImplements("VisitNonLocalDecl") {
+			bv.ChildVisitor.VisitNonLocalDecl(operation)
+		} else {
+			bv.VisitNonLocalDecl(operation)
+		}
 	case *VarDef:
-		bv.VisitVarDef(operation)
+		if bv.ChildImplements("VisitVarDef") {
+			bv.ChildVisitor.VisitVarDef(operation)
+		} else {
+			bv.VisitVarDef(operation)
+		}
 	case *IfStmt:
-		bv.VisitIfStmt(operation)
+		if bv.ChildImplements("VisitIfStmt") {
+			bv.ChildVisitor.VisitIfStmt(operation)
+		} else {
+			bv.VisitIfStmt(operation)
+		}
 	case *WhileStmt:
-		bv.VisitWhileStmt(operation)
+		if bv.ChildImplements("VisitWhileStmt") {
+			bv.ChildVisitor.VisitWhileStmt(operation)
+		} else {
+			bv.VisitWhileStmt(operation)
+		}
 	case *ForStmt:
-		bv.VisitForStmt(operation)
+		if bv.ChildImplements("VisitForStmt") {
+			bv.ChildVisitor.VisitForStmt(operation)
+		} else {
+			bv.VisitForStmt(operation)
+		}
 	case *PassStmt:
-		bv.VisitPassStmt(operation)
+		if bv.ChildImplements("VisitPassStmt") {
+			bv.ChildVisitor.VisitPassStmt(operation)
+		} else {
+			bv.VisitPassStmt(operation)
+		}
 	case *ReturnStmt:
-		bv.VisitReturnStmt(operation)
+		if bv.ChildImplements("VisitReturnStmt") {
+			bv.ChildVisitor.VisitReturnStmt(operation)
+		} else {
+			bv.VisitReturnStmt(operation)
+		}
 	case *AssignStmt:
-		bv.VisitAssignStmt(operation)
+		if bv.ChildImplements("VisitAssignStmt") {
+			bv.ChildVisitor.VisitAssignStmt(operation)
+		} else {
+			bv.VisitAssignStmt(operation)
+		}
 	case *LiteralExpr:
-		bv.VisitLiteralExpr(operation)
+		if bv.ChildImplements("VisitLiteralExpr") {
+			bv.ChildVisitor.VisitLiteralExpr(operation)
+		} else {
+			bv.VisitLiteralExpr(operation)
+		}
 	case *IdentExpr:
-		bv.VisitIdentExpr(operation)
+		if bv.ChildImplements("VisitIdentExpr") {
+			bv.ChildVisitor.VisitIdentExpr(operation)
+		} else {
+			bv.VisitIdentExpr(operation)
+		}
 	case *UnaryExpr:
-		bv.VisitUnaryExpr(operation)
+		if bv.ChildImplements("VisitUnaryExpr") {
+			bv.ChildVisitor.VisitUnaryExpr(operation)
+		} else {
+			bv.VisitUnaryExpr(operation)
+		}
 	case *BinaryExpr:
-		bv.VisitBinaryExpr(operation)
+		if bv.ChildImplements("VisitBinaryExpr") {
+			bv.ChildVisitor.VisitBinaryExpr(operation)
+		} else {
+			bv.VisitBinaryExpr(operation)
+		}
 	case *IfExpr:
-		bv.VisitIfExpr(operation)
+		if bv.ChildImplements("VisitIfExpr") {
+			bv.ChildVisitor.VisitIfExpr(operation)
+		} else {
+			bv.VisitIfExpr(operation)
+		}
 	case *ListExpr:
-		bv.VisitListExpr(operation)
+		if bv.ChildImplements("VisitListExpr") {
+			bv.ChildVisitor.VisitListExpr(operation)
+		} else {
+			bv.VisitListExpr(operation)
+		}
 	case *CallExpr:
-		bv.VisitCallExpr(operation)
+		if bv.ChildImplements("VisitCallExpr") {
+			bv.ChildVisitor.VisitCallExpr(operation)
+		} else {
+			bv.VisitCallExpr(operation)
+		}
 	case *IndexExpr:
-		bv.VisitIndexExpr(operation)
+		if bv.ChildImplements("VisitIndexExpr") {
+			bv.ChildVisitor.VisitIndexExpr(operation)
+		} else {
+			bv.VisitIndexExpr(operation)
+		}
 	}
 }
 
@@ -86,27 +190,27 @@ func (bv *BaseVisitor) VisitListType(lt *ListType) {
 
 func (bv *BaseVisitor) VisitProgram(p *Program) {
 	for _, definition := range p.Definitions {
-		bv.visitNext(definition)
+		bv.VisitNext(definition)
 	}
 	for _, statement := range p.Statements {
-		bv.visitNext(statement)
+		bv.VisitNext(statement)
 	}
 }
 
 func (bv *BaseVisitor) VisitFuncDef(fd *FuncDef) {
 	fmt.Println(fd.Name())
 	for _, param := range fd.Parameters {
-		bv.visitNext(param)
+		bv.VisitNext(param)
 	}
 	for _, bodyOp := range fd.FuncBody {
-		bv.visitNext(bodyOp)
+		bv.VisitNext(bodyOp)
 	}
-	bv.visitNext(fd.ReturnType)
+	bv.VisitNext(fd.ReturnType)
 }
 
 func (bv *BaseVisitor) VisitTypedVar(tv *TypedVar) {
 	fmt.Println(tv.Name())
-	bv.visitNext(tv.VarType)
+	bv.VisitNext(tv.VarType)
 }
 
 func (bv *BaseVisitor) VisitGlobalDecl(gd *GlobalDecl) {
@@ -119,34 +223,34 @@ func (bv *BaseVisitor) VisitNonLocalDecl(nl *NonLocalDecl) {
 
 func (bv *BaseVisitor) VisitVarDef(vd *VarDef) {
 	fmt.Println(vd.Name())
-	bv.visitNext(vd.TypedVar)
-	bv.visitNext(vd.Literal)
+	bv.VisitNext(vd.TypedVar)
+	bv.VisitNext(vd.Literal)
 }
 
 func (bv *BaseVisitor) VisitIfStmt(is *IfStmt) {
 	fmt.Println(is.Name())
-	bv.visitNext(is.Condition)
+	bv.VisitNext(is.Condition)
 	for _, ifBodyOp := range is.IfBody {
-		bv.visitNext(ifBodyOp)
+		bv.VisitNext(ifBodyOp)
 	}
 	for _, elseBodyOp := range is.ElseBody {
-		bv.visitNext(elseBodyOp)
+		bv.VisitNext(elseBodyOp)
 	}
 }
 
 func (bv *BaseVisitor) VisitWhileStmt(ws *WhileStmt) {
 	fmt.Println(ws.Name())
-	bv.visitNext(ws.Condition)
+	bv.VisitNext(ws.Condition)
 	for _, bodyOp := range ws.Body {
-		bv.visitNext(bodyOp)
+		bv.VisitNext(bodyOp)
 	}
 }
 
 func (bv *BaseVisitor) VisitForStmt(fs *ForStmt) {
 	fmt.Println(fs.Name())
-	bv.visitNext(fs.Iter)
+	bv.VisitNext(fs.Iter)
 	for _, bodyOp := range fs.Body {
-		bv.visitNext(bodyOp)
+		bv.VisitNext(bodyOp)
 	}
 }
 
@@ -156,13 +260,13 @@ func (bv *BaseVisitor) VisitPassStmt(ps *PassStmt) {
 
 func (bv *BaseVisitor) VisitReturnStmt(rs *ReturnStmt) {
 	fmt.Println(rs.Name())
-	bv.visitNext(rs.ReturnVal)
+	bv.VisitNext(rs.ReturnVal)
 }
 
 func (bv *BaseVisitor) VisitAssignStmt(as *AssignStmt) {
 	fmt.Println(as.Name())
-	bv.visitNext(as.Target)
-	bv.visitNext(as.Value)
+	bv.VisitNext(as.Target)
+	bv.VisitNext(as.Value)
 }
 
 func (bv *BaseVisitor) VisitLiteralExpr(le *LiteralExpr) {
@@ -175,38 +279,38 @@ func (bv *BaseVisitor) VisitIdentExpr(ie *IdentExpr) {
 
 func (bv *BaseVisitor) VisitUnaryExpr(ue *UnaryExpr) {
 	fmt.Println(ue.Name())
-	bv.visitNext(ue.Value)
+	bv.VisitNext(ue.Value)
 }
 
 func (bv *BaseVisitor) VisitBinaryExpr(be *BinaryExpr) {
 	fmt.Println(be.Name())
-	bv.visitNext(be.Lhs)
-	bv.visitNext(be.Rhs)
+	bv.VisitNext(be.Lhs)
+	bv.VisitNext(be.Rhs)
 }
 
 func (bv *BaseVisitor) VisitIfExpr(ie *IfExpr) {
 	fmt.Println(ie.Name())
-	bv.visitNext(ie.Condition)
-	bv.visitNext(ie.IfOp)
-	bv.visitNext(ie.ElseOp)
+	bv.VisitNext(ie.Condition)
+	bv.VisitNext(ie.IfOp)
+	bv.VisitNext(ie.ElseOp)
 }
 
 func (bv *BaseVisitor) VisitListExpr(le *ListExpr) {
 	fmt.Println(le.Name())
 	for _, elem := range le.Elements {
-		bv.visitNext(elem)
+		bv.VisitNext(elem)
 	}
 }
 
 func (bv *BaseVisitor) VisitCallExpr(ce *CallExpr) {
 	fmt.Println(ce.Name())
 	for _, argument := range ce.Arguments {
-		bv.visitNext(argument)
+		bv.VisitNext(argument)
 	}
 }
 
 func (bv *BaseVisitor) VisitIndexExpr(ie *IndexExpr) {
 	fmt.Println(ie.Name())
-	bv.visitNext(ie.Value)
-	bv.visitNext(ie.Index)
+	bv.VisitNext(ie.Value)
+	bv.VisitNext(ie.Index)
 }

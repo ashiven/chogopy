@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chogopy/pkg/astanalysis"
 	"chogopy/pkg/lexer"
 	"chogopy/pkg/parser"
 	"fmt"
@@ -42,8 +43,8 @@ func main() {
 			fmt.Printf("%# v\n", pretty.Formatter(program))
 		case "-v":
 			program := myParser.ParseProgram()
-			myNameVisitor := parser.BaseVisitor{}
-			myNameVisitor.VisitProgram(&program)
+			assignTargetVisitor := astanalysis.NewAssignTargetVisitor()
+			assignTargetVisitor.Analyze(&program)
 		}
 	}
 }
