@@ -7,6 +7,7 @@ type Operation interface {
 	// TODO: would be good to have but is the effort for validation even beneficial
 	// or will invalid ops not already be prevented in the parser
 	Validate() bool
+	Visit(visitor Visitor)
 }
 
 type NamedType struct {
