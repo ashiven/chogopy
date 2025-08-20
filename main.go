@@ -31,13 +31,13 @@ func main() {
 
 	if len(os.Args) > 2 {
 		switch os.Args[1] {
-		case "l":
+		case "-l":
 			token := myLexer.Consume(false)
-			for token.Kind != lexer.EOF {
-				fmt.Printf("%# v\n", pretty.Formatter(token))
-				token = myLexer.Consume(false)
-			}
 			fmt.Printf("%# v\n", pretty.Formatter(token))
+			for token.Kind != lexer.EOF {
+				token = myLexer.Consume(false)
+				fmt.Printf("%# v\n", pretty.Formatter(token))
+			}
 		case "-p":
 			program := myParser.ParseProgram()
 			fmt.Printf("%# v\n", pretty.Formatter(program))
