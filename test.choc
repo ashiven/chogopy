@@ -1,7 +1,0 @@
-def fun() -> str:
-  global a
-  nonlocal b
-  c: int = 2
-
-
-a = 1

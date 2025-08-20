@@ -726,8 +726,11 @@ func (p *Parser) parseMultExpression(compoundExpression Operation) Operation {
 
 	if slices.Contains(multTokens, peekedToken.Kind) {
 		op := peekedToken.Value.(string)
+		p.match(peekedToken.Kind)
 		rhs := p.parseCompoundExpression(false, true, false, false)
-		return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
+
+		multExpr := &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
+		return p.parseMultExpression(multExpr)
 	}
 
 	return compoundExpression
@@ -739,8 +742,11 @@ func (p *Parser) parseAddExpression(compoundExpression Operation) Operation {
 
 	if slices.Contains(addTokens, peekedToken.Kind) {
 		op := peekedToken.Value.(string)
+		p.match(peekedToken.Kind)
 		rhs := p.parseCompoundExpression(false, false, true, false)
-		return &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
+
+		addExpr := &BinaryExpr{Op: op, Lhs: compoundExpression, Rhs: rhs}
+		return p.parseAddExpression(addExpr)
 	}
 
 	return compoundExpression
@@ -751,6 +757,7 @@ func (p *Parser) parseCompareExpression(compoundExpression Operation) Operation 
 	peekedToken := &peekedTokens[0]
 
 	op := peekedToken.Value.(string)
+	p.match(peekedToken.Kind)
 	rhs := p.parseCompoundExpression(false, false, false, true)
 
 	// Comparison binary operations can not be nested

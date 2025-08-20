@@ -4,15 +4,18 @@ import (
 	"chogopy/pkg/lexer"
 	"chogopy/pkg/parser"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/kr/pretty"
 )
 
 func main() {
-	filename := "test.choc"
-	if len(os.Args) > 1 {
-		filename = os.Args[1]
+	filename := ""
+	if len(os.Args) > 2 {
+		filename = os.Args[2]
+	} else {
+		log.Fatal("Please provide a filename and a mode")
 	}
 
 	byteStream, err := os.ReadFile(filename)
@@ -20,12 +23,21 @@ func main() {
 		fmt.Println(err.Error())
 	}
 	stream := string(byteStream)
-
 	fmt.Println(stream)
 
-	lexer := lexer.NewLexer(stream)
-	parser := parser.NewParser(&lexer)
+	myLexer := lexer.NewLexer(stream)
+	myParser := parser.NewParser(&myLexer)
 
-	program := parser.ParseProgram()
-	fmt.Printf("%# v\n", pretty.Formatter(program))
+	if len(os.Args) > 2 && os.Args[1] == "-l" {
+		token := myLexer.Consume(false)
+		for token.Kind != lexer.EOF {
+			fmt.Printf("%# v\n", pretty.Formatter(token))
+			token = myLexer.Consume(false)
+		}
+		fmt.Printf("%# v\n", pretty.Formatter(token))
+
+	} else if len(os.Args) > 2 && os.Args[1] == "-p" {
+		program := myParser.ParseProgram()
+		fmt.Printf("%# v\n", pretty.Formatter(program))
+	}
 }
