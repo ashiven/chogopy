@@ -245,7 +245,7 @@ func (p *Parser) parseType() Operation {
 		}
 	}
 
-	if p.check(lexer.LSQUAREBRACKET, lexer.INTEGER, lexer.RSQUAREBRACKET) {
+	if p.check(lexer.LSQUAREBRACKET) {
 		p.match(lexer.LSQUAREBRACKET)
 		elemType := p.parseType()
 		p.match(lexer.RSQUAREBRACKET)
