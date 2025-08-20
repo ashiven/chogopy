@@ -51,6 +51,12 @@ var expressionTokens = []lexer.TokenKind{
 	lexer.MINUS,
 }
 
+var simpleCompoundExpressionTokens = append(expressionTokens, []lexer.TokenKind{
+	lexer.IDENTIFIER,
+	lexer.LSQUAREBRACKET,
+	lexer.LROUNDBRACKET,
+}...)
+
 var statementTokens = []lexer.TokenKind{
 	lexer.PASS,
 	lexer.RETURN,
@@ -622,37 +628,8 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 		compoundExpression = p.parseUnaryNegation()
 	}
 
-	if p.nextTokenIn(literalTokens) {
-		compoundExpression = p.parseLiteral()
-	}
-
-	if p.check(lexer.IDENTIFIER, lexer.LROUNDBRACKET) {
-		funcNameToken := p.match(lexer.IDENTIFIER)
-		funcName := funcNameToken.Value.(string)
-		p.match(lexer.LROUNDBRACKET)
-		arguments := p.parseExpressionList()
-		p.match(lexer.RROUNDBRACKET)
-		compoundExpression = &CallExpr{FuncName: funcName, Arguments: arguments}
-	}
-
-	if p.check(lexer.IDENTIFIER) {
-		identifierToken := p.match(lexer.IDENTIFIER)
-		identifier := identifierToken.Value.(string)
-		compoundExpression = &IdentExpr{Identifier: identifier}
-	}
-
-	if p.check(lexer.LSQUAREBRACKET) {
-		p.match(lexer.LSQUAREBRACKET)
-		elements := p.parseExpressionList()
-		p.match(lexer.RSQUAREBRACKET)
-		compoundExpression = &ListExpr{Elements: elements}
-	}
-
-	if p.check(lexer.LROUNDBRACKET) {
-		p.match(lexer.LROUNDBRACKET)
-		expression := p.parseExpression(false, false)
-		p.match(lexer.RROUNDBRACKET)
-		compoundExpression = expression
+	if p.nextTokenIn(simpleCompoundExpressionTokens) {
+		compoundExpression = p.parseSimpleCompoundExpression()
 	}
 
 	if p.check(lexer.LSQUAREBRACKET) {
@@ -675,6 +652,44 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 		p.syntaxError(TokenNotFound)
 	}
 	return compoundExpression
+}
+
+func (p *Parser) parseSimpleCompoundExpression() Operation {
+	if p.nextTokenIn(literalTokens) {
+		return p.parseLiteral()
+	}
+
+	if p.check(lexer.IDENTIFIER, lexer.LROUNDBRACKET) {
+		funcNameToken := p.match(lexer.IDENTIFIER)
+		funcName := funcNameToken.Value.(string)
+		p.match(lexer.LROUNDBRACKET)
+		arguments := p.parseExpressionList()
+		p.match(lexer.RROUNDBRACKET)
+		return &CallExpr{FuncName: funcName, Arguments: arguments}
+	}
+
+	if p.check(lexer.IDENTIFIER) {
+		identifierToken := p.match(lexer.IDENTIFIER)
+		identifier := identifierToken.Value.(string)
+		return &IdentExpr{Identifier: identifier}
+	}
+
+	if p.check(lexer.LSQUAREBRACKET) {
+		p.match(lexer.LSQUAREBRACKET)
+		elements := p.parseExpressionList()
+		p.match(lexer.RSQUAREBRACKET)
+		return &ListExpr{Elements: elements}
+	}
+
+	if p.check(lexer.LROUNDBRACKET) {
+		p.match(lexer.LROUNDBRACKET)
+		expression := p.parseExpression(false, false)
+		p.match(lexer.RROUNDBRACKET)
+		return expression
+	}
+
+	p.syntaxError(TokenNotFound)
+	return nil
 }
 
 func (p *Parser) parseExpressionList() []Operation {
