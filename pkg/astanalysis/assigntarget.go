@@ -7,17 +7,17 @@ import (
 	"os"
 )
 
-type AssignTargetVisitor struct {
+type AssignTargets struct {
 	parser.BaseVisitor
 }
 
-func (av *AssignTargetVisitor) Analyze(p *parser.Program) {
-	p.Visit(av)
+func (at *AssignTargets) Analyze(program *parser.Program) {
+	program.Visit(at)
 }
 
-func (av *AssignTargetVisitor) VisitAssignStmt(as *parser.AssignStmt) {
-	if as.Target.Name() != "IdentExpr" && as.Target.Name() != "IndexExpr" {
-		fmt.Printf("Semantic Error: Found %s as the left hand side of an assignment.\n", as.Target.Name())
+func (at *AssignTargets) VisitAssignStmt(assignStmt *parser.AssignStmt) {
+	if assignStmt.Target.Name() != "IdentExpr" && assignStmt.Target.Name() != "IndexExpr" {
+		fmt.Printf("Semantic Error: Found %s as the left hand side of an assignment.\n", assignStmt.Target.Name())
 		fmt.Println("Expected variable name or index expression.")
 		os.Exit(0)
 	}
