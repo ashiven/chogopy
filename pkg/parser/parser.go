@@ -618,6 +618,10 @@ func (p *Parser) parseOrExpression(expression Operation) Operation {
 func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, insideAdd bool, insideCompare bool) Operation {
 	var compoundExpression Operation
 
+	if p.check(lexer.MINUS) {
+		compoundExpression = p.parseUnaryNegation()
+	}
+
 	if p.nextTokenIn(literalTokens) {
 		compoundExpression = p.parseLiteral()
 	}
@@ -649,10 +653,6 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 		expression := p.parseExpression(false, false)
 		p.match(lexer.RROUNDBRACKET)
 		compoundExpression = expression
-	}
-
-	if p.check(lexer.MINUS) {
-		compoundExpression = p.parseUnaryNegation()
 	}
 
 	if p.check(lexer.LSQUAREBRACKET) {
