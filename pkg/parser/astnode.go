@@ -7,7 +7,7 @@ type Operation interface {
 	// TODO: would be good to have but is the effort for validation even beneficial
 	// or will invalid ops not already be prevented in the parser
 	Validate() bool
-	Visit(visitor Visitor)
+	Visit(v Visitor)
 }
 
 type NamedType struct {
@@ -23,6 +23,10 @@ func (nt *NamedType) Name() string {
 	return nt.name
 }
 
+func (nt *NamedType) Visit(v Visitor) {
+	v.VisitNamedType(nt)
+}
+
 type ListType struct {
 	name     string
 	ElemType Operation
@@ -34,6 +38,11 @@ func (lt *ListType) Name() string {
 		lt.name = "ListType"
 	}
 	return lt.name
+}
+
+func (lt *ListType) Visit(v Visitor) {
+	v.VisitListType(lt)
+	lt.ElemType.Visit(v)
 }
 
 /* Definitions */
@@ -52,6 +61,16 @@ func (p *Program) Name() string {
 	return p.name
 }
 
+func (p *Program) Visit(v Visitor) {
+	v.VisitProgram(p)
+	for _, definition := range p.Definitions {
+		definition.Visit(v)
+	}
+	for _, statement := range p.Statements {
+		statement.Visit(v)
+	}
+}
+
 type FuncDef struct {
 	name       string
 	FuncName   string
@@ -68,6 +87,17 @@ func (fd *FuncDef) Name() string {
 	return fd.name
 }
 
+func (fd *FuncDef) Visit(v Visitor) {
+	v.VisitFuncDef(fd)
+	for _, param := range fd.Parameters {
+		param.Visit(v)
+	}
+	for _, bodyOp := range fd.FuncBody {
+		bodyOp.Visit(v)
+	}
+	fd.ReturnType.Visit(v)
+}
+
 type TypedVar struct {
 	name    string
 	VarName string
@@ -80,6 +110,11 @@ func (tv *TypedVar) Name() string {
 		tv.name = "TypedVar"
 	}
 	return tv.name
+}
+
+func (tv *TypedVar) Visit(v Visitor) {
+	v.VisitTypedVar(tv)
+	tv.VarType.Visit(v)
 }
 
 type GlobalDecl struct {
@@ -95,6 +130,10 @@ func (gd *GlobalDecl) Name() string {
 	return gd.name
 }
 
+func (gd *GlobalDecl) Visit(v Visitor) {
+	v.VisitGlobalDecl(gd)
+}
+
 type NonLocalDecl struct {
 	name     string
 	DeclName string
@@ -106,6 +145,10 @@ func (nl *NonLocalDecl) Name() string {
 		nl.name = "NonLocalDecl"
 	}
 	return nl.name
+}
+
+func (nl *NonLocalDecl) Visit(v Visitor) {
+	v.VisitNonLocalDecl(nl)
 }
 
 type VarDef struct {
@@ -120,6 +163,11 @@ func (vd *VarDef) Name() string {
 		vd.name = "VarDef"
 	}
 	return vd.name
+}
+
+func (vd *VarDef) Visit(v Visitor) {
+	v.VisitVarDef(vd)
+	vd.Literal.Visit(v)
 }
 
 /* Statements */
@@ -139,6 +187,17 @@ func (is *IfStmt) Name() string {
 	return is.name
 }
 
+func (is *IfStmt) Visit(v Visitor) {
+	v.VisitIfStmt(is)
+	is.Condition.Visit(v)
+	for _, ifBodyOp := range is.IfBody {
+		ifBodyOp.Visit(v)
+	}
+	for _, elseBodyOp := range is.ElseBody {
+		elseBodyOp.Visit(v)
+	}
+}
+
 type WhileStmt struct {
 	name      string
 	Condition Operation
@@ -151,6 +210,13 @@ func (ws *WhileStmt) Name() string {
 		ws.name = "WhileStmt"
 	}
 	return ws.name
+}
+
+func (ws *WhileStmt) Visit(v Visitor) {
+	v.VisitWhileStmt(ws)
+	for _, bodyOp := range ws.Body {
+		bodyOp.Visit(v)
+	}
 }
 
 type ForStmt struct {
@@ -168,6 +234,14 @@ func (fs *ForStmt) Name() string {
 	return fs.name
 }
 
+func (fs *ForStmt) Visit(v Visitor) {
+	v.VisitForStmt(fs)
+	fs.Iter.Visit(v)
+	for _, bodyOp := range fs.Body {
+		bodyOp.Visit(v)
+	}
+}
+
 type PassStmt struct {
 	name string
 	Operation
@@ -178,6 +252,10 @@ func (ps *PassStmt) Name() string {
 		ps.name = "PassStmt"
 	}
 	return ps.name
+}
+
+func (ps *PassStmt) Visit(v Visitor) {
+	v.VisitPassStmt(ps)
 }
 
 type ReturnStmt struct {
@@ -193,6 +271,11 @@ func (rs *ReturnStmt) Name() string {
 	return rs.name
 }
 
+func (rs *ReturnStmt) Visit(v Visitor) {
+	v.VisitReturnStmt(rs)
+	rs.ReturnVal.Visit(v)
+}
+
 type AssignStmt struct {
 	name   string
 	Target Operation
@@ -205,6 +288,12 @@ func (as *AssignStmt) Name() string {
 		as.name = "AssignStmt"
 	}
 	return as.name
+}
+
+func (as *AssignStmt) Visit(v Visitor) {
+	v.VisitAssignStmt(as)
+	as.Target.Visit(v)
+	as.Value.Visit(v)
 }
 
 /* Expressions */
@@ -222,6 +311,10 @@ func (le *LiteralExpr) Name() string {
 	return le.name
 }
 
+func (le *LiteralExpr) Visit(v Visitor) {
+	v.VisitLiteralExpr(le)
+}
+
 type IdentExpr struct {
 	name       string
 	Identifier string
@@ -233,6 +326,10 @@ func (ie *IdentExpr) Name() string {
 		ie.name = "IdentExpr"
 	}
 	return ie.name
+}
+
+func (ie *IdentExpr) Visit(v Visitor) {
+	v.VisitIdentExpr(ie)
 }
 
 type UnaryExpr struct {
@@ -247,6 +344,11 @@ func (ue *UnaryExpr) Name() string {
 		ue.name = "UnaryExpr"
 	}
 	return ue.name
+}
+
+func (ue *UnaryExpr) Visit(v Visitor) {
+	v.VisitUnaryExpr(ue)
+	ue.Value.Visit(v)
 }
 
 type BinaryExpr struct {
@@ -264,6 +366,12 @@ func (be *BinaryExpr) Name() string {
 	return be.name
 }
 
+func (be *BinaryExpr) Visit(v Visitor) {
+	v.VisitBinaryExpr(be)
+	be.Lhs.Visit(v)
+	be.Rhs.Visit(v)
+}
+
 type IfExpr struct {
 	name      string
 	Condition Operation
@@ -279,6 +387,13 @@ func (ie *IfExpr) Name() string {
 	return ie.name
 }
 
+func (ie *IfExpr) Visit(v Visitor) {
+	v.VisitIfExpr(ie)
+	ie.Condition.Visit(v)
+	ie.IfOp.Visit(v)
+	ie.ElseOp.Visit(v)
+}
+
 type ListExpr struct {
 	name     string
 	Elements []Operation
@@ -290,6 +405,13 @@ func (le *ListExpr) Name() string {
 		le.name = "ListExpr"
 	}
 	return le.name
+}
+
+func (le *ListExpr) Visit(v Visitor) {
+	v.VisitListExpr(le)
+	for _, elem := range le.Elements {
+		elem.Visit(v)
+	}
 }
 
 type CallExpr struct {
@@ -306,6 +428,13 @@ func (ce *CallExpr) Name() string {
 	return ce.name
 }
 
+func (ce *CallExpr) Visit(v Visitor) {
+	v.VisitCallExpr(ce)
+	for _, argument := range ce.Arguments {
+		argument.Visit(v)
+	}
+}
+
 type IndexExpr struct {
 	name  string
 	Value Operation
@@ -318,4 +447,10 @@ func (ie *IndexExpr) Name() string {
 		ie.name = "IndexExpr"
 	}
 	return ie.name
+}
+
+func (ie *IndexExpr) Visit(v Visitor) {
+	v.VisitIndexExpr(ie)
+	ie.Value.Visit(v)
+	ie.Index.Visit(v)
 }

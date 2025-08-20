@@ -43,7 +43,7 @@ func main() {
 			fmt.Printf("%# v\n", pretty.Formatter(program))
 		case "-v":
 			program := myParser.ParseProgram()
-			assignTargetVisitor := astanalysis.NewAssignTargetVisitor()
+			assignTargetVisitor := astanalysis.AssignTargetVisitor{}
 			assignTargetVisitor.Analyze(&program)
 		}
 	}
