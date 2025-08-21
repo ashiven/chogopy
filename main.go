@@ -44,6 +44,11 @@ func main() {
 			program := myParser.ParseProgram()
 			assignTargets := astanalysis.AssignTargets{}
 			assignTargets.Analyze(&program)
+		case "-e":
+			program := myParser.ParseProgram()
+			environments := astanalysis.EnvironmentBuilder{}
+			environments.Analyze(&program)
+			pretty.Println(environments.LocalEnvironment)
 		}
 	}
 }

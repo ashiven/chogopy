@@ -153,7 +153,7 @@ func (nl *NonLocalDecl) Visit(v Visitor) {
 
 type VarDef struct {
 	name     string
-	TypedVar *TypedVar
+	TypedVar Operation
 	Literal  Operation
 	Operation
 }
@@ -167,6 +167,7 @@ func (vd *VarDef) Name() string {
 
 func (vd *VarDef) Visit(v Visitor) {
 	v.VisitVarDef(vd)
+	vd.TypedVar.Visit(v)
 	vd.Literal.Visit(v)
 }
 
