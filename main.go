@@ -4,7 +4,6 @@ import (
 	"chogopy/pkg/astanalysis"
 	"chogopy/pkg/lexer"
 	"chogopy/pkg/parser"
-	"fmt"
 	"log"
 	"os"
 
@@ -21,10 +20,10 @@ func main() {
 
 	byteStream, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Println(err.Error())
+		pretty.Println(err.Error())
 	}
 	stream := string(byteStream)
-	fmt.Println(stream)
+	pretty.Println(stream)
 
 	myLexer := lexer.NewLexer(stream)
 	myParser := parser.NewParser(&myLexer)
@@ -33,14 +32,14 @@ func main() {
 		switch os.Args[1] {
 		case "-l":
 			token := myLexer.Consume(false)
-			fmt.Printf("%# v\n", pretty.Formatter(token))
+			pretty.Println(token)
 			for token.Kind != lexer.EOF {
 				token = myLexer.Consume(false)
-				fmt.Printf("%# v\n", pretty.Formatter(token))
+				pretty.Println(token)
 			}
 		case "-p":
 			program := myParser.ParseProgram()
-			fmt.Printf("%# v\n", pretty.Formatter(program))
+			pretty.Println(program)
 		case "-v":
 			program := myParser.ParseProgram()
 			assignTargets := astanalysis.AssignTargets{}
