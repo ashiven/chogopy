@@ -13,13 +13,6 @@ type AssignTargets struct {
 
 func (at *AssignTargets) Analyze(program *parser.Program) {
 	program.Visit(at)
-
-	for _, definition := range program.Definitions {
-		definition.Visit(at)
-	}
-	for _, statement := range program.Statements {
-		statement.Visit(at)
-	}
 }
 
 func (at *AssignTargets) VisitAssignStmt(assignStmt *parser.AssignStmt) {
@@ -28,6 +21,4 @@ func (at *AssignTargets) VisitAssignStmt(assignStmt *parser.AssignStmt) {
 		fmt.Println("Expected variable name or index expression.")
 		os.Exit(0)
 	}
-
-	assignStmt.Value.Visit(at)
 }

@@ -42,6 +42,7 @@ func (lt *ListType) Name() string {
 
 func (lt *ListType) Visit(v Visitor) {
 	v.VisitListType(lt)
+	lt.ElemType.Visit(v)
 }
 
 /* Definitions */
@@ -62,6 +63,12 @@ func (p *Program) Name() string {
 
 func (p *Program) Visit(v Visitor) {
 	v.VisitProgram(p)
+	for _, definition := range p.Definitions {
+		definition.Visit(v)
+	}
+	for _, statement := range p.Statements {
+		statement.Visit(v)
+	}
 }
 
 type FuncDef struct {
@@ -82,6 +89,13 @@ func (fd *FuncDef) Name() string {
 
 func (fd *FuncDef) Visit(v Visitor) {
 	v.VisitFuncDef(fd)
+	for _, param := range fd.Parameters {
+		param.Visit(v)
+	}
+	for _, bodyOp := range fd.FuncBody {
+		bodyOp.Visit(v)
+	}
+	fd.ReturnType.Visit(v)
 }
 
 type TypedVar struct {
@@ -100,6 +114,7 @@ func (tv *TypedVar) Name() string {
 
 func (tv *TypedVar) Visit(v Visitor) {
 	v.VisitTypedVar(tv)
+	tv.VarType.Visit(v)
 }
 
 type GlobalDecl struct {
@@ -152,6 +167,8 @@ func (vd *VarDef) Name() string {
 
 func (vd *VarDef) Visit(v Visitor) {
 	v.VisitVarDef(vd)
+	vd.TypedVar.Visit(v)
+	vd.Literal.Visit(v)
 }
 
 /* Statements */
@@ -173,6 +190,13 @@ func (is *IfStmt) Name() string {
 
 func (is *IfStmt) Visit(v Visitor) {
 	v.VisitIfStmt(is)
+	is.Condition.Visit(v)
+	for _, ifBodyOp := range is.IfBody {
+		ifBodyOp.Visit(v)
+	}
+	for _, elseBodyOp := range is.ElseBody {
+		elseBodyOp.Visit(v)
+	}
 }
 
 type WhileStmt struct {
@@ -191,6 +215,9 @@ func (ws *WhileStmt) Name() string {
 
 func (ws *WhileStmt) Visit(v Visitor) {
 	v.VisitWhileStmt(ws)
+	for _, bodyOp := range ws.Body {
+		bodyOp.Visit(v)
+	}
 }
 
 type ForStmt struct {
@@ -210,6 +237,10 @@ func (fs *ForStmt) Name() string {
 
 func (fs *ForStmt) Visit(v Visitor) {
 	v.VisitForStmt(fs)
+	fs.Iter.Visit(v)
+	for _, bodyOp := range fs.Body {
+		bodyOp.Visit(v)
+	}
 }
 
 type PassStmt struct {
@@ -243,6 +274,7 @@ func (rs *ReturnStmt) Name() string {
 
 func (rs *ReturnStmt) Visit(v Visitor) {
 	v.VisitReturnStmt(rs)
+	rs.ReturnVal.Visit(v)
 }
 
 type AssignStmt struct {
@@ -261,6 +293,8 @@ func (as *AssignStmt) Name() string {
 
 func (as *AssignStmt) Visit(v Visitor) {
 	v.VisitAssignStmt(as)
+	as.Target.Visit(v)
+	as.Value.Visit(v)
 }
 
 /* Expressions */
@@ -319,6 +353,7 @@ func (ue *UnaryExpr) Name() string {
 
 func (ue *UnaryExpr) Visit(v Visitor) {
 	v.VisitUnaryExpr(ue)
+	ue.Value.Visit(v)
 }
 
 type BinaryExpr struct {
@@ -338,6 +373,8 @@ func (be *BinaryExpr) Name() string {
 
 func (be *BinaryExpr) Visit(v Visitor) {
 	v.VisitBinaryExpr(be)
+	be.Lhs.Visit(v)
+	be.Rhs.Visit(v)
 }
 
 type IfExpr struct {
@@ -357,6 +394,9 @@ func (ie *IfExpr) Name() string {
 
 func (ie *IfExpr) Visit(v Visitor) {
 	v.VisitIfExpr(ie)
+	ie.Condition.Visit(v)
+	ie.IfOp.Visit(v)
+	ie.ElseOp.Visit(v)
 }
 
 type ListExpr struct {
@@ -374,6 +414,9 @@ func (le *ListExpr) Name() string {
 
 func (le *ListExpr) Visit(v Visitor) {
 	v.VisitListExpr(le)
+	for _, elem := range le.Elements {
+		elem.Visit(v)
+	}
 }
 
 type CallExpr struct {
@@ -392,6 +435,9 @@ func (ce *CallExpr) Name() string {
 
 func (ce *CallExpr) Visit(v Visitor) {
 	v.VisitCallExpr(ce)
+	for _, argument := range ce.Arguments {
+		argument.Visit(v)
+	}
 }
 
 type IndexExpr struct {
@@ -411,6 +457,8 @@ func (ie *IndexExpr) Name() string {
 
 func (ie *IndexExpr) Visit(v Visitor) {
 	v.VisitIndexExpr(ie)
+	ie.Value.Visit(v)
+	ie.Index.Visit(v)
 
 	// We do not want to visit the type hint as it does not
 	// belong to the AST even though it is an Operation!
