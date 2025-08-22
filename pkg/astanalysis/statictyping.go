@@ -3,6 +3,7 @@ package astanalysis
 import (
 	"chogopy/pkg/parser"
 	"log"
+	"maps"
 	"slices"
 )
 
@@ -196,6 +197,8 @@ func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
 	return defType
 }
 
+// EnvironmentBuilder is responsible for traversing the AST and constructing the above-defined
+// LocalEnvironment by checking every VarDef and FuncDef AST node
 type EnvironmentBuilder struct {
 	LocalEnvironment LocalEnvironment
 	parser.BaseVisitor
@@ -283,6 +286,39 @@ func (st *StaticTyping) Analyze(program *parser.Program) {
 }
 
 /* Definitions */
+
+func (st *StaticTyping) VisitFuncDef(funcDef *parser.FuncDef) {
+	funcInfo := st.localEnv.check(funcDef.FuncName, false)
+
+	paramNames := funcInfo.(FunctionInfo).paramNames
+	paramTypes := funcInfo.(FunctionInfo).funcType.paramTypes
+	returnType := funcInfo.(FunctionInfo).funcType.returnType
+	nestedDefs := funcInfo.(FunctionInfo).nestedDefs
+
+	extendedEnv := maps.Clone(st.localEnv)
+	for i := range len(paramNames) {
+		paramName := paramNames[i]
+		paramType := paramTypes[i]
+		extendedEnv[paramName] = paramType
+	}
+	for i := range len(nestedDefs) {
+		nestedDefName := nestedDefs[i].defName
+		nestedDefType := nestedDefs[i].defType
+		extendedEnv[nestedDefName] = nestedDefType
+	}
+
+	funcBodyVisitor := &StaticTyping{
+		localEnv:   extendedEnv,
+		returnType: returnType,
+	}
+	for _, funcBodyOp := range funcDef.FuncBody {
+		funcBodyOp.Visit(funcBodyVisitor)
+	}
+}
+
+func (st *StaticTyping) VisitGlobalDecl(globalDecl *parser.GlobalDecl) {}
+
+func (st *StaticTyping) VisitNonLocalDecl(nonLocalDecl *parser.NonLocalDecl) {}
 
 func (st *StaticTyping) VisitVarDef(varDef *parser.VarDef) {
 	varName := varDef.TypedVar.(*parser.TypedVar).VarName
