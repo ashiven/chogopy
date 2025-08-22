@@ -3,6 +3,7 @@ package astanalysis
 import (
 	"chogopy/pkg/parser"
 	"log"
+	"slices"
 )
 
 type Type interface{}
@@ -217,9 +218,148 @@ func (eb *EnvironmentBuilder) VisitFuncDef(funcDef *parser.FuncDef) {
 }
 
 type StaticTyping struct {
+	localEnv   LocalEnvironment
+	returnType Type
 	parser.BaseVisitor
 }
 
+// Analyze performs static type checking according to the rules defined in
+// chapter 5 of the chocopy language reference:
+//
+// https://chocopy.org/chocopy_language_reference.pdf
 func (st *StaticTyping) Analyze(program *parser.Program) {
+	envBuilder := &EnvironmentBuilder{LocalEnvironment: map[string]DefType{}}
+	envBuilder.Analyze(program)
+
+	st.localEnv = envBuilder.LocalEnvironment
+	st.returnType = bottomType
+
 	program.Visit(st)
+}
+
+func (st *StaticTyping) VisitVarDef(varDef *parser.VarDef) {
+	varName := varDef.TypedVar.(*parser.TypedVar).VarName
+	varType, varDefined := st.localEnv[varName]
+	if !varDefined {
+		log.Fatalf("Semantic Error: Unknown identifier used: %s", varName)
+	}
+
+	_, isFuncType := varType.(FunctionInfo)
+	if isFuncType {
+		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", varName)
+	}
+
+	varDef.Literal.Visit(st)
+	literalType := st.returnType
+
+	checkAssignmentCompatible(literalType, varType)
+}
+
+func (st *StaticTyping) VisitLiteralExpr(literalExpr *parser.LiteralExpr) {
+	switch literalExpr.Value.(type) {
+	case int:
+		st.returnType = intType
+	case bool:
+		st.returnType = boolType
+	case string:
+		st.returnType = strType
+	default:
+		st.returnType = noneType
+	}
+}
+
+func (st *StaticTyping) VisitIdentExpr(identExpr *parser.IdentExpr) {
+	varType, varDefined := st.localEnv[identExpr.Identifier]
+	if !varDefined {
+		log.Fatalf("Semantic Error: Unknown identifier used: %s", identExpr.Identifier)
+	}
+
+	_, isFuncType := varType.(FunctionInfo)
+	if isFuncType {
+		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", identExpr.Identifier)
+	}
+}
+
+func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
+	unaryExpr.Value.Visit(st)
+
+	switch unaryExpr.Op {
+	case "-":
+		checkType(st.returnType, intType)
+		st.returnType = intType
+	case "not":
+		checkType(st.returnType, boolType)
+		st.returnType = boolType
+	}
+}
+
+func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
+	binaryExpr.Lhs.Visit(st)
+	lhsType := st.returnType
+
+	binaryExpr.Rhs.Visit(st)
+	rhsType := st.returnType
+
+	_, lhsIsList := lhsType.(ListType)
+	_, rhsIsList := rhsType.(ListType)
+
+	lhsIsString := lhsType == strType
+	rhsIsString := rhsType == strType
+
+	switch binaryExpr.Op {
+	case "and":
+		checkType(lhsType, boolType)
+		checkType(rhsType, boolType)
+		st.returnType = boolType
+
+	case "or":
+		checkType(lhsType, boolType)
+		checkType(rhsType, boolType)
+		st.returnType = boolType
+
+	case "is":
+		nonObjectTypes := []Type{intType, boolType, strType}
+		if slices.Contains(nonObjectTypes, lhsType) ||
+			slices.Contains(nonObjectTypes, rhsType) {
+			log.Fatalf("Semantic Error: Expected both operands to be of object type")
+		}
+		st.returnType = boolType
+
+	case "+", "-", "*", "//", "%":
+		if binaryExpr.Op == "+" && lhsIsString && rhsIsString {
+			st.returnType = strType
+			return
+		}
+		if binaryExpr.Op == "+" && lhsIsList && rhsIsList {
+			st.returnType = ListType{elemType: join(lhsType, rhsType)}
+			return
+		}
+		checkType(lhsType, intType)
+		checkType(rhsType, intType)
+
+	case "<", "<=", ">", ">=", "==", "!=":
+		st.returnType = boolType
+		if lhsIsString && rhsIsString {
+			return
+		}
+		if lhsIsList && rhsIsList {
+			return
+		}
+		checkType(lhsType, intType)
+		checkType(rhsType, intType)
+	}
+}
+
+func (st *StaticTyping) VisitIfExpr(ifExpr *parser.IfExpr) {
+	ifExpr.Condition.Visit(st)
+	condType := st.returnType
+
+	ifExpr.IfOp.Visit(st)
+	ifOpType := st.returnType
+
+	ifExpr.ElseOp.Visit(st)
+	elseOpType := st.returnType
+
+	checkType(condType, boolType)
+	st.returnType = join(ifOpType, elseOpType)
 }
