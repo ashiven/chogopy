@@ -318,6 +318,7 @@ func (le *LiteralExpr) Visit(v Visitor) {
 
 type IdentExpr struct {
 	name       string
+	TypeHint   Operation
 	Identifier string
 	Operation
 }
@@ -331,6 +332,9 @@ func (ie *IdentExpr) Name() string {
 
 func (ie *IdentExpr) Visit(v Visitor) {
 	v.VisitIdentExpr(ie)
+
+	// We do not want to visit the type hint as it does not
+	// belong to the AST even though it is an Operation!
 }
 
 type UnaryExpr struct {
@@ -437,9 +441,10 @@ func (ce *CallExpr) Visit(v Visitor) {
 }
 
 type IndexExpr struct {
-	name  string
-	Value Operation
-	Index Operation
+	name     string
+	TypeHint Operation
+	Value    Operation
+	Index    Operation
 	Operation
 }
 
@@ -454,4 +459,7 @@ func (ie *IndexExpr) Visit(v Visitor) {
 	v.VisitIndexExpr(ie)
 	ie.Value.Visit(v)
 	ie.Index.Visit(v)
+
+	// We do not want to visit the type hint as it does not
+	// belong to the AST even though it is an Operation!
 }

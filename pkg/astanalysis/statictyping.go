@@ -6,7 +6,7 @@ import (
 	"slices"
 )
 
-type Type interface{}
+type Type any
 
 type BasicType struct {
 	typeName string
@@ -41,7 +41,6 @@ var (
 	objectType = ObjectType{}
 )
 
-// TODO: type from op
 func typeFromOp(op parser.Operation) Type {
 	switch op := op.(type) {
 	case *parser.NamedType:
@@ -59,10 +58,39 @@ func typeFromOp(op parser.Operation) Type {
 		case "object":
 			return objectType
 		}
+
 	case *parser.ListType:
 		elemType := typeFromOp(op.ElemType)
 		return ListType{elemType: elemType}
 	}
+
+	log.Fatalf("Expected Operation but found %v", op)
+	return nil
+}
+
+func hintFromType(opType Type) parser.Operation {
+	switch opType {
+	case intType:
+		return &parser.NamedType{TypeName: "int"}
+	case boolType:
+		return &parser.NamedType{TypeName: "bool"}
+	case strType:
+		return &parser.NamedType{TypeName: "str"}
+	case noneType:
+		return &parser.NamedType{TypeName: "<None>"}
+	case emptyType:
+		return &parser.NamedType{TypeName: "<Empty>"}
+	case objectType:
+		return &parser.NamedType{TypeName: "object"}
+	}
+
+	_, isListType := opType.(ListType)
+	if isListType {
+		elemType := hintFromType(opType.(ListType).elemType)
+		return &parser.ListType{ElemType: elemType}
+	}
+
+	log.Fatalf("Expected Type but found %v", opType)
 	return nil
 }
 
@@ -150,6 +178,24 @@ type FunctionInfo struct {
 // It maps the names of the variables/functions to their type.
 type LocalEnvironment map[string]DefType
 
+func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
+	defType, defExists := le[defName]
+	if !defExists {
+		log.Fatalf("Semantic Error: Unknown identifier used: %s", defName)
+	}
+
+	_, isFuncInfo := defType.(FunctionInfo)
+	if isFuncInfo && expectVarDef {
+		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", defName)
+	}
+
+	if !isFuncInfo && !expectVarDef {
+		log.Fatalf("Semantic Error: Found variable identifier: %s but expected function identifier", defName)
+	}
+
+	return defType
+}
+
 type EnvironmentBuilder struct {
 	LocalEnvironment LocalEnvironment
 	parser.BaseVisitor
@@ -216,8 +262,9 @@ func (eb *EnvironmentBuilder) VisitFuncDef(funcDef *parser.FuncDef) {
 }
 
 type StaticTyping struct {
-	localEnv   LocalEnvironment
-	returnType Type
+	localEnv    LocalEnvironment
+	returnType  Type
+	visitedType Type
 	parser.BaseVisitor
 }
 
@@ -235,47 +282,153 @@ func (st *StaticTyping) Analyze(program *parser.Program) {
 	program.Visit(st)
 }
 
+/* Definitions */
+
 func (st *StaticTyping) VisitVarDef(varDef *parser.VarDef) {
 	varName := varDef.TypedVar.(*parser.TypedVar).VarName
-	varType, varDefined := st.localEnv[varName]
-	if !varDefined {
-		log.Fatalf("Semantic Error: Unknown identifier used: %s", varName)
-	}
-
-	_, isFuncType := varType.(FunctionInfo)
-	if isFuncType {
-		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", varName)
-	}
+	varType := st.localEnv.check(varName, true)
 
 	varDef.Literal.Visit(st)
-	literalType := st.returnType
+	literalType := st.visitedType
 
 	checkAssignmentCompatible(literalType, varType)
 }
 
+/* Statements */
+
+func (st *StaticTyping) VisitIfStmt(ifStmt *parser.IfStmt) {
+	ifStmt.Condition.Visit(st)
+	checkType(st.visitedType, boolType)
+}
+
+func (st *StaticTyping) VisitWhileStmt(whileStmt *parser.WhileStmt) {
+	whileStmt.Condition.Visit(st)
+	checkType(st.visitedType, boolType)
+}
+
+func (st *StaticTyping) VisitForStmt(forStmt *parser.ForStmt) {
+	forStmt.Iter.Visit(st)
+	iterType := st.visitedType
+
+	iterIsString := iterType == strType
+	_, iterIsList := iterType.(ListType)
+
+	iterNameType := st.localEnv.check(forStmt.IterName, true)
+
+	if iterIsString {
+		checkAssignmentCompatible(strType, iterNameType)
+	} else if iterIsList {
+		elemType := iterType.(ListType).elemType
+		checkAssignmentCompatible(elemType, iterNameType)
+	}
+}
+
+func (st *StaticTyping) VisitPassStmt(passStmt *parser.PassStmt) {}
+
+func (st *StaticTyping) VisitReturnStmt(returnStmt *parser.ReturnStmt) {
+	returnStmt.ReturnVal.Visit(st)
+	returnType := st.visitedType
+	checkAssignmentCompatible(returnType, st.returnType)
+}
+
+func (st *StaticTyping) VisitAssignStmt(assignStmt *parser.AssignStmt) {
+	// Case 1: Multi-assign like: a = b = c --> Assign(a, Assign(b, c))
+	_, valueIsAssign := assignStmt.Value.(*parser.AssignStmt)
+	if valueIsAssign {
+
+		// Substep 1: assignOps collects every op in the assignment chain
+		// ([a, b, c] for the above example)
+		assignOps := []parser.Operation{assignStmt.Target}
+		currentAssign := assignStmt
+
+		for valueIsAssign {
+			currentAssign = assignStmt.Value.(*parser.AssignStmt)
+			assignOps = append(assignOps, currentAssign.Target)
+			_, valueIsAssign = currentAssign.Value.(*parser.AssignStmt)
+		}
+		assignOps = append(assignOps, currentAssign.Value)
+
+		// Substep 2: After the ops have been collected in assignOps
+		// assignment compatibility of the last op is checked against every
+		// op preceding it in the assignment chain
+		// ( c <a b , c <a a for the above example)
+		assignOps[len(assignOps)-1].Visit(st)
+		lastOpType := st.visitedType
+
+		_, lastOpIsList := lastOpType.(ListType)
+		if lastOpIsList && lastOpType.(ListType).elemType == noneType {
+			log.Fatalf("Semantic Error: Expected non-none list type in asssignment")
+		}
+
+		for _, assignOp := range assignOps[:len(assignOps)-1] {
+			assignOp.Visit(st)
+			assignOpType := st.visitedType
+			checkAssignmentCompatible(lastOpType, assignOpType)
+		}
+
+		// Substep 3: Type hints are added for each op in the assignment chain
+		for _, assignOp := range assignOps {
+			switch assignOp := assignOp.(type) {
+			case *parser.IdentExpr:
+				identType := st.localEnv.check(assignOp.Identifier, true)
+				assignOp.TypeHint = hintFromType(identType)
+			case *parser.IndexExpr:
+				assignOp.Value.Visit(st)
+				valueType := st.visitedType
+				assignOp.TypeHint = hintFromType(valueType)
+			}
+		}
+	}
+
+	switch target := assignStmt.Target.(type) {
+	// Case 2: Assign to an identifier like: a = 1
+	case *parser.IdentExpr:
+		identName := target.Identifier
+		identType := st.localEnv.check(identName, true)
+
+		assignStmt.Value.Visit(st)
+		valueType := st.visitedType
+
+		checkAssignmentCompatible(valueType, identType)
+
+		target.TypeHint = hintFromType(identType)
+
+	// Case 3: Assign to a list like: a[12] = 1
+	case *parser.IndexExpr:
+		target.Value.Visit(st)
+		targetValueType := st.visitedType
+		checkListType(targetValueType)
+
+		target.Index.Visit(st)
+		targetIndexType := st.visitedType
+		checkType(targetIndexType, intType)
+
+		assignStmt.Value.Visit(st)
+		valueType := st.visitedType
+		checkAssignmentCompatible(valueType, targetValueType.(ListType).elemType)
+
+		target.TypeHint = hintFromType(targetValueType)
+	}
+}
+
+/* Expressions */
+
 func (st *StaticTyping) VisitLiteralExpr(literalExpr *parser.LiteralExpr) {
 	switch literalExpr.Value.(type) {
 	case int:
-		st.returnType = intType
+		st.visitedType = intType
 	case bool:
-		st.returnType = boolType
+		st.visitedType = boolType
 	case string:
-		st.returnType = strType
+		st.visitedType = strType
 	default:
-		st.returnType = noneType
+		st.visitedType = noneType
 	}
 }
 
 func (st *StaticTyping) VisitIdentExpr(identExpr *parser.IdentExpr) {
-	varType, varDefined := st.localEnv[identExpr.Identifier]
-	if !varDefined {
-		log.Fatalf("Semantic Error: Unknown identifier used: %s", identExpr.Identifier)
-	}
-
-	_, isFuncType := varType.(FunctionInfo)
-	if isFuncType {
-		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", identExpr.Identifier)
-	}
+	varType := st.localEnv.check(identExpr.Identifier, true)
+	_ = varType
 }
 
 func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
@@ -283,20 +436,20 @@ func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
 
 	switch unaryExpr.Op {
 	case "-":
-		checkType(st.returnType, intType)
-		st.returnType = intType
+		checkType(st.visitedType, intType)
+		st.visitedType = intType
 	case "not":
-		checkType(st.returnType, boolType)
-		st.returnType = boolType
+		checkType(st.visitedType, boolType)
+		st.visitedType = boolType
 	}
 }
 
 func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 	binaryExpr.Lhs.Visit(st)
-	lhsType := st.returnType
+	lhsType := st.visitedType
 
 	binaryExpr.Rhs.Visit(st)
-	rhsType := st.returnType
+	rhsType := st.visitedType
 
 	_, lhsIsList := lhsType.(ListType)
 	_, rhsIsList := rhsType.(ListType)
@@ -308,12 +461,12 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 	case "and":
 		checkType(lhsType, boolType)
 		checkType(rhsType, boolType)
-		st.returnType = boolType
+		st.visitedType = boolType
 
 	case "or":
 		checkType(lhsType, boolType)
 		checkType(rhsType, boolType)
-		st.returnType = boolType
+		st.visitedType = boolType
 
 	case "is":
 		nonObjectTypes := []Type{intType, boolType, strType}
@@ -321,22 +474,22 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 			slices.Contains(nonObjectTypes, rhsType) {
 			log.Fatalf("Semantic Error: Expected both operands to be of object type")
 		}
-		st.returnType = boolType
+		st.visitedType = boolType
 
 	case "+", "-", "*", "//", "%":
 		if binaryExpr.Op == "+" && lhsIsString && rhsIsString {
-			st.returnType = strType
+			st.visitedType = strType
 			return
 		}
 		if binaryExpr.Op == "+" && lhsIsList && rhsIsList {
-			st.returnType = ListType{elemType: join(lhsType, rhsType)}
+			st.visitedType = ListType{elemType: join(lhsType, rhsType)}
 			return
 		}
 		checkType(lhsType, intType)
 		checkType(rhsType, intType)
 
 	case "<", "<=", ">", ">=", "==", "!=":
-		st.returnType = boolType
+		st.visitedType = boolType
 		if lhsIsString && rhsIsString {
 			return
 		}
@@ -350,28 +503,28 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 
 func (st *StaticTyping) VisitIfExpr(ifExpr *parser.IfExpr) {
 	ifExpr.Condition.Visit(st)
-	condType := st.returnType
+	condType := st.visitedType
 
 	ifExpr.IfOp.Visit(st)
-	ifOpType := st.returnType
+	ifOpType := st.visitedType
 
 	ifExpr.ElseOp.Visit(st)
-	elseOpType := st.returnType
+	elseOpType := st.visitedType
 
 	checkType(condType, boolType)
-	st.returnType = join(ifOpType, elseOpType)
+	st.visitedType = join(ifOpType, elseOpType)
 }
 
 func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
 	if len(listExpr.Elements) == 0 {
-		st.returnType = emptyType
+		st.visitedType = emptyType
 		return
 	}
 
 	elemTypes := []Type{}
 	for _, elem := range listExpr.Elements {
 		elem.Visit(st)
-		elemTypes = append(elemTypes, st.returnType)
+		elemTypes = append(elemTypes, st.visitedType)
 	}
 
 	joinedType := elemTypes[0]
@@ -380,21 +533,12 @@ func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
 		joinedType = join(joinedType, elemType)
 	}
 
-	st.returnType = ListType{elemType: joinedType}
+	st.visitedType = ListType{elemType: joinedType}
 }
 
 func (st *StaticTyping) VisitCallExpr(callExpr *parser.CallExpr) {
 	funcName := callExpr.FuncName
-	funcInfo, funcDefined := st.localEnv[funcName]
-
-	if !funcDefined {
-		log.Fatalf("Semantic Error: Unknown function identifier used: %s", funcName)
-	}
-
-	_, isFuncInfo := funcInfo.(FunctionInfo)
-	if !isFuncInfo {
-		log.Fatalf("Semantic Error: Found variable identifier: %s but expected function identifier", funcName)
-	}
+	funcInfo := st.localEnv.check(funcName, false)
 
 	if len(callExpr.Arguments) != len(funcInfo.(FunctionInfo).paramNames) {
 		log.Fatalf("Semantic Error: Expected %d arguments but got %d", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
@@ -402,27 +546,27 @@ func (st *StaticTyping) VisitCallExpr(callExpr *parser.CallExpr) {
 
 	for argIdx, argument := range callExpr.Arguments {
 		argument.Visit(st)
-		checkAssignmentCompatible(st.returnType, funcInfo.(FunctionInfo).funcType.paramTypes[argIdx])
+		checkAssignmentCompatible(st.visitedType, funcInfo.(FunctionInfo).funcType.paramTypes[argIdx])
 	}
 
-	st.returnType = funcInfo.(FunctionInfo).funcType.returnType
+	st.visitedType = funcInfo.(FunctionInfo).funcType.returnType
 }
 
 func (st *StaticTyping) VisitIndexExpr(indexExpr *parser.IndexExpr) {
 	indexExpr.Value.Visit(st)
-	valueType := st.returnType
+	valueType := st.visitedType
 
 	valueIsString := valueType == strType
 	_, valueIsList := valueType.(ListType)
 
 	indexExpr.Index.Visit(st)
-	indexType := st.returnType
+	indexType := st.visitedType
 
 	checkType(indexType, intType)
 
 	if valueIsString {
-		st.returnType = strType
+		st.visitedType = strType
 	} else if valueIsList {
-		st.returnType = valueType.(ListType).elemType
+		st.visitedType = valueType.(ListType).elemType
 	}
 }
