@@ -5,6 +5,8 @@ import (
 	"log"
 	"maps"
 	"slices"
+
+	"github.com/kr/pretty"
 )
 
 type Type any
@@ -506,6 +508,8 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 
 	case "is":
 		nonObjectTypes := []Type{intType, boolType, strType}
+		pretty.Println(lhsType)
+		pretty.Println(rhsType)
 		if slices.Contains(nonObjectTypes, lhsType) ||
 			slices.Contains(nonObjectTypes, rhsType) {
 			log.Fatalf("Semantic Error: Expected both operands to be of object type")
