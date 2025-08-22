@@ -123,13 +123,11 @@ func checkType(found Type, expected Type) {
 	}
 }
 
-func checkListType(found Type) Type {
+func checkListType(found Type) {
 	_, foundIsList := found.(ListType)
 	if !foundIsList {
 		log.Fatalf("Semantic Error: Expected list type but found '%v'", found)
 	}
-
-	return found.(ListType).elemType
 }
 
 // DefType  TODO: just replace EnvInfo with any if it causes problems
@@ -362,4 +360,69 @@ func (st *StaticTyping) VisitIfExpr(ifExpr *parser.IfExpr) {
 
 	checkType(condType, boolType)
 	st.returnType = join(ifOpType, elseOpType)
+}
+
+func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
+	if len(listExpr.Elements) == 0 {
+		st.returnType = emptyType
+		return
+	}
+
+	elemTypes := []Type{}
+	for _, elem := range listExpr.Elements {
+		elem.Visit(st)
+		elemTypes = append(elemTypes, st.returnType)
+	}
+
+	joinedType := elemTypes[0]
+	elemTypes = elemTypes[0:]
+	for _, elemType := range elemTypes {
+		joinedType = join(joinedType, elemType)
+	}
+
+	st.returnType = ListType{elemType: joinedType}
+}
+
+func (st *StaticTyping) VisitCallExpr(callExpr *parser.CallExpr) {
+	funcName := callExpr.FuncName
+	funcInfo, funcDefined := st.localEnv[funcName]
+
+	if !funcDefined {
+		log.Fatalf("Semantic Error: Unknown function identifier used: %s", funcName)
+	}
+
+	_, isFuncInfo := funcInfo.(FunctionInfo)
+	if !isFuncInfo {
+		log.Fatalf("Semantic Error: Found variable identifier: %s but expected function identifier", funcName)
+	}
+
+	if len(callExpr.Arguments) != len(funcInfo.(FunctionInfo).paramNames) {
+		log.Fatalf("Semantic Error: Expected %d arguments but got %d", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
+	}
+
+	for argIdx, argument := range callExpr.Arguments {
+		argument.Visit(st)
+		checkAssignmentCompatible(st.returnType, funcInfo.(FunctionInfo).funcType.paramTypes[argIdx])
+	}
+
+	st.returnType = funcInfo.(FunctionInfo).funcType.returnType
+}
+
+func (st *StaticTyping) VisitIndexExpr(indexExpr *parser.IndexExpr) {
+	indexExpr.Value.Visit(st)
+	valueType := st.returnType
+
+	valueIsString := valueType == strType
+	_, valueIsList := valueType.(ListType)
+
+	indexExpr.Index.Visit(st)
+	indexType := st.returnType
+
+	checkType(indexType, intType)
+
+	if valueIsString {
+		st.returnType = strType
+	} else if valueIsList {
+		st.returnType = valueType.(ListType).elemType
+	}
 }
