@@ -225,7 +225,12 @@ func (eb *EnvironmentBuilder) Analyze(program *parser.Program) {
 		},
 	}
 
-	program.Visit(eb)
+	for _, definition := range program.Definitions {
+		definition.Visit(eb)
+	}
+	for _, statement := range program.Statements {
+		statement.Visit(eb)
+	}
 }
 
 func (eb *EnvironmentBuilder) VisitTypedVar(typedVar *parser.TypedVar) {
@@ -284,7 +289,12 @@ func (st *StaticTyping) Analyze(program *parser.Program) {
 	st.localEnv = envBuilder.LocalEnvironment
 	st.returnType = bottomType
 
-	program.Visit(st)
+	for _, definition := range program.Definitions {
+		definition.Visit(st)
+	}
+	for _, statement := range program.Statements {
+		statement.Visit(st)
+	}
 }
 
 /* Definitions */
@@ -462,6 +472,8 @@ func (st *StaticTyping) VisitLiteralExpr(literalExpr *parser.LiteralExpr) {
 	default:
 		st.visitedType = noneType
 	}
+	pretty.Println("Parsed literal type:")
+	pretty.Println(st.visitedType)
 }
 
 func (st *StaticTyping) VisitIdentExpr(identExpr *parser.IdentExpr) {
@@ -483,10 +495,16 @@ func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
 }
 
 func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
+	pretty.Println("Visiting Lhs")
 	binaryExpr.Lhs.Visit(st)
+	pretty.Println("Lhs returned list type:")
+	pretty.Println(st.visitedType)
 	lhsType := st.visitedType
 
+	pretty.Println("Visiting Rhs")
 	binaryExpr.Rhs.Visit(st)
+	pretty.Println("Rhs returned list type:")
+	pretty.Println(st.visitedType)
 	rhsType := st.visitedType
 
 	_, lhsIsList := lhsType.(ListType)
@@ -508,8 +526,6 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 
 	case "is":
 		nonObjectTypes := []Type{intType, boolType, strType}
-		pretty.Println(lhsType)
-		pretty.Println(rhsType)
 		if slices.Contains(nonObjectTypes, lhsType) ||
 			slices.Contains(nonObjectTypes, rhsType) {
 			log.Fatalf("Semantic Error: Expected both operands to be of object type")
@@ -574,6 +590,9 @@ func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
 	}
 
 	st.visitedType = ListType{elemType: joinedType}
+
+	pretty.Println("Parsed list type:")
+	pretty.Println(st.visitedType)
 }
 
 func (st *StaticTyping) VisitCallExpr(callExpr *parser.CallExpr) {
