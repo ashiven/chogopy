@@ -67,7 +67,7 @@ func typeFromOp(op parser.Operation) Type {
 		return ListType{elemType: elemType}
 	}
 
-	log.Fatalf("Expected Operation but found %v", op)
+	log.Fatalf("Expected Operation but found %# v", op)
 	return nil
 }
 
@@ -93,7 +93,7 @@ func hintFromType(opType Type) parser.Operation {
 		return &parser.ListType{ElemType: elemType}
 	}
 
-	log.Fatalf("Expected Type but found %v", opType)
+	log.Fatalf("Expected Type but found %# v", opType)
 	return nil
 }
 
@@ -144,20 +144,20 @@ func isAssignmentCompatible(t1 Type, t2 Type) bool {
 
 func checkAssignmentCompatible(t1 Type, t2 Type) {
 	if !isAssignmentCompatible(t1, t2) {
-		log.Fatalf("Semantic Error: Expected '%v' and '%v' to be assignment compatible", t1, t2)
+		log.Fatalf("Semantic Error: '%# v' is not assignment compatible with '%# v'", t1, t2)
 	}
 }
 
 func checkType(found Type, expected Type) {
 	if found != expected {
-		log.Fatalf("Semantic Error: Expected '%v' but found '%v'", expected, found)
+		log.Fatalf("Semantic Error: Expected '%# v' but found '%# v'", expected, found)
 	}
 }
 
 func checkListType(found Type) {
 	_, foundIsList := found.(ListType)
 	if !foundIsList {
-		log.Fatalf("Semantic Error: Expected list type but found '%v'", found)
+		log.Fatalf("Semantic Error: Expected list type but found '%# v'", found)
 	}
 }
 
@@ -184,16 +184,16 @@ type LocalEnvironment map[string]DefType
 func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
 	defType, defExists := le[defName]
 	if !defExists {
-		log.Fatalf("Semantic Error: Unknown identifier used: %s", defName)
+		log.Fatalf("Semantic Error: Unknown identifier used: %s", pretty.Formatter(defName))
 	}
 
 	_, isFuncInfo := defType.(FunctionInfo)
 	if isFuncInfo && expectVarDef {
-		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", defName)
+		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", pretty.Formatter(defName))
 	}
 
 	if !isFuncInfo && !expectVarDef {
-		log.Fatalf("Semantic Error: Found variable identifier: %s but expected function identifier", defName)
+		log.Fatalf("Semantic Error: Found variable identifier: %s but expected function identifier", pretty.Formatter(defName))
 	}
 
 	return defType
@@ -483,7 +483,7 @@ func (st *StaticTyping) VisitLiteralExpr(literalExpr *parser.LiteralExpr) {
 
 func (st *StaticTyping) VisitIdentExpr(identExpr *parser.IdentExpr) {
 	varType := st.localEnv.check(identExpr.Identifier, true)
-	_ = varType
+	st.visitedType = varType
 }
 
 func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
