@@ -285,6 +285,23 @@ func (st *StaticTyping) Analyze(program *parser.Program) {
 	st.returnType = bottomType
 
 	program.Visit(st)
+
+	for _, definition := range program.Definitions {
+		definition.Visit(st)
+	}
+	for _, statement := range program.Statements {
+		statement.Visit(st)
+	}
+}
+
+// Traverse determines whether the StaticTyping visitor should traverse further down the AST
+// at any given moment.
+// If this returns true, each node will implicitly call the Visit() method on each of its
+// child nodes whenever it is visited, which is something we want to avoid here.
+// Instead, we will define when exactly a node will visit its child nodes via explicit calls
+// to the child nodes' Visit() methods in each of the Visitors interface methods.
+func (st *StaticTyping) Traverse() bool {
+	return false
 }
 
 /* Definitions */
@@ -483,11 +500,17 @@ func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
 }
 
 func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
+	pretty.Println("Parsing lhs type")
 	binaryExpr.Lhs.Visit(st)
 	lhsType := st.visitedType
+	pretty.Println("Lhs parsed type:")
+	pretty.Println(lhsType)
 
+	pretty.Println("Parsing rhs type")
 	binaryExpr.Rhs.Visit(st)
 	rhsType := st.visitedType
+	pretty.Println("Rhs parsed type:")
+	pretty.Println(rhsType)
 
 	_, lhsIsList := lhsType.(ListType)
 	_, rhsIsList := rhsType.(ListType)
@@ -508,8 +531,6 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 
 	case "is":
 		nonObjectTypes := []Type{intType, boolType, strType}
-		pretty.Println(lhsType)
-		pretty.Println(rhsType)
 		if slices.Contains(nonObjectTypes, lhsType) ||
 			slices.Contains(nonObjectTypes, rhsType) {
 			log.Fatalf("Semantic Error: Expected both operands to be of object type")
@@ -573,6 +594,14 @@ func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
 		joinedType = join(joinedType, elemType)
 	}
 
+	// TODO:
+	// After we have set such a visitedType we do not want the StaticTyping visitor to continue traversing down the
+	// AST (which is what will happen because the ListExpr has child nodes
+	// that will also be traversed and which may change the st.visitedType to something else that the caller doesn't expect).
+	// Therefore we may have to set some kind of a stopTraversing property on the StaticTyping
+	// visitor which is checked for in each node's Visit() method and will prevent them
+	// from calling the Visit() method on their child nodes as would otherwise be the case.
+	// Note that this property will have to be set to false again before the next call to Visit().
 	st.visitedType = ListType{elemType: joinedType}
 }
 

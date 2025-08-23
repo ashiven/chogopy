@@ -2,6 +2,7 @@ package parser
 
 type Visitor interface {
 	Analyze(p *Program)
+	Traverse() bool
 	VisitNamedType(nt *NamedType)
 	VisitListType(lt *ListType)
 	VisitProgram(p *Program)
@@ -30,6 +31,15 @@ type BaseVisitor struct{}
 
 func (bv *BaseVisitor) Analyze(p *Program) {
 	p.Visit(bv)
+}
+
+// Traverse determines whether the visitor
+// should continue traversing down the tree after it has visited a node.
+// Each node implements a Visit() method which
+// checks whether Traverse() returns true and if it does,
+// will call the Visit() method on each of its child nodes.
+func (bv *BaseVisitor) Traverse() bool {
+	return true
 }
 
 func (bv *BaseVisitor) VisitNamedType(nt *NamedType) {
