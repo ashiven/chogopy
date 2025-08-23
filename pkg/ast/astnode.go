@@ -23,10 +23,6 @@ type Attribute interface {
 
 type BasicAttribute int
 
-type ListAttribute struct {
-	ElemType Attribute
-}
-
 const (
 	Integer BasicAttribute = iota
 	Boolean
@@ -35,6 +31,10 @@ const (
 	Empty
 	Object
 )
+
+type ListAttribute struct {
+	ElemType Attribute
+}
 
 func (ba BasicAttribute) String() string {
 	switch ba {
