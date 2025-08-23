@@ -16,9 +16,14 @@ func (at *AssignTargets) Analyze(program *ast.Program) {
 }
 
 func (at *AssignTargets) VisitAssignStmt(assignStmt *ast.AssignStmt) {
-	if assignStmt.Target.Name() != "IdentExpr" && assignStmt.Target.Name() != "IndexExpr" {
-		fmt.Printf("Semantic Error: Found %s as the left hand side of an assignment.\n", assignStmt.Target.Name())
-		fmt.Println("Expected variable name or index expression.")
-		os.Exit(0)
+	switch assignStmt.Target.(type) {
+	case *ast.IdentExpr:
+		return
+	case *ast.IndexExpr:
+		return
 	}
+
+	fmt.Printf("Semantic Error: Found %s as the left hand side of an assignment.\n", assignStmt.Target.Name())
+	fmt.Println("Expected variable name or index expression.")
+	os.Exit(0)
 }

@@ -5,10 +5,23 @@ import (
 	"os"
 )
 
-type SemanticErrorKind int
+type NameScopeSemanticErrorKind int
 
 const (
-	NotAssignmentCompatible SemanticErrorKind = iota
+	IdentifierAlreadyDefined NameScopeSemanticErrorKind = iota
+	IdentifierUndefined
+	IdentifierUndeclaredParentScope
+	IdentifierUndeclaredGlobalScope
+	AssignToUndeclaredVariable
+)
+
+func nameSemanticError(errorKind NameScopeSemanticErrorKind, name string) {
+}
+
+type TypeSemanticErrorKind int
+
+const (
+	NotAssignmentCompatible TypeSemanticErrorKind = iota
 	UnexpectedType
 	ExpectedListType
 	UnknownIdentifierUsed
@@ -19,7 +32,7 @@ const (
 	FunctionCallArgumentMismatch
 )
 
-func semanticError(errorKind SemanticErrorKind, t1 Type, t2 Type, defName string, funcArgs int, callArgs int) {
+func typeSemanticError(errorKind TypeSemanticErrorKind, t1 Type, t2 Type, defName string, funcArgs int, callArgs int) {
 	switch errorKind {
 	case NotAssignmentCompatible:
 		fmt.Printf("Semantic Error: %s is not assignment compatible with %s", nameFromType(t1), nameFromType(t2))

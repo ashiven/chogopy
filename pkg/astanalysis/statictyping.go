@@ -28,16 +28,16 @@ type LocalEnvironment map[string]DefType
 func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
 	defType, defExists := le[defName]
 	if !defExists {
-		semanticError(UnknownIdentifierUsed, nil, nil, defName, 0, 0)
+		typeSemanticError(UnknownIdentifierUsed, nil, nil, defName, 0, 0)
 	}
 
 	_, isFuncInfo := defType.(FunctionInfo)
 	if isFuncInfo && expectVarDef {
-		semanticError(ExpectedVariableIdentifier, nil, nil, defName, 0, 0)
+		typeSemanticError(ExpectedVariableIdentifier, nil, nil, defName, 0, 0)
 	}
 
 	if !isFuncInfo && !expectVarDef {
-		semanticError(ExpectedFunctionIdentifier, nil, nil, defName, 0, 0)
+		typeSemanticError(ExpectedFunctionIdentifier, nil, nil, defName, 0, 0)
 	}
 
 	return defType
@@ -267,7 +267,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 
 		_, lastNodeIsList := lastNodeType.(ListType)
 		if lastNodeIsList && lastNodeType.(ListType).elemType == noneType {
-			semanticError(ExpectedNonNoneListType, nil, nil, "", 0, 0)
+			typeSemanticError(ExpectedNonNoneListType, nil, nil, "", 0, 0)
 		}
 
 		for _, assignNode := range assignNodes[:len(assignNodes)-1] {
@@ -387,7 +387,7 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		nonObjectTypes := []Type{intType, boolType, strType}
 		if slices.Contains(nonObjectTypes, lhsType) ||
 			slices.Contains(nonObjectTypes, rhsType) {
-			semanticError(IsBinaryExpectedTwoObjectTypes, nil, nil, "", 0, 0)
+			typeSemanticError(IsBinaryExpectedTwoObjectTypes, nil, nil, "", 0, 0)
 		}
 		st.visitedType = boolType
 		binaryExpr.TypeHint = hintFromType(st.visitedType)
@@ -469,7 +469,7 @@ func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
 	funcInfo := st.localEnv.check(funcName, false)
 
 	if len(callExpr.Arguments) != len(funcInfo.(FunctionInfo).paramNames) {
-		semanticError(FunctionCallArgumentMismatch, nil, nil, "", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
+		typeSemanticError(FunctionCallArgumentMismatch, nil, nil, "", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
 	}
 
 	for argIdx, argument := range callExpr.Arguments {
