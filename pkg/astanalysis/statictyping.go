@@ -690,17 +690,15 @@ func (st *StaticTyping) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 	indexExpr.Value.Visit(st)
 	valueType := st.visitedType
 
-	valueIsString := valueType == strType
-	_, valueIsList := valueType.(ListType)
-
 	indexExpr.Index.Visit(st)
 	indexType := st.visitedType
 
 	checkType(indexType, intType)
 
-	if valueIsString {
+	if valueType == strType {
 		st.visitedType = strType
-	} else if valueIsList {
+	} else {
+		checkListType(valueType)
 		st.visitedType = valueType.(ListType).elemType
 	}
 }
