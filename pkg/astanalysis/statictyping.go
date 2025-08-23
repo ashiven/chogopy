@@ -111,26 +111,26 @@ func typeFromNode(node ast.Node) Type {
 	return nil
 }
 
-func hintFromType(nodeType Type) ast.Node {
+func hintFromType(nodeType Type) ast.Attribute {
 	switch nodeType {
 	case intType:
-		return &ast.NamedType{TypeName: "int"}
+		return ast.Integer
 	case boolType:
-		return &ast.NamedType{TypeName: "bool"}
+		return ast.Boolean
 	case strType:
-		return &ast.NamedType{TypeName: "str"}
+		return ast.String
 	case noneType:
-		return &ast.NamedType{TypeName: "<None>"}
+		return ast.None
 	case emptyType:
-		return &ast.NamedType{TypeName: "<Empty>"}
+		return ast.Empty
 	case objectType:
-		return &ast.NamedType{TypeName: "object"}
+		return ast.Object
 	}
 
 	_, isListType := nodeType.(ListType)
 	if isListType {
 		elemType := hintFromType(nodeType.(ListType).elemType)
-		return &ast.ListType{ElemType: elemType}
+		return ast.ListAttribute{ElemType: elemType}
 	}
 
 	log.Fatalf("Expected Type but found %# v", nodeType)

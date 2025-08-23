@@ -1,14 +1,61 @@
 // Package ast implements definitions for the AST nodes and the AST visitor
 package ast
 
+import "fmt"
+
 /* Types */
 
 type Node interface {
 	Name() string
-	// TODO: would be good to have but is the effort for validation even beneficial
-	// or will invalid nodes not already be prevented in the parser
-	Validate() bool
 	Visit(v Visitor)
+	// TODO: It would be good to have but is the effort for validation even beneficial
+	// or will invalid nodes not already be prevented in the parser?
+	Validate() bool
+}
+
+// Attribute has as its purpose to equip each
+// expression AST node with a type hint that can later
+// be used when lowering the AST into a series of
+// machine instructions or a flattened IR.
+type Attribute interface {
+	String() string
+}
+
+type BasicAttribute int
+
+type ListAttribute struct {
+	ElemType Attribute
+}
+
+const (
+	Integer BasicAttribute = iota
+	Boolean
+	String
+	None
+	Empty
+	Object
+)
+
+func (ba BasicAttribute) String() string {
+	switch ba {
+	case Integer:
+		return "Integer"
+	case Boolean:
+		return "Boolean"
+	case String:
+		return "String"
+	case None:
+		return "None"
+	case Empty:
+		return "Empty"
+	case Object:
+		return "Object"
+	}
+	return ""
+}
+
+func (la ListAttribute) String() string {
+	return fmt.Sprintf("List[%s]", la.ElemType.String())
 }
 
 type NamedType struct {
@@ -322,8 +369,9 @@ func (as *AssignStmt) Visit(v Visitor) {
 /* Expressions */
 
 type LiteralExpr struct {
-	name  string
-	Value any
+	name     string
+	TypeHint Attribute
+	Value    any
 	Node
 }
 
@@ -340,7 +388,7 @@ func (le *LiteralExpr) Visit(v Visitor) {
 
 type IdentExpr struct {
 	name       string
-	TypeHint   Node
+	TypeHint   Attribute
 	Identifier string
 	Node
 }
@@ -359,9 +407,10 @@ func (ie *IdentExpr) Visit(v Visitor) {
 }
 
 type UnaryExpr struct {
-	name  string
-	Op    string
-	Value Node
+	name     string
+	TypeHint Attribute
+	Op       string
+	Value    Node
 	Node
 }
 
@@ -380,10 +429,11 @@ func (ue *UnaryExpr) Visit(v Visitor) {
 }
 
 type BinaryExpr struct {
-	name string
-	Op   string
-	Lhs  Node
-	Rhs  Node
+	name     string
+	TypeHint Attribute
+	Op       string
+	Lhs      Node
+	Rhs      Node
 	Node
 }
 
@@ -404,6 +454,7 @@ func (be *BinaryExpr) Visit(v Visitor) {
 
 type IfExpr struct {
 	name      string
+	TypeHint  Attribute
 	Condition Node
 	IfNode    Node
 	ElseNode  Node
@@ -428,6 +479,7 @@ func (ie *IfExpr) Visit(v Visitor) {
 
 type ListExpr struct {
 	name     string
+	TypeHint Attribute
 	Elements []Node
 	Node
 }
@@ -450,6 +502,7 @@ func (le *ListExpr) Visit(v Visitor) {
 
 type CallExpr struct {
 	name      string
+	TypeHint  Attribute
 	FuncName  string
 	Arguments []Node
 	Node
@@ -473,7 +526,7 @@ func (ce *CallExpr) Visit(v Visitor) {
 
 type IndexExpr struct {
 	name     string
-	TypeHint Node
+	TypeHint Attribute
 	Value    Node
 	Index    Node
 	Node
