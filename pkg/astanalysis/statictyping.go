@@ -161,7 +161,6 @@ func checkListType(found Type) {
 	}
 }
 
-// DefType  TODO: just replace EnvInfo with any if it causes problems
 type DefType interface {
 	Type | FunctionInfo
 }
@@ -478,6 +477,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *parser.AssignStmt) {
 	}
 }
 
+// TODO: all expressions should be equipped with a type hint
 /* Expressions */
 
 func (st *StaticTyping) VisitLiteralExpr(literalExpr *parser.LiteralExpr) {
@@ -600,14 +600,6 @@ func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
 		joinedType = join(joinedType, elemType)
 	}
 
-	// TODO:
-	// After we have set such a visitedType we do not want the StaticTyping visitor to continue traversing down the
-	// AST (which is what will happen because the ListExpr has child nodes
-	// that will also be traversed and which may change the st.visitedType to something else that the caller doesn't expect).
-	// Therefore we may have to set some kind of a stopTraversing property on the StaticTyping
-	// visitor which is checked for in each node's Visit() method and will prevent them
-	// from calling the Visit() method on their child nodes as would otherwise be the case.
-	// Note that this property will have to be set to false again before the next call to Visit().
 	st.visitedType = ListType{elemType: joinedType}
 }
 
