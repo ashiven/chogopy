@@ -26,11 +26,11 @@ const (
 func semanticError(errorKind SemanticErrorKind, t1 Type, t2 Type, defName string, funcArgs int, callArgs int) {
 	switch errorKind {
 	case NotAssignmentCompatible:
-		fmt.Printf("Semantic Error: %# v is not assignment compatible with %# v", nameFromType(t1), nameFromType(t2))
+		fmt.Printf("Semantic Error: %s is not assignment compatible with %s", nameFromType(t1), nameFromType(t2))
 	case UnexpectedType:
-		fmt.Printf("Semantic Error: Expected %# v but found %# v", nameFromType(t1), nameFromType(t2))
+		fmt.Printf("Semantic Error: Expected %s but found %s", nameFromType(t1), nameFromType(t2))
 	case ExpectedListType:
-		fmt.Printf("Semantic Error: Expected list type but found %# v", nameFromType(t1))
+		fmt.Printf("Semantic Error: Expected list type but found %s", nameFromType(t1))
 	case UnknownIdentifierUsed:
 		fmt.Printf("Semantic Error: Unknown identifier used: %s", defName)
 	case ExpectedVariableIdentifier:
