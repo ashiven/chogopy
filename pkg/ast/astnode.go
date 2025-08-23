@@ -366,11 +366,14 @@ func (as *AssignStmt) Visit(v Visitor) {
 	}
 }
 
+// TODO: We are currently simply converting Attributes to their string representation
+// and setting this as the TypeHint but it may be better to set the Attribute directly and
+// convert it to its string representation only when needed.
 /* Expressions */
 
 type LiteralExpr struct {
 	name     string
-	TypeHint Attribute
+	TypeHint string
 	Value    any
 	Node
 }
@@ -388,7 +391,7 @@ func (le *LiteralExpr) Visit(v Visitor) {
 
 type IdentExpr struct {
 	name       string
-	TypeHint   Attribute
+	TypeHint   string
 	Identifier string
 	Node
 }
@@ -408,7 +411,7 @@ func (ie *IdentExpr) Visit(v Visitor) {
 
 type UnaryExpr struct {
 	name     string
-	TypeHint Attribute
+	TypeHint string
 	Op       string
 	Value    Node
 	Node
@@ -430,7 +433,7 @@ func (ue *UnaryExpr) Visit(v Visitor) {
 
 type BinaryExpr struct {
 	name     string
-	TypeHint Attribute
+	TypeHint string
 	Op       string
 	Lhs      Node
 	Rhs      Node
@@ -454,7 +457,7 @@ func (be *BinaryExpr) Visit(v Visitor) {
 
 type IfExpr struct {
 	name      string
-	TypeHint  Attribute
+	TypeHint  string
 	Condition Node
 	IfNode    Node
 	ElseNode  Node
@@ -479,7 +482,7 @@ func (ie *IfExpr) Visit(v Visitor) {
 
 type ListExpr struct {
 	name     string
-	TypeHint Attribute
+	TypeHint string
 	Elements []Node
 	Node
 }
@@ -502,7 +505,7 @@ func (le *ListExpr) Visit(v Visitor) {
 
 type CallExpr struct {
 	name      string
-	TypeHint  Attribute
+	TypeHint  string
 	FuncName  string
 	Arguments []Node
 	Node
@@ -526,7 +529,7 @@ func (ce *CallExpr) Visit(v Visitor) {
 
 type IndexExpr struct {
 	name     string
-	TypeHint Attribute
+	TypeHint string
 	Value    Node
 	Index    Node
 	Node

@@ -53,6 +53,7 @@ func main() {
 			program := myParser.ParseProgram()
 			staticTyping := astanalysis.StaticTyping{}
 			staticTyping.Analyze(&program)
+			pretty.Println(program)
 		}
 	}
 }

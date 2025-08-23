@@ -111,7 +111,7 @@ func typeFromNode(node ast.Node) Type {
 	return nil
 }
 
-func hintFromType(nodeType Type) ast.Attribute {
+func attrFromType(nodeType Type) ast.Attribute {
 	switch nodeType {
 	case intType:
 		return ast.Integer
@@ -129,12 +129,16 @@ func hintFromType(nodeType Type) ast.Attribute {
 
 	_, isListType := nodeType.(ListType)
 	if isListType {
-		elemType := hintFromType(nodeType.(ListType).elemType)
+		elemType := attrFromType(nodeType.(ListType).elemType)
 		return ast.ListAttribute{ElemType: elemType}
 	}
 
 	log.Fatalf("Expected Type but found %# v", nodeType)
 	return nil
+}
+
+func hintFromType(nodeType Type) string {
+	return attrFromType(nodeType).String()
 }
 
 func nameFromType(nodeType Type) string {
@@ -544,7 +548,6 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 	}
 }
 
-// TODO: all expressions should be equipped with a type hint
 /* Expressions */
 
 func (st *StaticTyping) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
@@ -558,11 +561,13 @@ func (st *StaticTyping) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 	default:
 		st.visitedType = noneType
 	}
+	literalExpr.TypeHint = hintFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	varType := st.localEnv.check(identExpr.Identifier, true)
 	st.visitedType = varType
+	identExpr.TypeHint = hintFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
@@ -576,6 +581,7 @@ func (st *StaticTyping) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 		checkType(st.visitedType, boolType)
 		st.visitedType = boolType
 	}
+	unaryExpr.TypeHint = hintFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
@@ -596,11 +602,13 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		checkType(lhsType, boolType)
 		checkType(rhsType, boolType)
 		st.visitedType = boolType
+		binaryExpr.TypeHint = hintFromType(st.visitedType)
 
 	case "or":
 		checkType(lhsType, boolType)
 		checkType(rhsType, boolType)
 		st.visitedType = boolType
+		binaryExpr.TypeHint = hintFromType(st.visitedType)
 
 	case "is":
 		nonObjectTypes := []Type{intType, boolType, strType}
@@ -609,29 +617,39 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 			semanticError(IsBinaryExpectedTwoObjectTypes, nil, nil, "", 0, 0)
 		}
 		st.visitedType = boolType
+		binaryExpr.TypeHint = hintFromType(st.visitedType)
 
 	case "+", "-", "*", "//", "%":
 		if binaryExpr.Op == "+" && lhsIsString && rhsIsString {
 			st.visitedType = strType
+			binaryExpr.TypeHint = hintFromType(st.visitedType)
 			return
 		}
 		if binaryExpr.Op == "+" && lhsIsList && rhsIsList {
 			st.visitedType = ListType{elemType: join(lhsType, rhsType)}
+			binaryExpr.TypeHint = hintFromType(st.visitedType)
 			return
 		}
 		checkType(lhsType, intType)
 		checkType(rhsType, intType)
+		st.visitedType = intType
+		binaryExpr.TypeHint = hintFromType(st.visitedType)
 
 	case "<", "<=", ">", ">=", "==", "!=":
-		st.visitedType = boolType
 		if lhsIsString && rhsIsString {
+			st.visitedType = boolType
+			binaryExpr.TypeHint = hintFromType(st.visitedType)
 			return
 		}
 		if lhsIsList && rhsIsList {
+			st.visitedType = boolType
+			binaryExpr.TypeHint = hintFromType(st.visitedType)
 			return
 		}
 		checkType(lhsType, intType)
 		checkType(rhsType, intType)
+		st.visitedType = boolType
+		binaryExpr.TypeHint = hintFromType(st.visitedType)
 	}
 }
 
@@ -647,11 +665,13 @@ func (st *StaticTyping) VisitIfExpr(ifExpr *ast.IfExpr) {
 
 	checkType(condType, boolType)
 	st.visitedType = join(ifNodeType, elseNodeType)
+	ifExpr.TypeHint = hintFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitListExpr(listExpr *ast.ListExpr) {
 	if len(listExpr.Elements) == 0 {
 		st.visitedType = emptyType
+		listExpr.TypeHint = hintFromType(st.visitedType)
 		return
 	}
 
@@ -668,6 +688,7 @@ func (st *StaticTyping) VisitListExpr(listExpr *ast.ListExpr) {
 	}
 
 	st.visitedType = ListType{elemType: joinedType}
+	listExpr.TypeHint = hintFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
@@ -684,6 +705,7 @@ func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
 	}
 
 	st.visitedType = funcInfo.(FunctionInfo).funcType.returnType
+	callExpr.TypeHint = hintFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitIndexExpr(indexExpr *ast.IndexExpr) {
@@ -697,8 +719,10 @@ func (st *StaticTyping) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 
 	if valueType == strType {
 		st.visitedType = strType
+		indexExpr.TypeHint = hintFromType(st.visitedType)
 	} else {
 		checkListType(valueType)
 		st.visitedType = valueType.(ListType).elemType
+		indexExpr.TypeHint = hintFromType(st.visitedType)
 	}
 }
