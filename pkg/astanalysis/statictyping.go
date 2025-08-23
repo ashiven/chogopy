@@ -60,10 +60,12 @@ type ListType struct {
 }
 
 type BottomType struct {
+	typeName string
 	Type
 }
 
 type ObjectType struct {
+	typeName string
 	Type
 }
 
@@ -78,8 +80,8 @@ var (
 	strType    = BasicType{typeName: "str"}
 	noneType   = BasicType{typeName: "<None>"}
 	emptyType  = BasicType{typeName: "<Empty>"}
-	bottomType = BottomType{}
-	objectType = ObjectType{}
+	bottomType = BottomType{typeName: "bottom"}
+	objectType = ObjectType{typeName: "object"}
 )
 
 func typeFromOp(op ast.Operation) Type {
@@ -148,9 +150,9 @@ func nameFromType(opType Type) string {
 	case emptyType:
 		return emptyType.typeName
 	case objectType:
-		return "object"
+		return objectType.typeName
 	case bottomType:
-		return "bottom"
+		return bottomType.typeName
 	}
 
 	_, isListType := opType.(ListType)
