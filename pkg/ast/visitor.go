@@ -1,4 +1,4 @@
-package parser
+package ast
 
 type Visitor interface {
 	Analyze(p *Program)

@@ -1,7 +1,7 @@
 package astanalysis
 
 import (
-	"chogopy/pkg/parser"
+	"chogopy/pkg/ast"
 	"log"
 	"maps"
 	"slices"
@@ -44,9 +44,9 @@ var (
 	objectType = ObjectType{}
 )
 
-func typeFromOp(op parser.Operation) Type {
+func typeFromOp(op ast.Operation) Type {
 	switch op := op.(type) {
-	case *parser.NamedType:
+	case *ast.NamedType:
 		switch op.TypeName {
 		case "int":
 			return intType
@@ -62,7 +62,7 @@ func typeFromOp(op parser.Operation) Type {
 			return objectType
 		}
 
-	case *parser.ListType:
+	case *ast.ListType:
 		elemType := typeFromOp(op.ElemType)
 		return ListType{elemType: elemType}
 	}
@@ -71,26 +71,26 @@ func typeFromOp(op parser.Operation) Type {
 	return nil
 }
 
-func hintFromType(opType Type) parser.Operation {
+func hintFromType(opType Type) ast.Operation {
 	switch opType {
 	case intType:
-		return &parser.NamedType{TypeName: "int"}
+		return &ast.NamedType{TypeName: "int"}
 	case boolType:
-		return &parser.NamedType{TypeName: "bool"}
+		return &ast.NamedType{TypeName: "bool"}
 	case strType:
-		return &parser.NamedType{TypeName: "str"}
+		return &ast.NamedType{TypeName: "str"}
 	case noneType:
-		return &parser.NamedType{TypeName: "<None>"}
+		return &ast.NamedType{TypeName: "<None>"}
 	case emptyType:
-		return &parser.NamedType{TypeName: "<Empty>"}
+		return &ast.NamedType{TypeName: "<Empty>"}
 	case objectType:
-		return &parser.NamedType{TypeName: "object"}
+		return &ast.NamedType{TypeName: "object"}
 	}
 
 	_, isListType := opType.(ListType)
 	if isListType {
 		elemType := hintFromType(opType.(ListType).elemType)
-		return &parser.ListType{ElemType: elemType}
+		return &ast.ListType{ElemType: elemType}
 	}
 
 	log.Fatalf("Expected Type but found %# v", opType)
@@ -202,10 +202,10 @@ func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
 // LocalEnvironment by checking every VarDef and FuncDef AST node
 type EnvironmentBuilder struct {
 	LocalEnvironment LocalEnvironment
-	parser.BaseVisitor
+	ast.BaseVisitor
 }
 
-func (eb *EnvironmentBuilder) Analyze(program *parser.Program) {
+func (eb *EnvironmentBuilder) Analyze(program *ast.Program) {
 	eb.LocalEnvironment = LocalEnvironment{
 		"len": FunctionInfo{
 			funcType:   FunctionType{paramTypes: []Type{objectType}, returnType: intType},
@@ -227,20 +227,20 @@ func (eb *EnvironmentBuilder) Analyze(program *parser.Program) {
 	program.Visit(eb)
 }
 
-func (eb *EnvironmentBuilder) VisitTypedVar(typedVar *parser.TypedVar) {
+func (eb *EnvironmentBuilder) VisitTypedVar(typedVar *ast.TypedVar) {
 	varName := typedVar.VarName
 	varType := typeFromOp(typedVar.VarType)
 	eb.LocalEnvironment[varName] = varType
 }
 
-func (eb *EnvironmentBuilder) VisitFuncDef(funcDef *parser.FuncDef) {
+func (eb *EnvironmentBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
 	funcName := funcDef.FuncName
 
 	paramNames := []string{}
 	paramTypes := []Type{}
 	for _, param := range funcDef.Parameters {
-		paramName := param.(*parser.TypedVar).VarName
-		paramType := typeFromOp(param.(*parser.TypedVar).VarType)
+		paramName := param.(*ast.TypedVar).VarName
+		paramType := typeFromOp(param.(*ast.TypedVar).VarType)
 		paramNames = append(paramNames, paramName)
 		paramTypes = append(paramTypes, paramType)
 	}
@@ -269,14 +269,14 @@ type StaticTyping struct {
 	localEnv    LocalEnvironment
 	returnType  Type
 	visitedType Type
-	parser.BaseVisitor
+	ast.BaseVisitor
 }
 
 // Analyze performs static type checking according to the rules defined in
 // chapter 5 of the chocopy language reference:
 //
 // https://chocopy.org/chocopy_language_reference.pdf
-func (st *StaticTyping) Analyze(program *parser.Program) {
+func (st *StaticTyping) Analyze(program *ast.Program) {
 	envBuilder := &EnvironmentBuilder{LocalEnvironment: map[string]DefType{}}
 	envBuilder.Analyze(program)
 
@@ -305,7 +305,7 @@ func (st *StaticTyping) Traverse() bool {
 
 /* Definitions */
 
-func (st *StaticTyping) VisitFuncDef(funcDef *parser.FuncDef) {
+func (st *StaticTyping) VisitFuncDef(funcDef *ast.FuncDef) {
 	funcInfo := st.localEnv.check(funcDef.FuncName, false)
 
 	paramNames := funcInfo.(FunctionInfo).paramNames
@@ -334,12 +334,12 @@ func (st *StaticTyping) VisitFuncDef(funcDef *parser.FuncDef) {
 	}
 }
 
-func (st *StaticTyping) VisitGlobalDecl(globalDecl *parser.GlobalDecl) {}
+func (st *StaticTyping) VisitGlobalDecl(globalDecl *ast.GlobalDecl) {}
 
-func (st *StaticTyping) VisitNonLocalDecl(nonLocalDecl *parser.NonLocalDecl) {}
+func (st *StaticTyping) VisitNonLocalDecl(nonLocalDecl *ast.NonLocalDecl) {}
 
-func (st *StaticTyping) VisitVarDef(varDef *parser.VarDef) {
-	varName := varDef.TypedVar.(*parser.TypedVar).VarName
+func (st *StaticTyping) VisitVarDef(varDef *ast.VarDef) {
+	varName := varDef.TypedVar.(*ast.TypedVar).VarName
 	varType := st.localEnv.check(varName, true)
 
 	varDef.Literal.Visit(st)
@@ -350,7 +350,7 @@ func (st *StaticTyping) VisitVarDef(varDef *parser.VarDef) {
 
 /* Statements */
 
-func (st *StaticTyping) VisitIfStmt(ifStmt *parser.IfStmt) {
+func (st *StaticTyping) VisitIfStmt(ifStmt *ast.IfStmt) {
 	ifStmt.Condition.Visit(st)
 	checkType(st.visitedType, boolType)
 
@@ -362,7 +362,7 @@ func (st *StaticTyping) VisitIfStmt(ifStmt *parser.IfStmt) {
 	}
 }
 
-func (st *StaticTyping) VisitWhileStmt(whileStmt *parser.WhileStmt) {
+func (st *StaticTyping) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 	whileStmt.Condition.Visit(st)
 	checkType(st.visitedType, boolType)
 
@@ -371,7 +371,7 @@ func (st *StaticTyping) VisitWhileStmt(whileStmt *parser.WhileStmt) {
 	}
 }
 
-func (st *StaticTyping) VisitForStmt(forStmt *parser.ForStmt) {
+func (st *StaticTyping) VisitForStmt(forStmt *ast.ForStmt) {
 	forStmt.Iter.Visit(st)
 	iterType := st.visitedType
 	iterNameType := st.localEnv.check(forStmt.IterName, true)
@@ -389,28 +389,28 @@ func (st *StaticTyping) VisitForStmt(forStmt *parser.ForStmt) {
 	}
 }
 
-func (st *StaticTyping) VisitPassStmt(passStmt *parser.PassStmt) {}
+func (st *StaticTyping) VisitPassStmt(passStmt *ast.PassStmt) {}
 
-func (st *StaticTyping) VisitReturnStmt(returnStmt *parser.ReturnStmt) {
+func (st *StaticTyping) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
 	returnStmt.ReturnVal.Visit(st)
 	returnType := st.visitedType
 	checkAssignmentCompatible(returnType, st.returnType)
 }
 
-func (st *StaticTyping) VisitAssignStmt(assignStmt *parser.AssignStmt) {
+func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 	// Case 1: Multi-assign like: a = b = c --> Assign(a, Assign(b, c))
-	_, valueIsAssign := assignStmt.Value.(*parser.AssignStmt)
+	_, valueIsAssign := assignStmt.Value.(*ast.AssignStmt)
 	if valueIsAssign {
 
 		// Substep 1: assignOps collects every op in the assignment chain
 		// ([a, b, c] for the above example)
-		assignOps := []parser.Operation{assignStmt.Target}
+		assignOps := []ast.Operation{assignStmt.Target}
 		currentAssign := assignStmt
 
 		for valueIsAssign {
-			currentAssign = assignStmt.Value.(*parser.AssignStmt)
+			currentAssign = assignStmt.Value.(*ast.AssignStmt)
 			assignOps = append(assignOps, currentAssign.Target)
-			_, valueIsAssign = currentAssign.Value.(*parser.AssignStmt)
+			_, valueIsAssign = currentAssign.Value.(*ast.AssignStmt)
 		}
 		assignOps = append(assignOps, currentAssign.Value)
 
@@ -435,10 +435,10 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *parser.AssignStmt) {
 		// Substep 3: Type hints are added for each op in the assignment chain
 		for _, assignOp := range assignOps {
 			switch assignOp := assignOp.(type) {
-			case *parser.IdentExpr:
+			case *ast.IdentExpr:
 				identType := st.localEnv.check(assignOp.Identifier, true)
 				assignOp.TypeHint = hintFromType(identType)
-			case *parser.IndexExpr:
+			case *ast.IndexExpr:
 				assignOp.Value.Visit(st)
 				valueType := st.visitedType
 				assignOp.TypeHint = hintFromType(valueType)
@@ -448,7 +448,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *parser.AssignStmt) {
 
 	switch target := assignStmt.Target.(type) {
 	// Case 2: Assign to an identifier like: a = 1
-	case *parser.IdentExpr:
+	case *ast.IdentExpr:
 		identName := target.Identifier
 		identType := st.localEnv.check(identName, true)
 
@@ -460,7 +460,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *parser.AssignStmt) {
 		target.TypeHint = hintFromType(identType)
 
 	// Case 3: Assign to a list like: a[12] = 1
-	case *parser.IndexExpr:
+	case *ast.IndexExpr:
 		target.Value.Visit(st)
 		targetValueType := st.visitedType
 		checkListType(targetValueType)
@@ -480,7 +480,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *parser.AssignStmt) {
 // TODO: all expressions should be equipped with a type hint
 /* Expressions */
 
-func (st *StaticTyping) VisitLiteralExpr(literalExpr *parser.LiteralExpr) {
+func (st *StaticTyping) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 	switch literalExpr.Value.(type) {
 	case int:
 		st.visitedType = intType
@@ -493,12 +493,12 @@ func (st *StaticTyping) VisitLiteralExpr(literalExpr *parser.LiteralExpr) {
 	}
 }
 
-func (st *StaticTyping) VisitIdentExpr(identExpr *parser.IdentExpr) {
+func (st *StaticTyping) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	varType := st.localEnv.check(identExpr.Identifier, true)
 	st.visitedType = varType
 }
 
-func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
+func (st *StaticTyping) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 	unaryExpr.Value.Visit(st)
 
 	switch unaryExpr.Op {
@@ -511,7 +511,7 @@ func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
 	}
 }
 
-func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
+func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	binaryExpr.Lhs.Visit(st)
 	lhsType := st.visitedType
 
@@ -568,7 +568,7 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
 	}
 }
 
-func (st *StaticTyping) VisitIfExpr(ifExpr *parser.IfExpr) {
+func (st *StaticTyping) VisitIfExpr(ifExpr *ast.IfExpr) {
 	ifExpr.Condition.Visit(st)
 	condType := st.visitedType
 
@@ -582,7 +582,7 @@ func (st *StaticTyping) VisitIfExpr(ifExpr *parser.IfExpr) {
 	st.visitedType = join(ifOpType, elseOpType)
 }
 
-func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
+func (st *StaticTyping) VisitListExpr(listExpr *ast.ListExpr) {
 	if len(listExpr.Elements) == 0 {
 		st.visitedType = emptyType
 		return
@@ -603,7 +603,7 @@ func (st *StaticTyping) VisitListExpr(listExpr *parser.ListExpr) {
 	st.visitedType = ListType{elemType: joinedType}
 }
 
-func (st *StaticTyping) VisitCallExpr(callExpr *parser.CallExpr) {
+func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
 	funcName := callExpr.FuncName
 	funcInfo := st.localEnv.check(funcName, false)
 
@@ -619,7 +619,7 @@ func (st *StaticTyping) VisitCallExpr(callExpr *parser.CallExpr) {
 	st.visitedType = funcInfo.(FunctionInfo).funcType.returnType
 }
 
-func (st *StaticTyping) VisitIndexExpr(indexExpr *parser.IndexExpr) {
+func (st *StaticTyping) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 	indexExpr.Value.Visit(st)
 	valueType := st.visitedType
 

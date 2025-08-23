@@ -1,4 +1,5 @@
-package parser
+// Package ast implements definitions for the AST nodes and the AST visitor
+package ast
 
 /* Types */
 

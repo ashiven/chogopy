@@ -1,11 +1,13 @@
 package astanalysis
 
-import "chogopy/pkg/parser"
+import (
+	"chogopy/pkg/ast"
+)
 
 type NameScopes struct {
-	parser.BaseVisitor
+	ast.BaseVisitor
 }
 
-func (ns *NameScopes) Analyze(program *parser.Program) {
+func (ns *NameScopes) Analyze(program *ast.Program) {
 	program.Visit(ns)
 }
