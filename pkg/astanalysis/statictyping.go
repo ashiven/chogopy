@@ -84,10 +84,10 @@ var (
 	objectType = ObjectType{typeName: "object"}
 )
 
-func typeFromOp(op ast.Operation) Type {
-	switch op := op.(type) {
+func typeFromNode(node ast.Node) Type {
+	switch node := node.(type) {
 	case *ast.NamedType:
-		switch op.TypeName {
+		switch node.TypeName {
 		case "int":
 			return intType
 		case "bool":
@@ -103,16 +103,16 @@ func typeFromOp(op ast.Operation) Type {
 		}
 
 	case *ast.ListType:
-		elemType := typeFromOp(op.ElemType)
+		elemType := typeFromNode(node.ElemType)
 		return ListType{elemType: elemType}
 	}
 
-	log.Fatalf("Expected Operation but found %# v", op)
+	log.Fatalf("Expected Node but found %# v", node)
 	return nil
 }
 
-func hintFromType(opType Type) ast.Operation {
-	switch opType {
+func hintFromType(nodeType Type) ast.Node {
+	switch nodeType {
 	case intType:
 		return &ast.NamedType{TypeName: "int"}
 	case boolType:
@@ -127,18 +127,18 @@ func hintFromType(opType Type) ast.Operation {
 		return &ast.NamedType{TypeName: "object"}
 	}
 
-	_, isListType := opType.(ListType)
+	_, isListType := nodeType.(ListType)
 	if isListType {
-		elemType := hintFromType(opType.(ListType).elemType)
+		elemType := hintFromType(nodeType.(ListType).elemType)
 		return &ast.ListType{ElemType: elemType}
 	}
 
-	log.Fatalf("Expected Type but found %# v", opType)
+	log.Fatalf("Expected Type but found %# v", nodeType)
 	return nil
 }
 
-func nameFromType(opType Type) string {
-	switch opType {
+func nameFromType(nodeType Type) string {
+	switch nodeType {
 	case intType:
 		return intType.typeName
 	case boolType:
@@ -155,13 +155,13 @@ func nameFromType(opType Type) string {
 		return bottomType.typeName
 	}
 
-	_, isListType := opType.(ListType)
+	_, isListType := nodeType.(ListType)
 	if isListType {
-		elemType := nameFromType(opType.(ListType).elemType)
+		elemType := nameFromType(nodeType.(ListType).elemType)
 		return fmt.Sprintf("List[%s]", elemType)
 	}
 
-	log.Fatalf("Expected Type but found %# v", opType)
+	log.Fatalf("Expected Type but found %# v", nodeType)
 	return ""
 }
 
@@ -269,12 +269,14 @@ func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
 // EnvironmentBuilder is responsible for traversing the AST and constructing the above-defined
 // LocalEnvironment by checking every VarDef and FuncDef AST node
 type EnvironmentBuilder struct {
-	LocalEnvironment LocalEnvironment
+	LocalEnv LocalEnvironment
 	ast.BaseVisitor
 }
 
 func (eb *EnvironmentBuilder) Analyze(program *ast.Program) {
-	eb.LocalEnvironment = LocalEnvironment{
+	eb.LocalEnv = LocalEnvironment{}
+
+	eb.LocalEnv = LocalEnvironment{
 		"len": FunctionInfo{
 			funcType:   FunctionType{paramTypes: []Type{objectType}, returnType: intType},
 			paramNames: []string{"arg"},
@@ -297,8 +299,8 @@ func (eb *EnvironmentBuilder) Analyze(program *ast.Program) {
 
 func (eb *EnvironmentBuilder) VisitTypedVar(typedVar *ast.TypedVar) {
 	varName := typedVar.VarName
-	varType := typeFromOp(typedVar.VarType)
-	eb.LocalEnvironment[varName] = varType
+	varType := typeFromNode(typedVar.VarType)
+	eb.LocalEnv[varName] = varType
 }
 
 func (eb *EnvironmentBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
@@ -308,25 +310,25 @@ func (eb *EnvironmentBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
 	paramTypes := []Type{}
 	for _, param := range funcDef.Parameters {
 		paramName := param.(*ast.TypedVar).VarName
-		paramType := typeFromOp(param.(*ast.TypedVar).VarType)
+		paramType := typeFromNode(param.(*ast.TypedVar).VarType)
 		paramNames = append(paramNames, paramName)
 		paramTypes = append(paramTypes, paramType)
 	}
 
-	returnType := typeFromOp(funcDef.ReturnType)
+	returnType := typeFromNode(funcDef.ReturnType)
 
-	nestedDefsBuilder := &EnvironmentBuilder{LocalEnvironment: map[string]DefType{}}
-	for _, bodyOp := range funcDef.FuncBody {
-		bodyOp.Visit(nestedDefsBuilder)
+	nestedDefsBuilder := &EnvironmentBuilder{LocalEnv: LocalEnvironment{}}
+	for _, bodyNode := range funcDef.FuncBody {
+		bodyNode.Visit(nestedDefsBuilder)
 	}
 
 	nestedDefs := []Definition{}
-	for nestedDefName, nestedDefType := range nestedDefsBuilder.LocalEnvironment {
+	for nestedDefName, nestedDefType := range nestedDefsBuilder.LocalEnv {
 		nestedDef := Definition{defName: nestedDefName, defType: nestedDefType}
 		nestedDefs = append(nestedDefs, nestedDef)
 	}
 
-	eb.LocalEnvironment[funcName] = FunctionInfo{
+	eb.LocalEnv[funcName] = FunctionInfo{
 		funcType:   FunctionType{paramTypes: paramTypes, returnType: returnType},
 		paramNames: paramNames,
 		nestedDefs: nestedDefs,
@@ -345,13 +347,11 @@ type StaticTyping struct {
 //
 // https://chocopy.org/chocopy_language_reference.pdf
 func (st *StaticTyping) Analyze(program *ast.Program) {
-	envBuilder := &EnvironmentBuilder{LocalEnvironment: map[string]DefType{}}
+	envBuilder := EnvironmentBuilder{}
 	envBuilder.Analyze(program)
 
-	st.localEnv = envBuilder.LocalEnvironment
+	st.localEnv = envBuilder.LocalEnv
 	st.returnType = bottomType
-
-	program.Visit(st)
 
 	for _, definition := range program.Definitions {
 		definition.Visit(st)
@@ -361,8 +361,7 @@ func (st *StaticTyping) Analyze(program *ast.Program) {
 	}
 }
 
-// Traverse determines whether the StaticTyping visitor should traverse further down the AST
-// at any given moment.
+// Traverse determines whether the StaticTyping visitor should traverse further down the AST after a call to any nodes' Visit() method.
 // If this returns true, each node will implicitly call the Visit() method on each of its
 // child nodes whenever it is visited, which is something we want to avoid here.
 // Instead, we will define when exactly a node will visit its child nodes via explicit calls
@@ -397,8 +396,8 @@ func (st *StaticTyping) VisitFuncDef(funcDef *ast.FuncDef) {
 		localEnv:   extendedEnv,
 		returnType: returnType,
 	}
-	for _, funcBodyOp := range funcDef.FuncBody {
-		funcBodyOp.Visit(funcBodyVisitor)
+	for _, funcBodyNode := range funcDef.FuncBody {
+		funcBodyNode.Visit(funcBodyVisitor)
 	}
 }
 
@@ -422,11 +421,11 @@ func (st *StaticTyping) VisitIfStmt(ifStmt *ast.IfStmt) {
 	ifStmt.Condition.Visit(st)
 	checkType(st.visitedType, boolType)
 
-	for _, ifBodyOp := range ifStmt.IfBody {
-		ifBodyOp.Visit(st)
+	for _, ifBodyNode := range ifStmt.IfBody {
+		ifBodyNode.Visit(st)
 	}
-	for _, elseBodyOp := range ifStmt.ElseBody {
-		elseBodyOp.Visit(st)
+	for _, elseBodyNode := range ifStmt.ElseBody {
+		elseBodyNode.Visit(st)
 	}
 }
 
@@ -434,8 +433,8 @@ func (st *StaticTyping) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 	whileStmt.Condition.Visit(st)
 	checkType(st.visitedType, boolType)
 
-	for _, bodyOp := range whileStmt.Body {
-		bodyOp.Visit(st)
+	for _, bodyNode := range whileStmt.Body {
+		bodyNode.Visit(st)
 	}
 }
 
@@ -452,8 +451,8 @@ func (st *StaticTyping) VisitForStmt(forStmt *ast.ForStmt) {
 		checkAssignmentCompatible(elemType, iterNameType)
 	}
 
-	for _, bodyOp := range forStmt.Body {
-		bodyOp.Visit(st)
+	for _, bodyNode := range forStmt.Body {
+		bodyNode.Visit(st)
 	}
 }
 
@@ -470,46 +469,46 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 	_, valueIsAssign := assignStmt.Value.(*ast.AssignStmt)
 	if valueIsAssign {
 
-		// Substep 1: assignOps collects every op in the assignment chain
+		// Substep 1: assignNodes collects every node in the assignment chain
 		// ([a, b, c] for the above example)
-		assignOps := []ast.Operation{assignStmt.Target}
+		assignNodes := []ast.Node{assignStmt.Target}
 		currentAssign := assignStmt
 
 		for valueIsAssign {
 			currentAssign = assignStmt.Value.(*ast.AssignStmt)
-			assignOps = append(assignOps, currentAssign.Target)
+			assignNodes = append(assignNodes, currentAssign.Target)
 			_, valueIsAssign = currentAssign.Value.(*ast.AssignStmt)
 		}
-		assignOps = append(assignOps, currentAssign.Value)
+		assignNodes = append(assignNodes, currentAssign.Value)
 
-		// Substep 2: After the ops have been collected in assignOps
-		// assignment compatibility of the last op is checked against every
-		// op preceding it in the assignment chain
+		// Substep 2: After the nodes have been collected in assignNodes
+		// assignment compatibility of the last node is checked against every
+		// node preceding it in the assignment chain
 		// ( c <a b , c <a a for the above example)
-		assignOps[len(assignOps)-1].Visit(st)
-		lastOpType := st.visitedType
+		assignNodes[len(assignNodes)-1].Visit(st)
+		lastNodeType := st.visitedType
 
-		_, lastOpIsList := lastOpType.(ListType)
-		if lastOpIsList && lastOpType.(ListType).elemType == noneType {
+		_, lastNodeIsList := lastNodeType.(ListType)
+		if lastNodeIsList && lastNodeType.(ListType).elemType == noneType {
 			semanticError(ExpectedNonNoneListType, nil, nil, "", 0, 0)
 		}
 
-		for _, assignOp := range assignOps[:len(assignOps)-1] {
-			assignOp.Visit(st)
-			assignOpType := st.visitedType
-			checkAssignmentCompatible(lastOpType, assignOpType)
+		for _, assignNode := range assignNodes[:len(assignNodes)-1] {
+			assignNode.Visit(st)
+			assignNodeType := st.visitedType
+			checkAssignmentCompatible(lastNodeType, assignNodeType)
 		}
 
-		// Substep 3: Type hints are added for each op in the assignment chain
-		for _, assignOp := range assignOps {
-			switch assignOp := assignOp.(type) {
+		// Substep 3: Type hints are added for each node in the assignment chain
+		for _, assignNode := range assignNodes {
+			switch assignNode := assignNode.(type) {
 			case *ast.IdentExpr:
-				identType := st.localEnv.check(assignOp.Identifier, true)
-				assignOp.TypeHint = hintFromType(identType)
+				identType := st.localEnv.check(assignNode.Identifier, true)
+				assignNode.TypeHint = hintFromType(identType)
 			case *ast.IndexExpr:
-				assignOp.Value.Visit(st)
+				assignNode.Value.Visit(st)
 				valueType := st.visitedType
-				assignOp.TypeHint = hintFromType(valueType)
+				assignNode.TypeHint = hintFromType(valueType)
 			}
 		}
 	}
@@ -640,14 +639,14 @@ func (st *StaticTyping) VisitIfExpr(ifExpr *ast.IfExpr) {
 	ifExpr.Condition.Visit(st)
 	condType := st.visitedType
 
-	ifExpr.IfOp.Visit(st)
-	ifOpType := st.visitedType
+	ifExpr.IfNode.Visit(st)
+	ifNodeType := st.visitedType
 
-	ifExpr.ElseOp.Visit(st)
-	elseOpType := st.visitedType
+	ifExpr.ElseNode.Visit(st)
+	elseNodeType := st.visitedType
 
 	checkType(condType, boolType)
-	st.visitedType = join(ifOpType, elseOpType)
+	st.visitedType = join(ifNodeType, elseNodeType)
 }
 
 func (st *StaticTyping) VisitListExpr(listExpr *ast.ListExpr) {

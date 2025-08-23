@@ -48,7 +48,7 @@ func main() {
 			program := myParser.ParseProgram()
 			environments := astanalysis.EnvironmentBuilder{}
 			environments.Analyze(&program)
-			pretty.Println(environments.LocalEnvironment)
+			pretty.Println(environments.LocalEnv)
 		case "-t":
 			program := myParser.ParseProgram()
 			staticTyping := astanalysis.StaticTyping{}

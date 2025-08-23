@@ -168,8 +168,8 @@ func (p *Parser) ParseProgram() ast.Program {
 	}
 }
 
-func (p *Parser) parseDefinitions() []ast.Operation {
-	definitions := []ast.Operation{}
+func (p *Parser) parseDefinitions() []ast.Node {
+	definitions := []ast.Node{}
 
 	for {
 		if p.check(lexer.IDENTIFIER, lexer.COLON) {
@@ -188,8 +188,8 @@ func (p *Parser) parseDefinitions() []ast.Operation {
 	return definitions
 }
 
-func (p *Parser) parseStatements() []ast.Operation {
-	statements := []ast.Operation{}
+func (p *Parser) parseStatements() []ast.Node {
+	statements := []ast.Node{}
 
 	for p.nextTokenIn(expressionTokens) || p.nextTokenIn(statementTokens) {
 		statement := p.parseStatement()
@@ -199,7 +199,7 @@ func (p *Parser) parseStatements() []ast.Operation {
 	return statements
 }
 
-func (p *Parser) parseVarDef() ast.Operation {
+func (p *Parser) parseVarDef() ast.Node {
 	varNameToken := p.match(lexer.IDENTIFIER)
 	varName := varNameToken.Value.(string)
 	p.match(lexer.COLON)
@@ -217,7 +217,7 @@ func (p *Parser) parseVarDef() ast.Operation {
 	}
 }
 
-func (p *Parser) parseType() ast.Operation {
+func (p *Parser) parseType() ast.Node {
 	if p.check(lexer.INT) {
 		p.match(lexer.INT)
 		return &ast.NamedType{
@@ -259,7 +259,7 @@ func (p *Parser) parseType() ast.Operation {
 	return nil
 }
 
-func (p *Parser) parseLiteral() ast.Operation {
+func (p *Parser) parseLiteral() ast.Node {
 	if p.check(lexer.NONE) {
 		p.match(lexer.NONE)
 		return &ast.LiteralExpr{
@@ -301,7 +301,7 @@ func (p *Parser) parseLiteral() ast.Operation {
 	return nil
 }
 
-func (p *Parser) parseFuncDef() ast.Operation {
+func (p *Parser) parseFuncDef() ast.Node {
 	p.match(lexer.DEF)
 	functionNameToken := p.match(lexer.IDENTIFIER)
 	functionName := functionNameToken.Value.(string)
@@ -340,8 +340,8 @@ func (p *Parser) parseFuncDef() ast.Operation {
 	}
 }
 
-func (p *Parser) parseFuncParams() []ast.Operation {
-	parameters := []ast.Operation{}
+func (p *Parser) parseFuncParams() []ast.Node {
+	parameters := []ast.Node{}
 
 	paramIndex := 0
 	for p.check(lexer.IDENTIFIER) {
@@ -368,7 +368,7 @@ func (p *Parser) parseFuncParams() []ast.Operation {
 	return parameters
 }
 
-func (p *Parser) parseFuncReturnType() ast.Operation {
+func (p *Parser) parseFuncReturnType() ast.Node {
 	returnNone := &ast.NamedType{TypeName: "<None>"}
 
 	if p.check(lexer.RARROW) {
@@ -380,8 +380,8 @@ func (p *Parser) parseFuncReturnType() ast.Operation {
 	return returnNone
 }
 
-func (p *Parser) parseFuncDeclarations() []ast.Operation {
-	funcDeclarations := []ast.Operation{}
+func (p *Parser) parseFuncDeclarations() []ast.Node {
+	funcDeclarations := []ast.Node{}
 
 	if p.check(lexer.NONLOCAL) {
 		p.match(lexer.NONLOCAL)
@@ -412,7 +412,7 @@ func (p *Parser) parseFuncDeclarations() []ast.Operation {
 	return funcDeclarations
 }
 
-func (p *Parser) parseStatement() ast.Operation {
+func (p *Parser) parseStatement() ast.Node {
 	if p.nextTokenIn(expressionTokens) ||
 		p.check(lexer.PASS) ||
 		p.check(lexer.RETURN) {
@@ -483,8 +483,8 @@ func (p *Parser) parseStatement() ast.Operation {
 	return nil
 }
 
-func (p *Parser) parseElseBody() []ast.Operation {
-	elseBody := []ast.Operation{}
+func (p *Parser) parseElseBody() []ast.Node {
+	elseBody := []ast.Node{}
 
 	if p.check(lexer.ELIF) {
 		p.match(lexer.ELIF)
@@ -522,7 +522,7 @@ func (p *Parser) parseElseBody() []ast.Operation {
 	return elseBody
 }
 
-func (p *Parser) parseSimpleStatement() ast.Operation {
+func (p *Parser) parseSimpleStatement() ast.Node {
 	if p.check(lexer.IDENTIFIER, lexer.COLON) {
 		p.syntaxError(VariableDefinedLater)
 	}
@@ -534,7 +534,7 @@ func (p *Parser) parseSimpleStatement() ast.Operation {
 
 	if p.check(lexer.RETURN) {
 		p.match(lexer.RETURN)
-		var returnVal ast.Operation
+		var returnVal ast.Node
 		if p.nextTokenIn(expressionTokens) {
 			returnVal = p.parseExpression(false, false)
 		}
@@ -549,7 +549,7 @@ func (p *Parser) parseSimpleStatement() ast.Operation {
 	return nil
 }
 
-func (p *Parser) parseExpressionAssignList() ast.Operation {
+func (p *Parser) parseExpressionAssignList() ast.Node {
 	expression := p.parseExpression(false, false)
 
 	if p.check(lexer.ASSIGN) {
@@ -560,8 +560,8 @@ func (p *Parser) parseExpressionAssignList() ast.Operation {
 	return expression
 }
 
-func (p *Parser) parseExpression(insideAnd bool, insideOr bool) ast.Operation {
-	var expression ast.Operation
+func (p *Parser) parseExpression(insideAnd bool, insideOr bool) ast.Node {
+	var expression ast.Node
 
 	if p.check(lexer.NOT) {
 		expression = p.parseNotExpression()
@@ -583,8 +583,8 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) ast.Operation {
 		p.match(lexer.IF)
 		condition := p.parseExpression(false, false)
 		p.match(lexer.ELSE)
-		elseOp := p.parseExpression(false, false)
-		return &ast.IfExpr{Condition: condition, IfOp: expression, ElseOp: elseOp}
+		elseNode := p.parseExpression(false, false)
+		return &ast.IfExpr{Condition: condition, IfNode: expression, ElseNode: elseNode}
 	}
 
 	if expression == nil {
@@ -593,7 +593,7 @@ func (p *Parser) parseExpression(insideAnd bool, insideOr bool) ast.Operation {
 	return expression
 }
 
-func (p *Parser) parseNotExpression() ast.Operation {
+func (p *Parser) parseNotExpression() ast.Node {
 	p.match(lexer.NOT)
 
 	if p.check(lexer.NOT) {
@@ -603,7 +603,7 @@ func (p *Parser) parseNotExpression() ast.Operation {
 	return &ast.UnaryExpr{Op: "not", Value: p.parseCompoundExpression(false, false, false, false)}
 }
 
-func (p *Parser) parseAndExpression(expression ast.Operation) ast.Operation {
+func (p *Parser) parseAndExpression(expression ast.Node) ast.Node {
 	if p.check(lexer.AND) {
 		p.match(lexer.AND)
 		rhs := p.parseExpression(true, false)
@@ -614,7 +614,7 @@ func (p *Parser) parseAndExpression(expression ast.Operation) ast.Operation {
 	return expression
 }
 
-func (p *Parser) parseOrExpression(expression ast.Operation) ast.Operation {
+func (p *Parser) parseOrExpression(expression ast.Node) ast.Node {
 	if p.check(lexer.OR) {
 		p.match(lexer.OR)
 		rhs := p.parseExpression(false, true)
@@ -625,8 +625,8 @@ func (p *Parser) parseOrExpression(expression ast.Operation) ast.Operation {
 	return expression
 }
 
-func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, insideAdd bool, insideCompare bool) ast.Operation {
-	var compoundExpression ast.Operation
+func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, insideAdd bool, insideCompare bool) ast.Node {
+	var compoundExpression ast.Node
 
 	if p.check(lexer.MINUS) {
 		compoundExpression = p.parseUnaryNegation()
@@ -658,7 +658,7 @@ func (p *Parser) parseCompoundExpression(insideNegation bool, insideMult bool, i
 	return compoundExpression
 }
 
-func (p *Parser) parseSimpleCompoundExpression() ast.Operation {
+func (p *Parser) parseSimpleCompoundExpression() ast.Node {
 	if p.nextTokenIn(literalTokens) {
 		return p.parseLiteral()
 	}
@@ -696,8 +696,8 @@ func (p *Parser) parseSimpleCompoundExpression() ast.Operation {
 	return nil
 }
 
-func (p *Parser) parseExpressionList() []ast.Operation {
-	expressionList := []ast.Operation{}
+func (p *Parser) parseExpressionList() []ast.Node {
+	expressionList := []ast.Node{}
 
 	if p.nextTokenIn(expressionTokens) {
 		expressionList = append(expressionList, p.parseExpression(false, false))
@@ -713,7 +713,7 @@ func (p *Parser) parseExpressionList() []ast.Operation {
 	return expressionList
 }
 
-func (p *Parser) parseUnaryNegation() ast.Operation {
+func (p *Parser) parseUnaryNegation() ast.Node {
 	p.match(lexer.MINUS)
 
 	if p.check(lexer.MINUS) {
@@ -723,7 +723,7 @@ func (p *Parser) parseUnaryNegation() ast.Operation {
 	return &ast.UnaryExpr{Op: "-", Value: p.parseCompoundExpression(true, false, false, false)}
 }
 
-func (p *Parser) parseIndexExpression(compoundExpression ast.Operation) ast.Operation {
+func (p *Parser) parseIndexExpression(compoundExpression ast.Node) ast.Node {
 	p.match(lexer.LSQUAREBRACKET)
 	index := p.parseExpression(false, false)
 	p.match(lexer.RSQUAREBRACKET)
@@ -739,7 +739,7 @@ func (p *Parser) parseIndexExpression(compoundExpression ast.Operation) ast.Oper
 	return indexExpression
 }
 
-func (p *Parser) parseMultExpression(compoundExpression ast.Operation) ast.Operation {
+func (p *Parser) parseMultExpression(compoundExpression ast.Node) ast.Node {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
 
@@ -755,7 +755,7 @@ func (p *Parser) parseMultExpression(compoundExpression ast.Operation) ast.Opera
 	return compoundExpression
 }
 
-func (p *Parser) parseAddExpression(compoundExpression ast.Operation) ast.Operation {
+func (p *Parser) parseAddExpression(compoundExpression ast.Node) ast.Node {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
 
@@ -771,7 +771,7 @@ func (p *Parser) parseAddExpression(compoundExpression ast.Operation) ast.Operat
 	return compoundExpression
 }
 
-func (p *Parser) parseCompareExpression(compoundExpression ast.Operation) ast.Operation {
+func (p *Parser) parseCompareExpression(compoundExpression ast.Node) ast.Node {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
 

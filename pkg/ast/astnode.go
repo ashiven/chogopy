@@ -3,10 +3,10 @@ package ast
 
 /* Types */
 
-type Operation interface {
+type Node interface {
 	Name() string
 	// TODO: would be good to have but is the effort for validation even beneficial
-	// or will invalid ops not already be prevented in the parser
+	// or will invalid nodes not already be prevented in the parser
 	Validate() bool
 	Visit(v Visitor)
 }
@@ -14,7 +14,7 @@ type Operation interface {
 type NamedType struct {
 	name     string
 	TypeName string
-	Operation
+	Node
 }
 
 func (nt *NamedType) Name() string {
@@ -30,8 +30,8 @@ func (nt *NamedType) Visit(v Visitor) {
 
 type ListType struct {
 	name     string
-	ElemType Operation
-	Operation
+	ElemType Node
+	Node
 }
 
 func (lt *ListType) Name() string {
@@ -53,9 +53,9 @@ func (lt *ListType) Visit(v Visitor) {
 
 type Program struct {
 	name        string
-	Definitions []Operation
-	Statements  []Operation
-	Operation
+	Definitions []Node
+	Statements  []Node
+	Node
 }
 
 func (p *Program) Name() string {
@@ -80,10 +80,10 @@ func (p *Program) Visit(v Visitor) {
 type FuncDef struct {
 	name       string
 	FuncName   string
-	Parameters []Operation
-	FuncBody   []Operation
-	ReturnType Operation
-	Operation
+	Parameters []Node
+	FuncBody   []Node
+	ReturnType Node
+	Node
 }
 
 func (fd *FuncDef) Name() string {
@@ -99,8 +99,8 @@ func (fd *FuncDef) Visit(v Visitor) {
 		for _, param := range fd.Parameters {
 			param.Visit(v)
 		}
-		for _, bodyOp := range fd.FuncBody {
-			bodyOp.Visit(v)
+		for _, bodyNode := range fd.FuncBody {
+			bodyNode.Visit(v)
 		}
 		fd.ReturnType.Visit(v)
 	}
@@ -109,8 +109,8 @@ func (fd *FuncDef) Visit(v Visitor) {
 type TypedVar struct {
 	name    string
 	VarName string
-	VarType Operation
-	Operation
+	VarType Node
+	Node
 }
 
 func (tv *TypedVar) Name() string {
@@ -130,7 +130,7 @@ func (tv *TypedVar) Visit(v Visitor) {
 type GlobalDecl struct {
 	name     string
 	DeclName string
-	Operation
+	Node
 }
 
 func (gd *GlobalDecl) Name() string {
@@ -147,7 +147,7 @@ func (gd *GlobalDecl) Visit(v Visitor) {
 type NonLocalDecl struct {
 	name     string
 	DeclName string
-	Operation
+	Node
 }
 
 func (nl *NonLocalDecl) Name() string {
@@ -163,9 +163,9 @@ func (nl *NonLocalDecl) Visit(v Visitor) {
 
 type VarDef struct {
 	name     string
-	TypedVar Operation
-	Literal  Operation
-	Operation
+	TypedVar Node
+	Literal  Node
+	Node
 }
 
 func (vd *VarDef) Name() string {
@@ -187,10 +187,10 @@ func (vd *VarDef) Visit(v Visitor) {
 
 type IfStmt struct {
 	name      string
-	Condition Operation
-	IfBody    []Operation
-	ElseBody  []Operation
-	Operation
+	Condition Node
+	IfBody    []Node
+	ElseBody  []Node
+	Node
 }
 
 func (is *IfStmt) Name() string {
@@ -204,20 +204,20 @@ func (is *IfStmt) Visit(v Visitor) {
 	v.VisitIfStmt(is)
 	if v.Traverse() {
 		is.Condition.Visit(v)
-		for _, ifBodyOp := range is.IfBody {
-			ifBodyOp.Visit(v)
+		for _, ifBodyNode := range is.IfBody {
+			ifBodyNode.Visit(v)
 		}
-		for _, elseBodyOp := range is.ElseBody {
-			elseBodyOp.Visit(v)
+		for _, elseBodyNode := range is.ElseBody {
+			elseBodyNode.Visit(v)
 		}
 	}
 }
 
 type WhileStmt struct {
 	name      string
-	Condition Operation
-	Body      []Operation
-	Operation
+	Condition Node
+	Body      []Node
+	Node
 }
 
 func (ws *WhileStmt) Name() string {
@@ -230,8 +230,8 @@ func (ws *WhileStmt) Name() string {
 func (ws *WhileStmt) Visit(v Visitor) {
 	v.VisitWhileStmt(ws)
 	if v.Traverse() {
-		for _, bodyOp := range ws.Body {
-			bodyOp.Visit(v)
+		for _, bodyNode := range ws.Body {
+			bodyNode.Visit(v)
 		}
 	}
 }
@@ -239,9 +239,9 @@ func (ws *WhileStmt) Visit(v Visitor) {
 type ForStmt struct {
 	name     string
 	IterName string
-	Iter     Operation
-	Body     []Operation
-	Operation
+	Iter     Node
+	Body     []Node
+	Node
 }
 
 func (fs *ForStmt) Name() string {
@@ -255,15 +255,15 @@ func (fs *ForStmt) Visit(v Visitor) {
 	v.VisitForStmt(fs)
 	if v.Traverse() {
 		fs.Iter.Visit(v)
-		for _, bodyOp := range fs.Body {
-			bodyOp.Visit(v)
+		for _, bodyNode := range fs.Body {
+			bodyNode.Visit(v)
 		}
 	}
 }
 
 type PassStmt struct {
 	name string
-	Operation
+	Node
 }
 
 func (ps *PassStmt) Name() string {
@@ -279,8 +279,8 @@ func (ps *PassStmt) Visit(v Visitor) {
 
 type ReturnStmt struct {
 	name      string
-	ReturnVal Operation
-	Operation
+	ReturnVal Node
+	Node
 }
 
 func (rs *ReturnStmt) Name() string {
@@ -299,9 +299,9 @@ func (rs *ReturnStmt) Visit(v Visitor) {
 
 type AssignStmt struct {
 	name   string
-	Target Operation
-	Value  Operation
-	Operation
+	Target Node
+	Value  Node
+	Node
 }
 
 func (as *AssignStmt) Name() string {
@@ -324,7 +324,7 @@ func (as *AssignStmt) Visit(v Visitor) {
 type LiteralExpr struct {
 	name  string
 	Value any
-	Operation
+	Node
 }
 
 func (le *LiteralExpr) Name() string {
@@ -340,9 +340,9 @@ func (le *LiteralExpr) Visit(v Visitor) {
 
 type IdentExpr struct {
 	name       string
-	TypeHint   Operation
+	TypeHint   Node
 	Identifier string
-	Operation
+	Node
 }
 
 func (ie *IdentExpr) Name() string {
@@ -355,14 +355,14 @@ func (ie *IdentExpr) Name() string {
 func (ie *IdentExpr) Visit(v Visitor) {
 	v.VisitIdentExpr(ie)
 	// We do not want to visit the type hint as it does not
-	// belong to the AST even though it is an Operation!
+	// belong to the AST even though it is an Node!
 }
 
 type UnaryExpr struct {
 	name  string
 	Op    string
-	Value Operation
-	Operation
+	Value Node
+	Node
 }
 
 func (ue *UnaryExpr) Name() string {
@@ -382,9 +382,9 @@ func (ue *UnaryExpr) Visit(v Visitor) {
 type BinaryExpr struct {
 	name string
 	Op   string
-	Lhs  Operation
-	Rhs  Operation
-	Operation
+	Lhs  Node
+	Rhs  Node
+	Node
 }
 
 func (be *BinaryExpr) Name() string {
@@ -404,10 +404,10 @@ func (be *BinaryExpr) Visit(v Visitor) {
 
 type IfExpr struct {
 	name      string
-	Condition Operation
-	IfOp      Operation
-	ElseOp    Operation
-	Operation
+	Condition Node
+	IfNode    Node
+	ElseNode  Node
+	Node
 }
 
 func (ie *IfExpr) Name() string {
@@ -421,15 +421,15 @@ func (ie *IfExpr) Visit(v Visitor) {
 	v.VisitIfExpr(ie)
 	if v.Traverse() {
 		ie.Condition.Visit(v)
-		ie.IfOp.Visit(v)
-		ie.ElseOp.Visit(v)
+		ie.IfNode.Visit(v)
+		ie.ElseNode.Visit(v)
 	}
 }
 
 type ListExpr struct {
 	name     string
-	Elements []Operation
-	Operation
+	Elements []Node
+	Node
 }
 
 func (le *ListExpr) Name() string {
@@ -451,8 +451,8 @@ func (le *ListExpr) Visit(v Visitor) {
 type CallExpr struct {
 	name      string
 	FuncName  string
-	Arguments []Operation
-	Operation
+	Arguments []Node
+	Node
 }
 
 func (ce *CallExpr) Name() string {
@@ -473,10 +473,10 @@ func (ce *CallExpr) Visit(v Visitor) {
 
 type IndexExpr struct {
 	name     string
-	TypeHint Operation
-	Value    Operation
-	Index    Operation
-	Operation
+	TypeHint Node
+	Value    Node
+	Index    Node
+	Node
 }
 
 func (ie *IndexExpr) Name() string {
@@ -493,5 +493,5 @@ func (ie *IndexExpr) Visit(v Visitor) {
 		ie.Index.Visit(v)
 	}
 	// We do not want to visit the type hint as it does not
-	// belong to the AST even though it is an Operation!
+	// belong to the AST even though it is an Node!
 }
