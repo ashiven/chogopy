@@ -2,12 +2,50 @@ package astanalysis
 
 import (
 	"chogopy/pkg/ast"
+	"fmt"
 	"log"
 	"maps"
+	"os"
 	"slices"
-
-	"github.com/kr/pretty"
 )
+
+type SemanticErrorKind int
+
+const (
+	NotAssignmentCompatible SemanticErrorKind = iota
+	UnexpectedType
+	ExpectedListType
+	UnknownIdentifierUsed
+	ExpectedVariableIdentifier
+	ExpectedFunctionIdentifier
+	ExpectedNonNoneListType
+	IsBinaryExpectedTwoObjectTypes
+	FunctionCallArgumentMismatch
+)
+
+func semanticError(errorKind SemanticErrorKind, t1 Type, t2 Type, defName string, funcArgs int, callArgs int) {
+	switch errorKind {
+	case NotAssignmentCompatible:
+		fmt.Printf("Semantic Error: %# v is not assignment compatible with %# v", nameFromType(t1), nameFromType(t2))
+	case UnexpectedType:
+		fmt.Printf("Semantic Error: Expected %# v but found %# v", nameFromType(t1), nameFromType(t2))
+	case ExpectedListType:
+		fmt.Printf("Semantic Error: Expected list type but found %# v", nameFromType(t1))
+	case UnknownIdentifierUsed:
+		fmt.Printf("Semantic Error: Unknown identifier used: %s", defName)
+	case ExpectedVariableIdentifier:
+		fmt.Printf("Semantic Error: Found function identifier: %s but expected variable identifier", defName)
+	case ExpectedFunctionIdentifier:
+		fmt.Printf("Semantic Error: Found variable identifier: %s but expected function identifier", defName)
+	case ExpectedNonNoneListType:
+		fmt.Printf("Semantic Error: Expected non-none list type in asssignment")
+	case IsBinaryExpectedTwoObjectTypes:
+		fmt.Printf("Semantic Error: Expected both operands to be of object type")
+	case FunctionCallArgumentMismatch:
+		fmt.Printf("Semantic Error: Expected %d arguments but got %d\n", funcArgs, callArgs)
+	}
+	os.Exit(0)
+}
 
 type Type any
 
@@ -97,6 +135,34 @@ func hintFromType(opType Type) ast.Operation {
 	return nil
 }
 
+func nameFromType(opType Type) string {
+	switch opType {
+	case intType:
+		return intType.typeName
+	case boolType:
+		return boolType.typeName
+	case strType:
+		return strType.typeName
+	case noneType:
+		return noneType.typeName
+	case emptyType:
+		return emptyType.typeName
+	case objectType:
+		return "object"
+	case bottomType:
+		return "bottom"
+	}
+
+	_, isListType := opType.(ListType)
+	if isListType {
+		elemType := nameFromType(opType.(ListType).elemType)
+		return fmt.Sprintf("List[%s]", elemType)
+	}
+
+	log.Fatalf("Expected Type but found %# v", opType)
+	return ""
+}
+
 func join(t1 Type, t2 Type) Type {
 	if isAssignmentCompatible(t1, t2) {
 		return t2
@@ -144,20 +210,20 @@ func isAssignmentCompatible(t1 Type, t2 Type) bool {
 
 func checkAssignmentCompatible(t1 Type, t2 Type) {
 	if !isAssignmentCompatible(t1, t2) {
-		log.Fatalf("Semantic Error: '%# v' is not assignment compatible with '%# v'", t1, t2)
+		semanticError(NotAssignmentCompatible, t1, t2, "", 0, 0)
 	}
 }
 
 func checkType(found Type, expected Type) {
 	if found != expected {
-		log.Fatalf("Semantic Error: Expected '%# v' but found '%# v'", expected, found)
+		semanticError(UnexpectedType, expected, found, "", 0, 0)
 	}
 }
 
 func checkListType(found Type) {
 	_, foundIsList := found.(ListType)
 	if !foundIsList {
-		log.Fatalf("Semantic Error: Expected list type but found '%# v'", found)
+		semanticError(ExpectedListType, found, nil, "", 0, 0)
 	}
 }
 
@@ -183,16 +249,16 @@ type LocalEnvironment map[string]DefType
 func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
 	defType, defExists := le[defName]
 	if !defExists {
-		log.Fatalf("Semantic Error: Unknown identifier used: %s", pretty.Formatter(defName))
+		semanticError(UnknownIdentifierUsed, nil, nil, defName, 0, 0)
 	}
 
 	_, isFuncInfo := defType.(FunctionInfo)
 	if isFuncInfo && expectVarDef {
-		log.Fatalf("Semantic Error: Found function identifier: %s but expected variable identifier", pretty.Formatter(defName))
+		semanticError(ExpectedVariableIdentifier, nil, nil, defName, 0, 0)
 	}
 
 	if !isFuncInfo && !expectVarDef {
-		log.Fatalf("Semantic Error: Found variable identifier: %s but expected function identifier", pretty.Formatter(defName))
+		semanticError(ExpectedFunctionIdentifier, nil, nil, defName, 0, 0)
 	}
 
 	return defType
@@ -423,7 +489,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 
 		_, lastOpIsList := lastOpType.(ListType)
 		if lastOpIsList && lastOpType.(ListType).elemType == noneType {
-			log.Fatalf("Semantic Error: Expected non-none list type in asssignment")
+			semanticError(ExpectedNonNoneListType, nil, nil, "", 0, 0)
 		}
 
 		for _, assignOp := range assignOps[:len(assignOps)-1] {
@@ -539,7 +605,7 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		nonObjectTypes := []Type{intType, boolType, strType}
 		if slices.Contains(nonObjectTypes, lhsType) ||
 			slices.Contains(nonObjectTypes, rhsType) {
-			log.Fatalf("Semantic Error: Expected both operands to be of object type")
+			semanticError(IsBinaryExpectedTwoObjectTypes, nil, nil, "", 0, 0)
 		}
 		st.visitedType = boolType
 
@@ -608,7 +674,7 @@ func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
 	funcInfo := st.localEnv.check(funcName, false)
 
 	if len(callExpr.Arguments) != len(funcInfo.(FunctionInfo).paramNames) {
-		log.Fatalf("Semantic Error: Expected %d arguments but got %d", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
+		semanticError(FunctionCallArgumentMismatch, nil, nil, "", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
 	}
 
 	for argIdx, argument := range callExpr.Arguments {
