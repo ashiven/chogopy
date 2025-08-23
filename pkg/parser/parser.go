@@ -433,8 +433,11 @@ func (p *Parser) parseStatement() Operation {
 		if p.check(lexer.INDENT) {
 			p.syntaxError(UnexpectedIndentation)
 		}
-		elseBody := p.parseElseBody()
 		p.match(lexer.DEDENT)
+		elseBody := p.parseElseBody()
+		if len(elseBody) > 0 {
+			p.match(lexer.DEDENT)
+		}
 		return &IfStmt{Condition: condition, IfBody: ifBody, ElseBody: elseBody}
 	}
 

@@ -354,27 +354,39 @@ func (st *StaticTyping) VisitVarDef(varDef *parser.VarDef) {
 func (st *StaticTyping) VisitIfStmt(ifStmt *parser.IfStmt) {
 	ifStmt.Condition.Visit(st)
 	checkType(st.visitedType, boolType)
+
+	for _, ifBodyOp := range ifStmt.IfBody {
+		ifBodyOp.Visit(st)
+	}
+	for _, elseBodyOp := range ifStmt.ElseBody {
+		elseBodyOp.Visit(st)
+	}
 }
 
 func (st *StaticTyping) VisitWhileStmt(whileStmt *parser.WhileStmt) {
 	whileStmt.Condition.Visit(st)
 	checkType(st.visitedType, boolType)
+
+	for _, bodyOp := range whileStmt.Body {
+		bodyOp.Visit(st)
+	}
 }
 
 func (st *StaticTyping) VisitForStmt(forStmt *parser.ForStmt) {
 	forStmt.Iter.Visit(st)
 	iterType := st.visitedType
-
-	iterIsString := iterType == strType
-	_, iterIsList := iterType.(ListType)
-
 	iterNameType := st.localEnv.check(forStmt.IterName, true)
 
-	if iterIsString {
+	if iterType == strType {
 		checkAssignmentCompatible(strType, iterNameType)
-	} else if iterIsList {
+	} else {
+		checkListType(iterType)
 		elemType := iterType.(ListType).elemType
 		checkAssignmentCompatible(elemType, iterNameType)
+	}
+
+	for _, bodyOp := range forStmt.Body {
+		bodyOp.Visit(st)
 	}
 }
 
@@ -500,17 +512,11 @@ func (st *StaticTyping) VisitUnaryExpr(unaryExpr *parser.UnaryExpr) {
 }
 
 func (st *StaticTyping) VisitBinaryExpr(binaryExpr *parser.BinaryExpr) {
-	pretty.Println("Parsing lhs type")
 	binaryExpr.Lhs.Visit(st)
 	lhsType := st.visitedType
-	pretty.Println("Lhs parsed type:")
-	pretty.Println(lhsType)
 
-	pretty.Println("Parsing rhs type")
 	binaryExpr.Rhs.Visit(st)
 	rhsType := st.visitedType
-	pretty.Println("Rhs parsed type:")
-	pretty.Println(rhsType)
 
 	_, lhsIsList := lhsType.(ListType)
 	_, rhsIsList := rhsType.(ListType)
