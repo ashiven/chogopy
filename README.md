@@ -22,7 +22,7 @@ It includes multiple analysis passes that perform type checking or variable scop
 
 ## Setup
 
-1. Clone the repository to your machine.
+1. Clone the repository.
 
 ```bash
 git clone https://github.com/ashiven/chogopy.git
