@@ -54,6 +54,11 @@ func main() {
 			staticTyping := astanalysis.StaticTyping{}
 			staticTyping.Analyze(&program)
 			pretty.Println(program)
+		case "-n":
+			program := myParser.ParseProgram()
+			nameScopes := astanalysis.NameScopes{}
+			nameScopes.Analyze(&program)
+			pretty.Println(nameScopes.NameContext)
 		}
 	}
 }

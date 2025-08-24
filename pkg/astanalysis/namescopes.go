@@ -57,23 +57,32 @@ func (nc NameContext) getContext(name string) *NameContext {
 }
 
 type NameContextBuilder struct {
-	nameContext NameContext
+	NameContext NameContext
 	ast.BaseVisitor
 }
 
 func (nb *NameContextBuilder) Analyze(program *ast.Program) {
-	nb.nameContext = NewNameContext()
+	nb.NameContext = NewNameContext()
 
-	program.Visit(nb)
+	for _, definition := range program.Definitions {
+		definition.Visit(nb)
+	}
+}
+
+func (nb *NameContextBuilder) Traverse() bool {
+	return false
 }
 
 func (nb *NameContextBuilder) VisitVarDef(varDef *ast.VarDef) {
 	varName := varDef.TypedVar.(*ast.TypedVar).VarName
-	nb.nameContext.addVarName(varName)
+	nb.NameContext.addVarName(varName)
 }
 
 func (nb *NameContextBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
-	funcContext := NameContext{parentScope: &nb.nameContext}
+	funcContext := NameContext{
+		names:       map[string]*NameContext{},
+		parentScope: &nb.NameContext,
+	}
 
 	for _, param := range funcDef.Parameters {
 		paramName := param.(*ast.TypedVar).VarName
@@ -89,27 +98,27 @@ func (nb *NameContextBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
 		}
 	}
 
-	funcContextBuilder := &NameContextBuilder{nameContext: funcContext}
+	funcContextBuilder := &NameContextBuilder{NameContext: funcContext}
 	for _, funcBodyNode := range funcDef.FuncBody {
 		funcBodyNode.Visit(funcContextBuilder)
 	}
 
-	nb.nameContext.addFuncName(funcDef.FuncName, funcContextBuilder.nameContext)
+	nb.NameContext.addFuncName(funcDef.FuncName, funcContextBuilder.NameContext)
 }
 
 type NameScopes struct {
-	nameContext *NameContext
+	NameContext *NameContext
 	ast.BaseVisitor
 }
 
 func (ns *NameScopes) Analyze(program *ast.Program) {
-	nameContextBuilder := NameContextBuilder{}
-	nameContextBuilder.Analyze(program)
+	NameContextBuilder := NameContextBuilder{}
+	NameContextBuilder.Analyze(program)
 
-	ns.nameContext = &nameContextBuilder.nameContext
-	ns.nameContext.addFuncName("print", NewNameContext())
-	ns.nameContext.addFuncName("len", NewNameContext())
-	ns.nameContext.addFuncName("input", NewNameContext())
+	ns.NameContext = &NameContextBuilder.NameContext
+	ns.NameContext.addFuncName("print", NewNameContext())
+	ns.NameContext.addFuncName("len", NewNameContext())
+	ns.NameContext.addFuncName("input", NewNameContext())
 
 	program.Visit(ns)
 }
@@ -117,8 +126,8 @@ func (ns *NameScopes) Analyze(program *ast.Program) {
 func (ns *NameScopes) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	identName := identExpr.Identifier
 
-	if !ns.nameContext.contains(identName) &&
-		!ns.nameContext.parentScopeContains(identName) {
+	if !ns.NameContext.contains(identName) &&
+		!ns.NameContext.parentScopeContains(identName) {
 		nameSemanticError(IdentifierUndefined, identName)
 	}
 }
@@ -126,17 +135,17 @@ func (ns *NameScopes) VisitIdentExpr(identExpr *ast.IdentExpr) {
 func (ns *NameScopes) VisitCallExpr(callExpr *ast.CallExpr) {
 	funcName := callExpr.FuncName
 
-	if !ns.nameContext.contains(funcName) &&
-		!ns.nameContext.parentScopeContains(funcName) {
+	if !ns.NameContext.contains(funcName) &&
+		!ns.NameContext.parentScopeContains(funcName) {
 		nameSemanticError(IdentifierUndefined, funcName)
 	}
 }
 
 func (ns *NameScopes) VisitFuncDef(funcDef *ast.FuncDef) {
 	funcName := funcDef.FuncName
-	funcContext := ns.nameContext.getContext(funcName)
+	funcContext := ns.NameContext.getContext(funcName)
 
-	funcNameScopes := &NameScopes{nameContext: funcContext}
+	funcNameScopes := &NameScopes{NameContext: funcContext}
 
 	for _, bodyNode := range funcDef.FuncBody {
 		bodyNode.Visit(funcNameScopes)
@@ -146,7 +155,7 @@ func (ns *NameScopes) VisitFuncDef(funcDef *ast.FuncDef) {
 func (ns *NameScopes) VisitForStmt(forStmt *ast.ForStmt) {
 	iterName := forStmt.IterName
 
-	if !ns.nameContext.contains(iterName) {
+	if !ns.NameContext.contains(iterName) {
 		nameSemanticError(IdentifierUndefined, iterName)
 	}
 }
@@ -157,7 +166,7 @@ func (ns *NameScopes) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 	if targetIsIdentifier {
 		identName := assignStmt.Target.(*ast.IdentExpr).Identifier
 
-		if !ns.nameContext.contains(identName) {
+		if !ns.NameContext.contains(identName) {
 			nameSemanticError(AssignTargetOutOfScope, identName)
 		}
 	}
@@ -166,7 +175,7 @@ func (ns *NameScopes) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 func (ns *NameScopes) VisitNonLocalDecl(nonLocalDecl *ast.NonLocalDecl) {
 	declName := nonLocalDecl.DeclName
 
-	if !ns.nameContext.parentScopeContains(declName) {
+	if !ns.NameContext.parentScopeContains(declName) {
 		nameSemanticError(IdentifierNotInParentScope, declName)
 	}
 }
@@ -174,7 +183,7 @@ func (ns *NameScopes) VisitNonLocalDecl(nonLocalDecl *ast.NonLocalDecl) {
 func (ns *NameScopes) VisitGlobalDecl(globalDecl *ast.GlobalDecl) {
 	declName := globalDecl.DeclName
 
-	if !ns.nameContext.globalScopeContains(declName) {
+	if !ns.NameContext.globalScopeContains(declName) {
 		nameSemanticError(IdentifierNotInGlobalScope, declName)
 	}
 }
