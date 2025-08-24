@@ -106,6 +106,10 @@ func (nb *NameContextBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
 	nb.NameContext.addFuncName(funcDef.FuncName, funcContextBuilder.NameContext)
 }
 
+// TODO: This analysis pass is not yet complete since we have set its traverse property to false
+// and have not yet explicitly defined a visitor method for each possible AST node that
+// would then correctly visit the nodes' child nodes and perform the required name scope checks.
+
 type NameScopes struct {
 	NameContext *NameContext
 	ast.BaseVisitor
@@ -120,7 +124,16 @@ func (ns *NameScopes) Analyze(program *ast.Program) {
 	ns.NameContext.addFuncName("len", NewNameContext())
 	ns.NameContext.addFuncName("input", NewNameContext())
 
-	program.Visit(ns)
+	for _, definition := range program.Definitions {
+		definition.Visit(ns)
+	}
+	for _, statement := range program.Statements {
+		statement.Visit(ns)
+	}
+}
+
+func (ns *NameScopes) Traverse() bool {
+	return false
 }
 
 func (ns *NameScopes) VisitIdentExpr(identExpr *ast.IdentExpr) {
@@ -157,6 +170,12 @@ func (ns *NameScopes) VisitForStmt(forStmt *ast.ForStmt) {
 
 	if !ns.NameContext.contains(iterName) {
 		nameSemanticError(IdentifierUndefined, iterName)
+	}
+
+	forStmt.Iter.Visit(ns)
+
+	for _, bodyOp := range forStmt.Body {
+		bodyOp.Visit(ns)
 	}
 }
 
