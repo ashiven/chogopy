@@ -175,19 +175,19 @@ func isAssignmentCompatible(t1 Type, t2 Type) bool {
 
 func checkAssignmentCompatible(t1 Type, t2 Type) {
 	if !isAssignmentCompatible(t1, t2) {
-		semanticError(NotAssignmentCompatible, t1, t2, "", 0, 0)
+		typeSemanticError(NotAssignmentCompatible, t1, t2, "", 0, 0)
 	}
 }
 
 func checkType(found Type, expected Type) {
 	if found != expected {
-		semanticError(UnexpectedType, expected, found, "", 0, 0)
+		typeSemanticError(UnexpectedType, expected, found, "", 0, 0)
 	}
 }
 
 func checkListType(found Type) {
 	_, foundIsList := found.(ListType)
 	if !foundIsList {
-		semanticError(ExpectedListType, found, nil, "", 0, 0)
+		typeSemanticError(ExpectedListType, found, nil, "", 0, 0)
 	}
 }
