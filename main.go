@@ -48,9 +48,9 @@ func main() {
 			assignTargets.Analyze(&program)
 		case "-e":
 			program := myParser.ParseProgram()
-			environments := astanalysis.EnvironmentBuilder{}
-			environments.Analyze(&program)
-			pretty.Println(environments.LocalEnv)
+			environmentBuilder := astanalysis.EnvironmentBuilder{}
+			environmentBuilder.Build(&program)
+			pretty.Println(environmentBuilder.LocalEnv)
 		case "-t":
 			program := myParser.ParseProgram()
 			staticTyping := astanalysis.StaticTyping{}
@@ -66,7 +66,7 @@ func main() {
 			staticTyping := astanalysis.StaticTyping{}
 			staticTyping.Analyze(&program)
 			codeGenerator := codegen.CodeGenerator{}
-			codeGenerator.Analyze(&program)
+			codeGenerator.Generate(&program)
 			pretty.Println(codeGenerator.Module.String())
 
 			err := os.WriteFile(

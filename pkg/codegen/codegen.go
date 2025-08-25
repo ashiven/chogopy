@@ -4,8 +4,10 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"log"
 	"strconv"
 
+	"github.com/kr/pretty"
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
@@ -35,7 +37,7 @@ func attrToType(attr ast.TypeAttr) types.Type {
 		// TODO:
 	}
 
-	// TODO: error
+	log.Fatalf("Expected type attribute but got: %# v", pretty.Formatter(attr))
 	return nil
 }
 
@@ -60,7 +62,7 @@ func astTypeToType(astType any) types.Type {
 		return types.Void
 	}
 
-	// TODO: error
+	log.Fatalf("Expected AST Type but got: %# v", pretty.Formatter(astType))
 	return nil
 }
 
@@ -89,14 +91,11 @@ type CodeGenerator struct {
 	ast.BaseVisitor
 }
 
-// TODO: Analyze sounds wrong.
-// Maybe remove this method from the visitor interface
-// and give it whatever name fits the case.
-
-func (cg *CodeGenerator) Analyze(program *ast.Program) {
+func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.Module = ir.NewModule()
-
 	cg.blockNames = BlockNames{}
+
+	/* Builtin functions: print, input, len */
 
 	// TODO: add functions for builtin calls to print, input, and len
 	print_ := cg.Module.NewFunc(
@@ -106,18 +105,17 @@ func (cg *CodeGenerator) Analyze(program *ast.Program) {
 	)
 	_ = print_
 
+	/* Definitions followed by statements in main func */
+
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)
 	}
 
 	mainFunction := cg.Module.NewFunc("main", types.I32)
 	mainBlock := mainFunction.NewBlock(cg.blockNames.get("entry"))
-
 	cg.currentFunction = mainFunction
 	cg.currentBlock = mainBlock
 
-	// TODO: It would probably be safe to just put all of the statements into a main function
-	// since the definitions will just sit at the llvm module level.
 	for _, statement := range program.Statements {
 		statement.Visit(cg)
 	}
@@ -239,7 +237,7 @@ func (cg *CodeGenerator) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 	case string:
 		cg.lastGenerated = constant.NewCharArrayFromString(literalVal)
 	default:
-		// TODO: look into the pointer type
+		// TODO: look into null pointer type
 		cg.lastGenerated = constant.NewNull(types.NewPointer(types.I1))
 		return
 	}

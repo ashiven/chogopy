@@ -50,7 +50,7 @@ type EnvironmentBuilder struct {
 	ast.BaseVisitor
 }
 
-func (eb *EnvironmentBuilder) Analyze(program *ast.Program) {
+func (eb *EnvironmentBuilder) Build(program *ast.Program) {
 	eb.LocalEnv = LocalEnvironment{}
 
 	eb.LocalEnv = LocalEnvironment{
@@ -125,7 +125,7 @@ type StaticTyping struct {
 // https://chocopy.org/chocopy_language_reference.pdf
 func (st *StaticTyping) Analyze(program *ast.Program) {
 	envBuilder := EnvironmentBuilder{}
-	envBuilder.Analyze(program)
+	envBuilder.Build(program)
 
 	st.localEnv = envBuilder.LocalEnv
 	st.returnType = bottomType

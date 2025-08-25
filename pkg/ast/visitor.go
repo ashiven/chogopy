@@ -1,7 +1,6 @@
 package ast
 
 type Visitor interface {
-	Analyze(p *Program)
 	Traverse() bool
 	VisitNamedType(nt *NamedType)
 	VisitListType(lt *ListType)
@@ -28,10 +27,6 @@ type Visitor interface {
 }
 
 type BaseVisitor struct{}
-
-func (bv *BaseVisitor) Analyze(p *Program) {
-	p.Visit(bv)
-}
 
 // Traverse determines whether the visitor
 // should continue traversing down the tree after it has visited a node.
