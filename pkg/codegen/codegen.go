@@ -4,13 +4,39 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
-	"strings"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
+
+func attrToType(attr ast.TypeAttr) types.Type {
+	_, isListAttr := attr.(*ast.ListAttribute)
+	if isListAttr {
+		elemType := attrToType(attr.(*ast.ListAttribute).ElemType)
+		listLength := attr.(ast.ListAttribute).Length
+		return types.NewArray(uint64(listLength), elemType)
+	}
+
+	switch {
+	case attr.(ast.BasicAttribute) == ast.Integer:
+		return types.I32
+	case attr.(ast.BasicAttribute) == ast.Boolean:
+		return types.I1
+	case attr.(ast.BasicAttribute) == ast.String:
+		return types.I8Ptr
+	case attr.(ast.BasicAttribute) == ast.None:
+		return types.NewPointer(types.I1)
+	case attr.(ast.BasicAttribute) == ast.Empty:
+		// TODO:
+	case attr.(ast.BasicAttribute) == ast.Object:
+		// TODO:
+	}
+
+	// TODO: error
+	return nil
+}
 
 type CodeGenerator struct {
 	Module *ir.Module
@@ -21,15 +47,35 @@ type CodeGenerator struct {
 	ast.BaseVisitor
 }
 
+// TODO: Analyze sounds wrong.
+// Maybe remove this method from the visitor interface
+// and give it whatever name fits the case.
+
 func (cg *CodeGenerator) Analyze(program *ast.Program) {
 	cg.Module = ir.NewModule()
+
+	// TODO: add functions for builtin calls to print, input, and len
+	print_ := cg.Module.NewFunc(
+		"puts",
+		types.I32,
+		ir.NewParam("", types.NewPointer(types.I8)),
+	)
+	_ = print_
 
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)
 	}
+
+	entryPoint := cg.Module.NewFunc("main", types.I32)
+	cg.currentBlock = entryPoint.NewBlock("entry")
+
+	// TODO: It would probably be safe to just put all of the statements into a main function
+	// since the definitions will just sit at the llvm module level.
 	for _, statement := range program.Statements {
 		statement.Visit(cg)
 	}
+
+	cg.currentBlock.NewRet(constant.NewInt(types.I32, 0))
 }
 
 func (cg *CodeGenerator) Traverse() bool {
@@ -159,21 +205,7 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 }
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
-	listLength := uint64(len(listExpr.Elements))
-
-	// TODO: Since the typehint is currently a string we have to do it like this.
-	// This should be changed in the future when the type hints have been changed.
-	var listType *types.ArrayType
-	switch {
-	case strings.Contains(listExpr.TypeHint, "Integer"):
-		listType = types.NewArray(listLength, types.I32)
-	case strings.Contains(listExpr.TypeHint, "Boolean"):
-		listType = types.NewArray(listLength, types.I1)
-	case strings.Contains(listExpr.TypeHint, "String"):
-		listType = types.NewArray(listLength, types.I8Ptr)
-	case strings.Contains(listExpr.TypeHint, "None"):
-		listType = types.NewArray(listLength, types.NewPointer(types.I1))
-	}
+	listType := attrToType(listExpr.TypeHint).(*types.ArrayType)
 
 	listElems := []constant.Constant{}
 	for _, elem := range listExpr.Elements {

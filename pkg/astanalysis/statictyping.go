@@ -281,11 +281,11 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 			switch assignNode := assignNode.(type) {
 			case *ast.IdentExpr:
 				identType := st.localEnv.check(assignNode.Identifier, true)
-				assignNode.TypeHint = hintFromType(identType)
+				assignNode.TypeHint = attrFromType(identType)
 			case *ast.IndexExpr:
 				assignNode.Value.Visit(st)
 				valueType := st.visitedType
-				assignNode.TypeHint = hintFromType(valueType)
+				assignNode.TypeHint = attrFromType(valueType)
 			}
 		}
 	}
@@ -301,7 +301,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 
 		checkAssignmentCompatible(valueType, identType)
 
-		target.TypeHint = hintFromType(identType)
+		target.TypeHint = attrFromType(identType)
 
 	// Case 3: Assign to a list like: a[12] = 1
 	case *ast.IndexExpr:
@@ -317,7 +317,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 		valueType := st.visitedType
 		checkAssignmentCompatible(valueType, targetValueType.(ListType).elemType)
 
-		target.TypeHint = hintFromType(targetValueType)
+		target.TypeHint = attrFromType(targetValueType)
 	}
 }
 
@@ -334,13 +334,13 @@ func (st *StaticTyping) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 	default:
 		st.visitedType = noneType
 	}
-	literalExpr.TypeHint = hintFromType(st.visitedType)
+	literalExpr.TypeHint = attrFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	varType := st.localEnv.check(identExpr.Identifier, true)
 	st.visitedType = varType
-	identExpr.TypeHint = hintFromType(st.visitedType)
+	identExpr.TypeHint = attrFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
@@ -354,7 +354,7 @@ func (st *StaticTyping) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 		checkType(st.visitedType, boolType)
 		st.visitedType = boolType
 	}
-	unaryExpr.TypeHint = hintFromType(st.visitedType)
+	unaryExpr.TypeHint = attrFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
@@ -375,13 +375,13 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		checkType(lhsType, boolType)
 		checkType(rhsType, boolType)
 		st.visitedType = boolType
-		binaryExpr.TypeHint = hintFromType(st.visitedType)
+		binaryExpr.TypeHint = attrFromType(st.visitedType)
 
 	case "or":
 		checkType(lhsType, boolType)
 		checkType(rhsType, boolType)
 		st.visitedType = boolType
-		binaryExpr.TypeHint = hintFromType(st.visitedType)
+		binaryExpr.TypeHint = attrFromType(st.visitedType)
 
 	case "is":
 		nonObjectTypes := []Type{intType, boolType, strType}
@@ -390,39 +390,42 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 			typeSemanticError(IsBinaryExpectedTwoObjectTypes, nil, nil, "", 0, 0)
 		}
 		st.visitedType = boolType
-		binaryExpr.TypeHint = hintFromType(st.visitedType)
+		binaryExpr.TypeHint = attrFromType(st.visitedType)
 
 	case "+", "-", "*", "//", "%":
 		if binaryExpr.Op == "+" && lhsIsString && rhsIsString {
 			st.visitedType = strType
-			binaryExpr.TypeHint = hintFromType(st.visitedType)
+			binaryExpr.TypeHint = attrFromType(st.visitedType)
 			return
 		}
 		if binaryExpr.Op == "+" && lhsIsList && rhsIsList {
-			st.visitedType = ListType{elemType: join(lhsType, rhsType)}
-			binaryExpr.TypeHint = hintFromType(st.visitedType)
+			st.visitedType = ListType{
+				elemType: join(lhsType, rhsType),
+				length:   lhsType.(ListType).length + rhsType.(ListType).length,
+			}
+			binaryExpr.TypeHint = attrFromType(st.visitedType)
 			return
 		}
 		checkType(lhsType, intType)
 		checkType(rhsType, intType)
 		st.visitedType = intType
-		binaryExpr.TypeHint = hintFromType(st.visitedType)
+		binaryExpr.TypeHint = attrFromType(st.visitedType)
 
 	case "<", "<=", ">", ">=", "==", "!=":
 		if lhsIsString && rhsIsString {
 			st.visitedType = boolType
-			binaryExpr.TypeHint = hintFromType(st.visitedType)
+			binaryExpr.TypeHint = attrFromType(st.visitedType)
 			return
 		}
 		if lhsIsList && rhsIsList {
 			st.visitedType = boolType
-			binaryExpr.TypeHint = hintFromType(st.visitedType)
+			binaryExpr.TypeHint = attrFromType(st.visitedType)
 			return
 		}
 		checkType(lhsType, intType)
 		checkType(rhsType, intType)
 		st.visitedType = boolType
-		binaryExpr.TypeHint = hintFromType(st.visitedType)
+		binaryExpr.TypeHint = attrFromType(st.visitedType)
 	}
 }
 
@@ -438,13 +441,13 @@ func (st *StaticTyping) VisitIfExpr(ifExpr *ast.IfExpr) {
 
 	checkType(condType, boolType)
 	st.visitedType = join(ifNodeType, elseNodeType)
-	ifExpr.TypeHint = hintFromType(st.visitedType)
+	ifExpr.TypeHint = attrFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitListExpr(listExpr *ast.ListExpr) {
 	if len(listExpr.Elements) == 0 {
 		st.visitedType = emptyType
-		listExpr.TypeHint = hintFromType(st.visitedType)
+		listExpr.TypeHint = attrFromType(st.visitedType)
 		return
 	}
 
@@ -460,8 +463,8 @@ func (st *StaticTyping) VisitListExpr(listExpr *ast.ListExpr) {
 		joinedType = join(joinedType, elemType)
 	}
 
-	st.visitedType = ListType{elemType: joinedType}
-	listExpr.TypeHint = hintFromType(st.visitedType)
+	st.visitedType = ListType{elemType: joinedType, length: len(listExpr.Elements)}
+	listExpr.TypeHint = attrFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
@@ -478,7 +481,7 @@ func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
 	}
 
 	st.visitedType = funcInfo.(FunctionInfo).funcType.returnType
-	callExpr.TypeHint = hintFromType(st.visitedType)
+	callExpr.TypeHint = attrFromType(st.visitedType)
 }
 
 func (st *StaticTyping) VisitIndexExpr(indexExpr *ast.IndexExpr) {
@@ -492,10 +495,10 @@ func (st *StaticTyping) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 
 	if valueType == strType {
 		st.visitedType = strType
-		indexExpr.TypeHint = hintFromType(st.visitedType)
+		indexExpr.TypeHint = attrFromType(st.visitedType)
 	} else {
 		checkListType(valueType)
 		st.visitedType = valueType.(ListType).elemType
-		indexExpr.TypeHint = hintFromType(st.visitedType)
+		indexExpr.TypeHint = attrFromType(st.visitedType)
 	}
 }

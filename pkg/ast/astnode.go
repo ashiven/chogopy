@@ -13,11 +13,11 @@ type Node interface {
 	Validate() bool
 }
 
-// Attribute has as its purpose to equip each
+// TypeAttr has as its purpose to equip each
 // expression AST node with a type hint that can later
 // be used when lowering the AST into a series of
 // machine instructions or a flattened IR.
-type Attribute interface {
+type TypeAttr interface {
 	String() string
 }
 
@@ -33,7 +33,8 @@ const (
 )
 
 type ListAttribute struct {
-	ElemType Attribute
+	ElemType TypeAttr
+	Length   int
 }
 
 func (ba BasicAttribute) String() string {
@@ -374,7 +375,7 @@ func (as *AssignStmt) Visit(v Visitor) {
 
 type LiteralExpr struct {
 	name     string
-	TypeHint string
+	TypeHint TypeAttr
 	Value    any
 	Node
 }
@@ -392,7 +393,7 @@ func (le *LiteralExpr) Visit(v Visitor) {
 
 type IdentExpr struct {
 	name       string
-	TypeHint   string
+	TypeHint   TypeAttr
 	Identifier string
 	Node
 }
@@ -412,7 +413,7 @@ func (ie *IdentExpr) Visit(v Visitor) {
 
 type UnaryExpr struct {
 	name     string
-	TypeHint string
+	TypeHint TypeAttr
 	Op       string
 	Value    Node
 	Node
@@ -434,7 +435,7 @@ func (ue *UnaryExpr) Visit(v Visitor) {
 
 type BinaryExpr struct {
 	name     string
-	TypeHint string
+	TypeHint TypeAttr
 	Op       string
 	Lhs      Node
 	Rhs      Node
@@ -458,7 +459,7 @@ func (be *BinaryExpr) Visit(v Visitor) {
 
 type IfExpr struct {
 	name      string
-	TypeHint  string
+	TypeHint  TypeAttr
 	Condition Node
 	IfNode    Node
 	ElseNode  Node
@@ -483,7 +484,7 @@ func (ie *IfExpr) Visit(v Visitor) {
 
 type ListExpr struct {
 	name     string
-	TypeHint string
+	TypeHint TypeAttr
 	Elements []Node
 	Node
 }
@@ -506,7 +507,7 @@ func (le *ListExpr) Visit(v Visitor) {
 
 type CallExpr struct {
 	name      string
-	TypeHint  string
+	TypeHint  TypeAttr
 	FuncName  string
 	Arguments []Node
 	Node
@@ -530,7 +531,7 @@ func (ce *CallExpr) Visit(v Visitor) {
 
 type IndexExpr struct {
 	name     string
-	TypeHint string
+	TypeHint TypeAttr
 	Value    Node
 	Index    Node
 	Node
