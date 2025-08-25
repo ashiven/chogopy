@@ -12,26 +12,51 @@ import (
 )
 
 func attrToType(attr ast.TypeAttr) types.Type {
-	_, isListAttr := attr.(*ast.ListAttribute)
+	_, isListAttr := attr.(ast.ListAttribute)
 	if isListAttr {
-		elemType := attrToType(attr.(*ast.ListAttribute).ElemType)
+		elemType := attrToType(attr.(ast.ListAttribute).ElemType)
 		listLength := attr.(ast.ListAttribute).Length
 		return types.NewArray(uint64(listLength), elemType)
 	}
 
-	switch {
-	case attr.(ast.BasicAttribute) == ast.Integer:
+	switch attr.(ast.BasicAttribute) {
+	case ast.Integer:
 		return types.I32
-	case attr.(ast.BasicAttribute) == ast.Boolean:
+	case ast.Boolean:
 		return types.I1
-	case attr.(ast.BasicAttribute) == ast.String:
+	case ast.String:
 		return types.I8Ptr
-	case attr.(ast.BasicAttribute) == ast.None:
+	case ast.None:
 		return types.NewPointer(types.I1)
-	case attr.(ast.BasicAttribute) == ast.Empty:
+	case ast.Empty:
 		// TODO:
-	case attr.(ast.BasicAttribute) == ast.Object:
+	case ast.Object:
 		// TODO:
+	}
+
+	// TODO: error
+	return nil
+}
+
+func astTypeToType(astType any) types.Type {
+	_, isListType := astType.(*ast.ListType)
+	if isListType {
+		elemType := astTypeToType(astType.(*ast.ListType).ElemType)
+		return types.NewPointer(elemType)
+	}
+
+	switch astType.(*ast.NamedType).TypeName {
+	case "int":
+		return types.I32
+	case "str":
+		return types.I8Ptr
+	case "bool":
+		return types.I1
+	case "<None>":
+		return types.Void
+	case "object":
+		// TODO: support object type somehow?
+		return types.Void
 	}
 
 	// TODO: error
@@ -94,30 +119,10 @@ func (cg *CodeGenerator) VisitProgram(program *ast.Program) {
 /* Definitions */
 
 func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
-	funcName := funcDef.FuncName
-	returnType := funcDef.ReturnType
+	returnType := astTypeToType(funcDef.ReturnType)
+	newFuncDef := cg.Module.NewFunc(funcDef.FuncName, returnType)
 
-	var opReturnType types.Type
-
-	_, returnIsList := returnType.(*ast.ListType)
-	if returnIsList {
-		opReturnType = types.I32Ptr
-	} else {
-		switch returnType.(*ast.NamedType).TypeName {
-		case "int":
-			opReturnType = types.I32
-		case "bool":
-			opReturnType = types.I1
-		case "str":
-			opReturnType = types.I8Ptr
-		case "<None>":
-			opReturnType = types.Void
-		}
-	}
-
-	funcDefOp := cg.Module.NewFunc(funcName, opReturnType)
-
-	cg.currentBlock = funcDefOp.NewBlock("entry")
+	cg.currentBlock = newFuncDef.NewBlock("entry")
 	for _, bodyNode := range funcDef.FuncBody {
 		bodyNode.Visit(cg)
 	}
