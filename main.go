@@ -5,6 +5,7 @@ import (
 	"chogopy/pkg/codegen"
 	"chogopy/pkg/lexer"
 	"chogopy/pkg/parser"
+	"fmt"
 	"log"
 	"os"
 
@@ -62,9 +63,20 @@ func main() {
 			pretty.Println(nameScopes.NameContext)
 		case "-c":
 			program := myParser.ParseProgram()
+			staticTyping := astanalysis.StaticTyping{}
+			staticTyping.Analyze(&program)
 			codeGenerator := codegen.CodeGenerator{}
 			codeGenerator.Analyze(&program)
 			pretty.Println(codeGenerator.Module.String())
+
+			err := os.WriteFile(
+				fmt.Sprintf("%s.ll", filename),
+				[]byte(codeGenerator.Module.String()),
+				0644,
+			)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 }

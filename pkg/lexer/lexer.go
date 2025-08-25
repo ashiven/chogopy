@@ -160,6 +160,7 @@ func (l *Lexer) handleComment(nextChar string) {
 		l.scanner.Consume()
 		nextChar = l.scanner.Peek()
 	}
+	l.indentLevel = 0
 }
 
 func (l *Lexer) handleIndent() Token {

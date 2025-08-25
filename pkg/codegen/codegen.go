@@ -4,17 +4,20 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"strings"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 )
 
-type SSAVal any
-
 type CodeGenerator struct {
-	Module        *ir.Module
-	lastGenerated SSAVal
+	Module *ir.Module
+
+	currentBlock *ir.Block
+
+	lastGenerated value.Value
 	ast.BaseVisitor
 }
 
@@ -45,6 +48,33 @@ func (cg *CodeGenerator) VisitProgram(program *ast.Program) {
 /* Definitions */
 
 func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
+	funcName := funcDef.FuncName
+	returnType := funcDef.ReturnType
+
+	var opReturnType types.Type
+
+	_, returnIsList := returnType.(*ast.ListType)
+	if returnIsList {
+		opReturnType = types.I32Ptr
+	} else {
+		switch returnType.(*ast.NamedType).TypeName {
+		case "int":
+			opReturnType = types.I32
+		case "bool":
+			opReturnType = types.I1
+		case "str":
+			opReturnType = types.I8Ptr
+		case "<None>":
+			opReturnType = types.Void
+		}
+	}
+
+	funcDefOp := cg.Module.NewFunc(funcName, opReturnType)
+
+	cg.currentBlock = funcDefOp.NewBlock("entry")
+	for _, bodyNode := range funcDef.FuncBody {
+		bodyNode.Visit(cg)
+	}
 }
 
 func (cg *CodeGenerator) VisitTypedVar(typedVar *ast.TypedVar) {
@@ -80,6 +110,9 @@ func (cg *CodeGenerator) VisitPassStmt(passStmt *ast.PassStmt) {
 }
 
 func (cg *CodeGenerator) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
+	returnStmt.ReturnVal.Visit(cg)
+
+	cg.currentBlock.NewRet(cg.lastGenerated)
 }
 
 func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
@@ -96,7 +129,8 @@ func (cg *CodeGenerator) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 	case string:
 		cg.lastGenerated = constant.NewCharArrayFromString(literalVal)
 	default:
-		// TODO:
+		// TODO: look into the pointer type
+		cg.lastGenerated = constant.NewNull(types.NewPointer(types.I1))
 		return
 	}
 }
@@ -108,12 +142,50 @@ func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 }
 
 func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
+	binaryExpr.Lhs.Visit(cg)
+	lhsValue := cg.lastGenerated
+
+	binaryExpr.Rhs.Visit(cg)
+	rhsValue := cg.lastGenerated
+
+	switch binaryExpr.Op {
+	case "+":
+		newAdd := cg.currentBlock.NewAdd(lhsValue, rhsValue)
+		cg.lastGenerated = newAdd
+	}
 }
 
 func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 }
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
+	listLength := uint64(len(listExpr.Elements))
+
+	// TODO: Since the typehint is currently a string we have to do it like this.
+	// This should be changed in the future when the type hints have been changed.
+	var listType *types.ArrayType
+	switch {
+	case strings.Contains(listExpr.TypeHint, "Integer"):
+		listType = types.NewArray(listLength, types.I32)
+	case strings.Contains(listExpr.TypeHint, "Boolean"):
+		listType = types.NewArray(listLength, types.I1)
+	case strings.Contains(listExpr.TypeHint, "String"):
+		listType = types.NewArray(listLength, types.I8Ptr)
+	case strings.Contains(listExpr.TypeHint, "None"):
+		listType = types.NewArray(listLength, types.NewPointer(types.I1))
+	}
+
+	listElems := []constant.Constant{}
+	for _, elem := range listExpr.Elements {
+		elem.Visit(cg)
+		listElems = append(listElems, cg.lastGenerated.(constant.Constant))
+	}
+
+	listConst := constant.NewArray(listType, listElems...)
+	listAlloc := cg.currentBlock.NewAlloca(listType)
+	cg.currentBlock.NewStore(listConst, listAlloc)
+
+	cg.lastGenerated = listAlloc
 }
 
 func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
