@@ -2,6 +2,7 @@ package main
 
 import (
 	"chogopy/pkg/astanalysis"
+	"chogopy/pkg/codegen"
 	"chogopy/pkg/lexer"
 	"chogopy/pkg/parser"
 	"log"
@@ -59,6 +60,11 @@ func main() {
 			nameScopes := astanalysis.NameScopes{}
 			nameScopes.Analyze(&program)
 			pretty.Println(nameScopes.NameContext)
+		case "-c":
+			program := myParser.ParseProgram()
+			codeGenerator := codegen.CodeGenerator{}
+			codeGenerator.Analyze(&program)
+			pretty.Println(codeGenerator.Module.String())
 		}
 	}
 }

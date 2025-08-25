@@ -369,6 +369,7 @@ func (as *AssignStmt) Visit(v Visitor) {
 // TODO: We are currently simply converting Attributes to their string representation
 // and setting this as the TypeHint but it may be better to set the Attribute directly and
 // convert it to its string representation only when needed.
+
 /* Expressions */
 
 type LiteralExpr struct {
