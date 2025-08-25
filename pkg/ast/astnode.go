@@ -340,7 +340,7 @@ func (rs *ReturnStmt) Name() string {
 
 func (rs *ReturnStmt) Visit(v Visitor) {
 	v.VisitReturnStmt(rs)
-	if v.Traverse() {
+	if v.Traverse() && rs.ReturnVal != nil {
 		rs.ReturnVal.Visit(v)
 	}
 }

@@ -236,8 +236,13 @@ func (st *StaticTyping) VisitForStmt(forStmt *ast.ForStmt) {
 func (st *StaticTyping) VisitPassStmt(passStmt *ast.PassStmt) {}
 
 func (st *StaticTyping) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
-	returnStmt.ReturnVal.Visit(st)
-	returnType := st.visitedType
+	var returnType Type
+	if returnStmt.ReturnVal != nil {
+		returnStmt.ReturnVal.Visit(st)
+		returnType = st.visitedType
+	} else {
+		returnType = noneType
+	}
 	checkAssignmentCompatible(returnType, st.returnType)
 }
 

@@ -4,6 +4,7 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"strconv"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -63,10 +64,26 @@ func astTypeToType(astType any) types.Type {
 	return nil
 }
 
+type BlockNames map[string]int
+
+func (bn BlockNames) get(name string) string {
+	_, nameExists := bn[name]
+	if !nameExists {
+		bn[name] = 0
+		return name + strconv.Itoa(bn[name])
+	}
+
+	bn[name]++
+	return name + strconv.Itoa(bn[name])
+}
+
 type CodeGenerator struct {
 	Module *ir.Module
 
-	currentBlock *ir.Block
+	currentFunction *ir.Func
+	currentBlock    *ir.Block
+
+	blockNames BlockNames
 
 	lastGenerated value.Value
 	ast.BaseVisitor
@@ -78,6 +95,8 @@ type CodeGenerator struct {
 
 func (cg *CodeGenerator) Analyze(program *ast.Program) {
 	cg.Module = ir.NewModule()
+
+	cg.blockNames = BlockNames{}
 
 	// TODO: add functions for builtin calls to print, input, and len
 	print_ := cg.Module.NewFunc(
@@ -91,8 +110,11 @@ func (cg *CodeGenerator) Analyze(program *ast.Program) {
 		definition.Visit(cg)
 	}
 
-	entryPoint := cg.Module.NewFunc("main", types.I32)
-	cg.currentBlock = entryPoint.NewBlock("entry")
+	mainFunction := cg.Module.NewFunc("main", types.I32)
+	mainBlock := mainFunction.NewBlock(cg.blockNames.get("entry"))
+
+	cg.currentFunction = mainFunction
+	cg.currentBlock = mainBlock
 
 	// TODO: It would probably be safe to just put all of the statements into a main function
 	// since the definitions will just sit at the llvm module level.
@@ -100,7 +122,7 @@ func (cg *CodeGenerator) Analyze(program *ast.Program) {
 		statement.Visit(cg)
 	}
 
-	cg.currentBlock.NewRet(constant.NewInt(types.I32, 0))
+	mainBlock.NewRet(constant.NewInt(types.I32, 0))
 }
 
 func (cg *CodeGenerator) Traverse() bool {
@@ -120,11 +142,19 @@ func (cg *CodeGenerator) VisitProgram(program *ast.Program) {
 
 func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 	returnType := astTypeToType(funcDef.ReturnType)
-	newFuncDef := cg.Module.NewFunc(funcDef.FuncName, returnType)
+	newFunction := cg.Module.NewFunc(funcDef.FuncName, returnType)
+	newBlock := newFunction.NewBlock(cg.blockNames.get("entry"))
 
-	cg.currentBlock = newFuncDef.NewBlock("entry")
+	cg.currentFunction = newFunction
+	cg.currentBlock = newBlock
 	for _, bodyNode := range funcDef.FuncBody {
 		bodyNode.Visit(cg)
+	}
+
+	if returnType == types.Void {
+		// TODO: look into null pointer type
+		returnVal := constant.NewNull(types.NewPointer(types.I1))
+		cg.currentBlock.NewRet(returnVal)
 	}
 }
 
@@ -149,6 +179,28 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 /* Statements */
 
 func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
+	ifStmt.Condition.Visit(cg)
+	condition := cg.lastGenerated
+
+	ifBlock := cg.currentFunction.NewBlock(cg.blockNames.get("if"))
+	elseBlock := cg.currentFunction.NewBlock(cg.blockNames.get("else"))
+	exitBlock := cg.currentFunction.NewBlock(cg.blockNames.get("exit"))
+
+	cg.currentBlock.NewCondBr(condition, ifBlock, elseBlock)
+
+	cg.currentBlock = ifBlock
+	for _, ifBodyNode := range ifStmt.IfBody {
+		ifBodyNode.Visit(cg)
+	}
+	cg.currentBlock.NewBr(exitBlock)
+
+	cg.currentBlock = elseBlock
+	for _, elseBodyNode := range ifStmt.ElseBody {
+		elseBodyNode.Visit(cg)
+	}
+	cg.currentBlock.NewBr(exitBlock)
+
+	cg.currentBlock = exitBlock
 }
 
 func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
@@ -161,9 +213,16 @@ func (cg *CodeGenerator) VisitPassStmt(passStmt *ast.PassStmt) {
 }
 
 func (cg *CodeGenerator) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
-	returnStmt.ReturnVal.Visit(cg)
+	var returnVal value.Value
+	if returnStmt.ReturnVal != nil {
+		returnStmt.ReturnVal.Visit(cg)
+		returnVal = cg.lastGenerated
+	} else {
+		// TODO: look into null pointer type
+		returnVal = constant.NewNull(types.NewPointer(types.I1))
+	}
 
-	cg.currentBlock.NewRet(cg.lastGenerated)
+	cg.currentBlock.NewRet(returnVal)
 }
 
 func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
