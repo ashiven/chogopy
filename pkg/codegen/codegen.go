@@ -19,8 +19,7 @@ func attrToType(attr ast.TypeAttr) types.Type {
 	_, isListAttr := attr.(ast.ListAttribute)
 	if isListAttr {
 		elemType := attrToType(attr.(ast.ListAttribute).ElemType)
-		listLength := attr.(ast.ListAttribute).Length
-		return types.NewArray(uint64(listLength), elemType)
+		return elemType
 	}
 
 	switch attr.(ast.BasicAttribute) {
@@ -194,13 +193,21 @@ func (cg *CodeGenerator) VisitNonLocalDecl(nonLocalDecl *ast.NonLocalDecl) {
 
 func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varName := varDef.TypedVar.(*ast.TypedVar).VarName
+	literalVal := varDef.Literal.(*ast.LiteralExpr).Value
 
-	varDef.Literal.Visit(cg)
-	// TODO: This fails if we have a var definition that is initialized with None
-	// --> cg.lastGenerated = nil --> can't convert to constant.Constant at runtime
-	literalValue := cg.lastGenerated.(constant.Constant)
+	var literalConst constant.Constant
+	switch varDef.Literal.(*ast.LiteralExpr).TypeHint {
+	case ast.Integer:
+		literalConst = constant.NewInt(types.I32, int64(literalVal.(int)))
+	case ast.Boolean:
+		literalConst = constant.NewBool(literalVal.(bool))
+	case ast.String:
+		literalConst = constant.NewCharArrayFromString(literalVal.(string))
+	default:
+		literalConst = constant.NewNull(types.I8Ptr)
+	}
 
-	newVar := cg.Module.NewGlobalDef(varName, literalValue)
+	newVar := cg.Module.NewGlobalDef(varName, literalConst)
 	cg.varDefs[varName] = newVar
 }
 
@@ -273,17 +280,8 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	// NOTE: We are using iterName to iterate over a string/list, so we should reset its value to an empty string/0 before assigning to it.
 	iterName := cg.varDefs[forStmt.IterName]
 	forStmt.Iter.Visit(cg)
-	// NOTE: Since the way we are currently handling visits to literals (lastGenerated is merely set to a constant)
-	// iterVal will also just be a constant and not an SSA Value. What we can do about this is to either make visits to literals
-	// set lastGenerated to an SSA Value via Alloc-Store-Load--as one would expect--or to let the caller handle allocation
-	// and moving the constant into an SSA Value. (not sure how to go about this yet--if visitLiteral returns an SSA Val, visitVarDef breaks because it expects a constant...)
 	iterVal := cg.lastGenerated
-	_, iterValIsConst := iterVal.(constant.Constant)
-	if iterValIsConst {
-		iterValAlloc := cg.currentBlock.NewAlloca(iterVal.Type())
-		cg.currentBlock.NewStore(iterVal, iterValAlloc)
-		iterVal = iterValAlloc
-	}
+
 	// Initialize iteration index
 	indexAlloc := cg.currentBlock.NewAlloca(types.I32)
 	indexAlloc.LocalName = cg.uniqueNames.get("index_ptr")
@@ -345,27 +343,42 @@ func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 /* Expressions */
 
 func (cg *CodeGenerator) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
+	var literalConst constant.Constant
+
 	switch literalVal := literalExpr.Value.(type) {
 	case int:
-		cg.lastGenerated = constant.NewInt(types.I32, int64(literalVal))
+		literalConst = constant.NewInt(types.I32, int64(literalVal))
 	case bool:
-		cg.lastGenerated = constant.NewBool(literalVal)
+		literalConst = constant.NewBool(literalVal)
 	case string:
-		cg.lastGenerated = constant.NewCharArrayFromString(literalVal + "\x00")
+		literalConst = constant.NewCharArrayFromString(literalVal + "\x00")
+		literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())
+		cg.currentBlock.NewStore(literalConst, literalAlloc)
+		cg.currentBlock.NewBitCast(literalAlloc, types.I8Ptr)
+		cg.lastGenerated = literalAlloc
+		return
 	default:
-		cg.lastGenerated = nil
+		literalConst = constant.NewNull(types.I8Ptr)
 	}
+
+	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())
+	cg.currentBlock.NewStore(literalConst, literalAlloc)
+	cg.lastGenerated = cg.currentBlock.NewLoad(literalConst.Type(), literalAlloc)
 }
 
 func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	identName := identExpr.Identifier
 	// The identifier can refer to one of three things:
 
-	// 1) A global variable definition.
-	cg.lastGenerated = cg.varDefs[identName]
+	// 1) A global function definition. (Do we even support the use of function identifiers anywhere outside of call expressions?)
+	if funcDef, ok := cg.funcDefs[identName]; ok {
+		cg.lastGenerated = funcDef
+	}
 
-	// 2) A global function definition. (Do we even support function identifiers anywhere outside of call expressions?)
-	cg.lastGenerated = cg.funcDefs[identName]
+	// 2) A global variable definition.
+	if varDef, ok := cg.varDefs[identName]; ok {
+		cg.lastGenerated = varDef
+	}
 
 	// 3) The name of a parameter of the current function.
 	for _, param := range cg.currentFunction.Params {
@@ -399,18 +412,21 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 }
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
-	listType := attrToType(listExpr.TypeHint).(*types.ArrayType)
+	listType := attrToType(listExpr.TypeHint)
 
-	listElems := []constant.Constant{}
-	for _, elem := range listExpr.Elements {
-		elem.Visit(cg)
-		listElems = append(listElems, cg.lastGenerated.(constant.Constant))
-	}
-
-	listConst := constant.NewArray(listType, listElems...)
 	listAlloc := cg.currentBlock.NewAlloca(listType)
 	listAlloc.LocalName = cg.uniqueNames.get("list_ptr")
-	cg.currentBlock.NewStore(listConst, listAlloc)
+
+	for elemIdx, elem := range listExpr.Elements {
+		elem.Visit(cg)
+		elemVal := cg.lastGenerated
+
+		elemIdxConst := constant.NewInt(types.I32, int64(elemIdx))
+		elemPtr := cg.currentBlock.NewGetElementPtr(listType, listAlloc, elemIdxConst)
+		elemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
+
+		cg.currentBlock.NewStore(elemVal, elemPtr)
+	}
 
 	cg.lastGenerated = listAlloc
 }
@@ -419,19 +435,7 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	args := []value.Value{}
 	for _, arg := range callExpr.Arguments {
 		arg.Visit(cg)
-
-		// We only really want to allocate when an argument is a literal/constant rather than an identifier/SSA value
-		// (last visit would have been to visitLiteralExpr()). Why? Because identifier arguments and expression args
-		// would be stored inside of an SSA value and we would unnecessarily create another alloc and store to move
-		// that SSA value around while a constant does not have its own SSA value and therefore needs an Alloc-Store.
-		_, argIsIdentifier := arg.(*ast.IdentExpr)
-		if argIsIdentifier {
-			args = append(args, cg.lastGenerated)
-		} else {
-			argAlloc := cg.currentBlock.NewAlloca(cg.lastGenerated.Type())
-			cg.currentBlock.NewStore(cg.lastGenerated, argAlloc)
-			args = append(args, argAlloc)
-		}
+		args = append(args, cg.lastGenerated)
 	}
 
 	switch callExpr.FuncName {
