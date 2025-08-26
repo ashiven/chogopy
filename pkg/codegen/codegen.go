@@ -244,6 +244,8 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 		iterLength = iter.TypeHint.(ast.ListAttribute).Length
 	case *ast.LiteralExpr:
 		iterNameType = attrToType(iter.TypeHint)
+		strLiteral := forStmt.Iter.(*ast.LiteralExpr).Value
+		iterLength = len(strLiteral.(string))
 	case *ast.IdentExpr:
 		_, identIsList := iter.TypeHint.(ast.ListAttribute)
 		if identIsList {
@@ -252,14 +254,13 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 			iterLength = iter.TypeHint.(ast.ListAttribute).Length
 		} else {
 			iterNameType = attrToType(iter.TypeHint)
+			// TODO: figure out a way to get the length for a variable to a string
 		}
 	}
 
 	// Some constants for convenience
 	zero := constant.NewInt(types.I32, 0)
 	one := constant.NewInt(types.I32, 1)
-	// TODO: The length is stored in ListAttribute for lists but we don't know it
-	// for strings.. so we probably have to check against a null byte (string terminator)
 	iterLen := constant.NewInt(types.I32, int64(iterLength))
 
 	// Initialize iterator
@@ -268,7 +269,6 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	// Initialize iter name
 	iterNameAlloc := cg.currentBlock.NewAlloca(iterNameType)
 	iterNameAlloc.LocalName = cg.uniqueNames.get("iter_name_ptr")
-	cg.currentBlock.NewStore(zero, iterNameAlloc) // TODO: we can't init this with zero when iter is a string
 	// Initialize iteration index
 	indexAlloc := cg.currentBlock.NewAlloca(types.I32)
 	indexAlloc.LocalName = cg.uniqueNames.get("index_ptr")
@@ -433,7 +433,6 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	}
 
 	callee := cg.funcDefs[callExpr.FuncName]
-
 	cg.currentBlock.NewCall(callee, args...)
 }
 
