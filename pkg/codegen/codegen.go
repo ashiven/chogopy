@@ -229,10 +229,10 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 }
 
 func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
-	forCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.cond"))
-	forBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.body"))
-	forIncBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.inc"))
-	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.exit"))
+	forCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_cond"))
+	forBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_body"))
+	forIncBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_inc"))
+	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_exit"))
 	_ = forBodyBlock
 	_ = forIncBlock
 	_ = forExitBlock
