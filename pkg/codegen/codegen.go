@@ -79,6 +79,11 @@ func (bn BlockNames) get(name string) string {
 	return name + strconv.Itoa(bn[name])
 }
 
+type (
+	FuncDefs map[string]*ir.Func
+	VarDefs  map[string]*ir.Global
+)
+
 type CodeGenerator struct {
 	Module *ir.Module
 
@@ -87,6 +92,9 @@ type CodeGenerator struct {
 
 	blockNames BlockNames
 
+	varDefs  VarDefs
+	funcDefs FuncDefs
+
 	lastGenerated value.Value
 	ast.BaseVisitor
 }
@@ -94,16 +102,19 @@ type CodeGenerator struct {
 func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.Module = ir.NewModule()
 	cg.blockNames = BlockNames{}
+	cg.varDefs = VarDefs{}
+	cg.funcDefs = FuncDefs{}
 
 	/* Builtin functions: print, input, len */
 
 	// TODO: add functions for builtin calls to print, input, and len
+	// Note that since we are using puts for print, it currently only supports string literals.
 	print_ := cg.Module.NewFunc(
 		"puts",
 		types.I32,
 		ir.NewParam("", types.NewPointer(types.I8)),
 	)
-	_ = print_
+	cg.funcDefs["print"] = print_
 
 	/* Definitions followed by statements in main func */
 
@@ -139,20 +150,29 @@ func (cg *CodeGenerator) VisitProgram(program *ast.Program) {
 /* Definitions */
 
 func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
+	params := []*ir.Param{}
+	for _, paramNode := range funcDef.Parameters {
+		paramName := paramNode.(*ast.TypedVar).VarName
+		paramType := astTypeToType(paramNode.(*ast.TypedVar).VarType)
+		param := ir.NewParam(paramName, paramType)
+		params = append(params, param)
+	}
+
 	returnType := astTypeToType(funcDef.ReturnType)
-	newFunction := cg.Module.NewFunc(funcDef.FuncName, returnType)
+
+	newFunction := cg.Module.NewFunc(funcDef.FuncName, returnType, params...)
 	newBlock := newFunction.NewBlock(cg.blockNames.get("entry"))
 
+	cg.funcDefs[funcDef.FuncName] = newFunction
 	cg.currentFunction = newFunction
 	cg.currentBlock = newBlock
+
 	for _, bodyNode := range funcDef.FuncBody {
 		bodyNode.Visit(cg)
 	}
 
 	if returnType == types.Void {
-		// TODO: look into null pointer type
-		returnVal := constant.NewNull(types.NewPointer(types.I1))
-		cg.currentBlock.NewRet(returnVal)
+		cg.currentBlock.NewRet(nil)
 	}
 }
 
@@ -171,7 +191,8 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varDef.Literal.Visit(cg)
 	literalValue := cg.lastGenerated.(constant.Constant)
 
-	cg.Module.NewGlobalDef(varName, literalValue)
+	newVar := cg.Module.NewGlobalDef(varName, literalValue)
+	cg.varDefs[varName] = newVar
 }
 
 /* Statements */
@@ -216,8 +237,7 @@ func (cg *CodeGenerator) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
 		returnStmt.ReturnVal.Visit(cg)
 		returnVal = cg.lastGenerated
 	} else {
-		// TODO: look into null pointer type
-		returnVal = constant.NewNull(types.NewPointer(types.I1))
+		returnVal = nil
 	}
 
 	cg.currentBlock.NewRet(returnVal)
@@ -235,15 +255,38 @@ func (cg *CodeGenerator) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 	case bool:
 		cg.lastGenerated = constant.NewBool(literalVal)
 	case string:
-		cg.lastGenerated = constant.NewCharArrayFromString(literalVal)
+		cg.lastGenerated = constant.NewCharArrayFromString(literalVal + "\x00")
 	default:
-		// TODO: look into null pointer type
-		cg.lastGenerated = constant.NewNull(types.NewPointer(types.I1))
-		return
+		cg.lastGenerated = nil
 	}
 }
 
 func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
+	identName := identExpr.Identifier
+
+	// The identifier can refer to one of three things:
+	// (Also, locals should overwrite globals imo but I am not sure.)
+
+	// 1) A global variable definition.
+	for _, varDef := range cg.varDefs {
+		if identName == varDef.GlobalName {
+			cg.lastGenerated = varDef
+		}
+	}
+
+	// 2) A global function definition.
+	for _, funcDef := range cg.funcDefs {
+		if identName == funcDef.GlobalName {
+			cg.lastGenerated = funcDef
+		}
+	}
+
+	// 3) The name of a parameter of the current function.
+	for _, param := range cg.currentFunction.Params {
+		if identName == param.LocalName {
+			cg.lastGenerated = param
+		}
+	}
 }
 
 func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
@@ -283,6 +326,29 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 }
 
 func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
+	args := []value.Value{}
+	for _, arg := range callExpr.Arguments {
+		arg.Visit(cg)
+
+		// TODO: this isn't right. maybe generate allocs inside of visit literal without
+		// breaking other stuff or do entirely without allocs.
+		argAlloc := cg.currentBlock.NewAlloca(cg.lastGenerated.Type())
+		cg.currentBlock.NewStore(cg.lastGenerated, argAlloc)
+		args = append(args, argAlloc)
+	}
+
+	switch callExpr.FuncName {
+	case "print":
+		for _, arg := range args {
+			// Bitcast will convert an argument of a type like [10 x i8] to an arg of type i8*
+			bitCast := cg.currentBlock.NewBitCast(arg, types.I8Ptr)
+			args[0] = bitCast
+		}
+	}
+
+	callee := cg.funcDefs[callExpr.FuncName]
+
+	cg.currentBlock.NewCall(callee, args...)
 }
 
 func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
