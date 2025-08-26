@@ -140,12 +140,15 @@ func (cg *CodeGenerator) Traverse() bool {
 }
 
 func (cg *CodeGenerator) VisitNamedType(namedType *ast.NamedType) {
+	/* no op */
 }
 
 func (cg *CodeGenerator) VisitListType(listType *ast.ListType) {
+	/* no op */
 }
 
 func (cg *CodeGenerator) VisitProgram(program *ast.Program) {
+	/* no op */
 }
 
 /* Definitions */
@@ -178,12 +181,15 @@ func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 }
 
 func (cg *CodeGenerator) VisitTypedVar(typedVar *ast.TypedVar) {
+	/* no op */
 }
 
 func (cg *CodeGenerator) VisitGlobalDecl(globalDecl *ast.GlobalDecl) {
+	/* no op */
 }
 
 func (cg *CodeGenerator) VisitNonLocalDecl(nonLocalDecl *ast.NonLocalDecl) {
+	/* no op */
 }
 
 func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
@@ -226,6 +232,7 @@ func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
 }
 
 func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
+	// TODO: implement
 }
 
 func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
@@ -268,8 +275,8 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	forStmt.Iter.Visit(cg)
 	// NOTE: Since the way we are currently handling visits to literals (lastGenerated is merely set to a constant)
 	// iterVal will also just be a constant and not an SSA Value. What we can do about this is to either make visits to literals
-	// set lastGenerated to an SSA Value via Alloc-StoreConst-Load --as one would expect-- or to let the caller handle allocation
-	// and moving the constant into an SSA Value. (not sure how to go about this yet -- if visitLiteral returns an SSA Val, visitVarDef breaks because it expects a constant...)
+	// set lastGenerated to an SSA Value via Alloc-Store-Load--as one would expect--or to let the caller handle allocation
+	// and moving the constant into an SSA Value. (not sure how to go about this yet--if visitLiteral returns an SSA Val, visitVarDef breaks because it expects a constant...)
 	iterVal := cg.lastGenerated
 	_, iterValIsConst := iterVal.(constant.Constant)
 	if iterValIsConst {
@@ -316,6 +323,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 }
 
 func (cg *CodeGenerator) VisitPassStmt(passStmt *ast.PassStmt) {
+	/* no op */
 }
 
 func (cg *CodeGenerator) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
@@ -331,6 +339,7 @@ func (cg *CodeGenerator) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
 }
 
 func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
+	// TODO: implement
 }
 
 /* Expressions */
@@ -350,23 +359,13 @@ func (cg *CodeGenerator) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 
 func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	identName := identExpr.Identifier
-
 	// The identifier can refer to one of three things:
-	// (Also, locals should overwrite globals imo but I am not sure.)
 
 	// 1) A global variable definition.
-	for _, varDef := range cg.varDefs {
-		if identName == varDef.GlobalName {
-			cg.lastGenerated = varDef
-		}
-	}
+	cg.lastGenerated = cg.varDefs[identName]
 
 	// 2) A global function definition. (Do we even support function identifiers anywhere outside of call expressions?)
-	for _, funcDef := range cg.funcDefs {
-		if identName == funcDef.GlobalName {
-			cg.lastGenerated = funcDef
-		}
-	}
+	cg.lastGenerated = cg.funcDefs[identName]
 
 	// 3) The name of a parameter of the current function.
 	for _, param := range cg.currentFunction.Params {
@@ -377,6 +376,7 @@ func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 }
 
 func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
+	// TODO: implement
 }
 
 func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
@@ -386,6 +386,7 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	binaryExpr.Rhs.Visit(cg)
 	rhsValue := cg.lastGenerated
 
+	// TODO: implement
 	switch binaryExpr.Op {
 	case "+":
 		newAdd := cg.currentBlock.NewAdd(lhsValue, rhsValue)
@@ -394,6 +395,7 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 }
 
 func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
+	// TODO: implement
 }
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
@@ -446,4 +448,5 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 }
 
 func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
+	// TODO: implement
 }
