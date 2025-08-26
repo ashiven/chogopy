@@ -274,7 +274,7 @@ func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 		}
 	}
 
-	// 2) A global function definition.
+	// 2) A global function definition. (Do we even support function identifiers anywhere outside of call expressions?)
 	for _, funcDef := range cg.funcDefs {
 		if identName == funcDef.GlobalName {
 			cg.lastGenerated = funcDef
@@ -330,19 +330,26 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	for _, arg := range callExpr.Arguments {
 		arg.Visit(cg)
 
-		// TODO: this isn't right. maybe generate allocs inside of visit literal without
-		// breaking other stuff or do entirely without allocs.
-		argAlloc := cg.currentBlock.NewAlloca(cg.lastGenerated.Type())
-		cg.currentBlock.NewStore(cg.lastGenerated, argAlloc)
-		args = append(args, argAlloc)
+		// We only really want to allocate when an argument is a literal/constant rather than an identifier/SSA value
+		// (last visit would have been to visitLiteralExpr()). Why? Because identifier arguments and expression args
+		// would be stored inside of an SSA value and we would unnecessarily create another alloc and store to move
+		// that SSA value around while a constant does not have its own SSA value and therefore needs an Alloc-Store.
+		_, argIsIdentifier := arg.(*ast.IdentExpr)
+		if argIsIdentifier {
+			args = append(args, cg.lastGenerated)
+		} else {
+			argAlloc := cg.currentBlock.NewAlloca(cg.lastGenerated.Type())
+			cg.currentBlock.NewStore(cg.lastGenerated, argAlloc)
+			args = append(args, argAlloc)
+		}
 	}
 
 	switch callExpr.FuncName {
 	case "print":
-		for _, arg := range args {
-			// Bitcast will convert an argument of a type like [10 x i8] to an arg of type i8*
+		for i, arg := range args {
+			// Bitcast will convert an argument of a type like [10 x i8]* to an arg of type i8*
 			bitCast := cg.currentBlock.NewBitCast(arg, types.I8Ptr)
-			args[0] = bitCast
+			args[i] = bitCast
 		}
 	}
 
