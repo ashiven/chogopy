@@ -31,7 +31,7 @@ func attrToType(attr ast.TypeAttr) types.Type {
 	case ast.String:
 		return types.I8Ptr
 	case ast.None:
-		return types.NewPointer(types.I1)
+		return types.Void
 	case ast.Empty:
 		// TODO:
 	case ast.Object:
@@ -243,7 +243,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 		iterNameType = attrToType(elemType)
 		iterLength = iter.TypeHint.(ast.ListAttribute).Length
 	case *ast.LiteralExpr:
-		iterNameType = attrToType(iter.TypeHint)
+		iterNameType = types.I8
 		strLiteral := forStmt.Iter.(*ast.LiteralExpr).Value
 		iterLength = len(strLiteral.(string))
 	case *ast.IdentExpr:
@@ -253,7 +253,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 			iterNameType = attrToType(elemType)
 			iterLength = iter.TypeHint.(ast.ListAttribute).Length
 		} else {
-			iterNameType = attrToType(iter.TypeHint)
+			iterNameType = types.I8
 			// TODO: figure out a way to get the length for a variable to a string
 		}
 	}
@@ -263,12 +263,20 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	one := constant.NewInt(types.I32, 1)
 	iterLen := constant.NewInt(types.I32, int64(iterLength))
 
-	// Initialize iterator
+	// NOTE: We are using iterName to iterate over a string/list, so we should reset its value to an empty string/0 before assigning to it.
+	iterName := cg.varDefs[forStmt.IterName]
 	forStmt.Iter.Visit(cg)
+	// NOTE: Since the way we are currently handling visits to literals (lastGenerated is merely set to a constant)
+	// iterVal will also just be a constant and not an SSA Value. What we can do about this is to either make visits to literals
+	// set lastGenerated to an SSA Value via Alloc-StoreConst-Load --as one would expect-- or to let the caller handle allocation
+	// and moving the constant into an SSA Value. (not sure how to go about this yet -- if visitLiteral returns an SSA Val, visitVarDef breaks because it expects a constant...)
 	iterVal := cg.lastGenerated
-	// Initialize iter name
-	iterNameAlloc := cg.currentBlock.NewAlloca(iterNameType)
-	iterNameAlloc.LocalName = cg.uniqueNames.get("iter_name_ptr")
+	_, iterValIsConst := iterVal.(constant.Constant)
+	if iterValIsConst {
+		iterValAlloc := cg.currentBlock.NewAlloca(iterVal.Type())
+		cg.currentBlock.NewStore(iterVal, iterValAlloc)
+		iterVal = iterValAlloc
+	}
 	// Initialize iteration index
 	indexAlloc := cg.currentBlock.NewAlloca(types.I32)
 	indexAlloc.LocalName = cg.uniqueNames.get("index_ptr")
@@ -289,7 +297,8 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
 	currentVal := cg.currentBlock.NewLoad(iterNameType, currentAddress)
 	currentVal.LocalName = cg.uniqueNames.get("curr_val")
-	cg.currentBlock.NewStore(currentVal, iterNameAlloc)
+	iterNameCast := cg.currentBlock.NewBitCast(iterName, types.NewPointer(currentVal.Type()))
+	cg.currentBlock.NewStore(currentVal, iterNameCast)
 	for _, bodyOp := range forStmt.Body {
 		bodyOp.Visit(cg)
 	}
