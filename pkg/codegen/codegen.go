@@ -132,7 +132,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 		statement.Visit(cg)
 	}
 
-	mainBlock.NewRet(constant.NewInt(types.I32, 0))
+	cg.currentBlock.NewRet(constant.NewInt(types.I32, 0))
 }
 
 func (cg *CodeGenerator) Traverse() bool {
@@ -229,22 +229,19 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 }
 
 func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
-	forCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_cond"))
-	forBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_body"))
-	forIncBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_inc"))
-	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for_exit"))
-	_ = forBodyBlock
-	_ = forIncBlock
-	_ = forExitBlock
+	forCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.cond"))
+	forBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.body"))
+	forIncBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.inc"))
+	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.exit"))
 
 	// The iterator is either a list literal, a string literal, or an identifier storing one of the former two
 	var iterNameType types.Type
-	var iterLen int
+	var iterLength int
 	switch iter := forStmt.Iter.(type) {
 	case *ast.ListExpr:
 		elemType := iter.TypeHint.(ast.ListAttribute).ElemType
 		iterNameType = attrToType(elemType)
-		iterLen = iter.TypeHint.(ast.ListAttribute).Length
+		iterLength = iter.TypeHint.(ast.ListAttribute).Length
 	case *ast.LiteralExpr:
 		iterNameType = attrToType(iter.TypeHint)
 	case *ast.IdentExpr:
@@ -252,66 +249,61 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 		if identIsList {
 			elemType := iter.TypeHint.(ast.ListAttribute).ElemType
 			iterNameType = attrToType(elemType)
-			iterLen = iter.TypeHint.(ast.ListAttribute).Length
+			iterLength = iter.TypeHint.(ast.ListAttribute).Length
 		} else {
 			iterNameType = attrToType(iter.TypeHint)
 		}
 	}
 
+	// Some constants for convenience
 	zero := constant.NewInt(types.I32, 0)
+	one := constant.NewInt(types.I32, 1)
+	// TODO: The length is stored in ListAttribute for lists but we don't know it
+	// for strings.. so we probably have to check against a null byte (string terminator)
+	iterLen := constant.NewInt(types.I32, int64(iterLength))
 
+	// Initialize iterator
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
-
-	// Initialize iter name with 0
+	// Initialize iter name
 	iterNameAlloc := cg.currentBlock.NewAlloca(iterNameType)
 	iterNameAlloc.LocalName = cg.uniqueNames.get("iter_name_ptr")
-	cg.currentBlock.NewStore(zero, iterNameAlloc)
-
-	// Initialize iteration index with 0
+	cg.currentBlock.NewStore(zero, iterNameAlloc) // TODO: we can't init this with zero when iter is a string
+	// Initialize iteration index
 	indexAlloc := cg.currentBlock.NewAlloca(types.I32)
 	indexAlloc.LocalName = cg.uniqueNames.get("index_ptr")
 	cg.currentBlock.NewStore(zero, indexAlloc)
-
-	// TODO: The length is stored in ListAttribute for lists but we don't know it
-	// for strings.. so we probably have to check against a null byte (string terminator)
-	//
-	// Initialize iter length
-	iterLenAlloc := cg.currentBlock.NewAlloca(types.I32)
-	iterLenAlloc.LocalName = cg.uniqueNames.get("iter_len_ptr")
-	cg.currentBlock.NewStore(constant.NewInt(types.I32, int64(iterLen)), iterLenAlloc)
-
-	// Switch to the for condition block
 	cg.currentBlock.NewBr(forCondBlock)
-	cg.currentBlock = forCondBlock
 
 	/* Condition block */
-
-	// Load the current index value
-	addressOffset := cg.currentBlock.NewLoad(types.I32, indexAlloc)
-	addressOffset.LocalName = cg.uniqueNames.get("index")
-	// Load the iterator length
-	iterLength := cg.currentBlock.NewLoad(types.I32, iterLenAlloc)
-	iterLength.LocalName = cg.uniqueNames.get("iter_len")
-	// Branch to for exit if address offset greater equal to iter len
-	exitCondition := cg.currentBlock.NewICmp(enum.IPredSLT, addressOffset, iterLength)
-	exitCondition.LocalName = cg.uniqueNames.get("exit")
-	cg.currentBlock.NewCondBr(exitCondition, forBodyBlock, forExitBlock)
-	// Get the pointer of the iterator at the current index
-	currentAddress := cg.currentBlock.NewGetElementPtr(iterNameType, iterVal, addressOffset)
-	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
-	// Load the value at the incremented address
-	currentVal := cg.currentBlock.NewLoad(iterNameType, currentAddress)
-	currentVal.LocalName = cg.uniqueNames.get("iter_name")
-	// Store the current value inside of iter_name
-	cg.currentBlock.NewStore(currentVal, iterNameAlloc)
+	cg.currentBlock = forCondBlock
+	index := cg.currentBlock.NewLoad(types.I32, indexAlloc)
+	index.LocalName = cg.uniqueNames.get("index")
+	continueLoop := cg.currentBlock.NewICmp(enum.IPredSLT, index, iterLen)
+	continueLoop.LocalName = cg.uniqueNames.get("continue")
+	cg.currentBlock.NewCondBr(continueLoop, forBodyBlock, forExitBlock)
 
 	/* Body block */
+	cg.currentBlock = forBodyBlock
+	currentAddress := cg.currentBlock.NewGetElementPtr(iterNameType, iterVal, index)
+	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
+	currentVal := cg.currentBlock.NewLoad(iterNameType, currentAddress)
+	currentVal.LocalName = cg.uniqueNames.get("curr_val")
+	cg.currentBlock.NewStore(currentVal, iterNameAlloc)
+	for _, bodyOp := range forStmt.Body {
+		bodyOp.Visit(cg)
+	}
+	cg.currentBlock.NewBr(forIncBlock)
 
-	cg.currentBlock.NewRet(nil)
-	forBodyBlock.NewRet(nil)
-	forIncBlock.NewRet(nil)
-	forExitBlock.NewRet(nil)
+	/* Increment block */
+	cg.currentBlock = forIncBlock
+	incremented := cg.currentBlock.NewAdd(index, one)
+	incremented.LocalName = cg.uniqueNames.get("inc")
+	cg.currentBlock.NewStore(incremented, indexAlloc)
+	cg.currentBlock.NewBr(forCondBlock)
+
+	/* Exit block */
+	cg.currentBlock = forExitBlock
 }
 
 func (cg *CodeGenerator) VisitPassStmt(passStmt *ast.PassStmt) {
