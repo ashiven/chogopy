@@ -10,6 +10,7 @@ import (
 	"github.com/kr/pretty"
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -66,17 +67,17 @@ func astTypeToType(astType any) types.Type {
 	return nil
 }
 
-type BlockNames map[string]int
+type UniqueNames map[string]int
 
-func (bn BlockNames) get(name string) string {
-	_, nameExists := bn[name]
+func (un UniqueNames) get(name string) string {
+	_, nameExists := un[name]
 	if !nameExists {
-		bn[name] = 0
-		return name + strconv.Itoa(bn[name])
+		un[name] = 0
+		return name + strconv.Itoa(un[name])
 	}
 
-	bn[name]++
-	return name + strconv.Itoa(bn[name])
+	un[name]++
+	return name + strconv.Itoa(un[name])
 }
 
 type (
@@ -90,7 +91,7 @@ type CodeGenerator struct {
 	currentFunction *ir.Func
 	currentBlock    *ir.Block
 
-	blockNames BlockNames
+	uniqueNames UniqueNames
 
 	varDefs  VarDefs
 	funcDefs FuncDefs
@@ -101,7 +102,7 @@ type CodeGenerator struct {
 
 func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.Module = ir.NewModule()
-	cg.blockNames = BlockNames{}
+	cg.uniqueNames = UniqueNames{}
 	cg.varDefs = VarDefs{}
 	cg.funcDefs = FuncDefs{}
 
@@ -123,7 +124,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	}
 
 	mainFunction := cg.Module.NewFunc("main", types.I32)
-	mainBlock := mainFunction.NewBlock(cg.blockNames.get("entry"))
+	mainBlock := mainFunction.NewBlock(cg.uniqueNames.get("entry"))
 	cg.currentFunction = mainFunction
 	cg.currentBlock = mainBlock
 
@@ -161,7 +162,7 @@ func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 	returnType := astTypeToType(funcDef.ReturnType)
 
 	newFunction := cg.Module.NewFunc(funcDef.FuncName, returnType, params...)
-	newBlock := newFunction.NewBlock(cg.blockNames.get("entry"))
+	newBlock := newFunction.NewBlock(cg.uniqueNames.get("entry"))
 
 	cg.funcDefs[funcDef.FuncName] = newFunction
 	cg.currentFunction = newFunction
@@ -189,6 +190,8 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varName := varDef.TypedVar.(*ast.TypedVar).VarName
 
 	varDef.Literal.Visit(cg)
+	// TODO: This fails if we have a var definition that is initialized with None
+	// --> cg.lastGenerated = nil --> can't convert to constant.Constant at runtime
 	literalValue := cg.lastGenerated.(constant.Constant)
 
 	newVar := cg.Module.NewGlobalDef(varName, literalValue)
@@ -201,9 +204,9 @@ func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
 	ifStmt.Condition.Visit(cg)
 	condition := cg.lastGenerated
 
-	ifBlock := cg.currentFunction.NewBlock(cg.blockNames.get("if"))
-	elseBlock := cg.currentFunction.NewBlock(cg.blockNames.get("else"))
-	exitBlock := cg.currentFunction.NewBlock(cg.blockNames.get("exit"))
+	ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if"))
+	elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("else"))
+	exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("exit"))
 
 	cg.currentBlock.NewCondBr(condition, ifBlock, elseBlock)
 
@@ -226,6 +229,89 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 }
 
 func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
+	forCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.cond"))
+	forBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.body"))
+	forIncBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.inc"))
+	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.exit"))
+	_ = forBodyBlock
+	_ = forIncBlock
+	_ = forExitBlock
+
+	// The iterator is either a list literal, a string literal, or an identifier storing one of the former two
+	var iterNameType types.Type
+	var iterLen int
+	switch iter := forStmt.Iter.(type) {
+	case *ast.ListExpr:
+		elemType := iter.TypeHint.(ast.ListAttribute).ElemType
+		iterNameType = attrToType(elemType)
+		iterLen = iter.TypeHint.(ast.ListAttribute).Length
+	case *ast.LiteralExpr:
+		iterNameType = attrToType(iter.TypeHint)
+	case *ast.IdentExpr:
+		_, identIsList := iter.TypeHint.(ast.ListAttribute)
+		if identIsList {
+			elemType := iter.TypeHint.(ast.ListAttribute).ElemType
+			iterNameType = attrToType(elemType)
+			iterLen = iter.TypeHint.(ast.ListAttribute).Length
+		} else {
+			iterNameType = attrToType(iter.TypeHint)
+		}
+	}
+
+	zero := constant.NewInt(types.I32, 0)
+
+	forStmt.Iter.Visit(cg)
+	iterVal := cg.lastGenerated
+
+	// Initialize iter name with 0
+	iterNameAlloc := cg.currentBlock.NewAlloca(iterNameType)
+	iterNameAlloc.LocalName = cg.uniqueNames.get("iter_name_ptr")
+	cg.currentBlock.NewStore(zero, iterNameAlloc)
+
+	// Initialize iteration index with 0
+	indexAlloc := cg.currentBlock.NewAlloca(types.I32)
+	indexAlloc.LocalName = cg.uniqueNames.get("index_ptr")
+	cg.currentBlock.NewStore(zero, indexAlloc)
+
+	// TODO: The length is stored in ListAttribute for lists but we don't know it
+	// for strings.. so we probably have to check against a null byte (string terminator)
+	//
+	// Initialize iter length
+	iterLenAlloc := cg.currentBlock.NewAlloca(types.I32)
+	iterLenAlloc.LocalName = cg.uniqueNames.get("iter_len_ptr")
+	cg.currentBlock.NewStore(constant.NewInt(types.I32, int64(iterLen)), iterLenAlloc)
+
+	// Switch to the for condition block
+	cg.currentBlock.NewBr(forCondBlock)
+	cg.currentBlock = forCondBlock
+
+	/* Condition block */
+
+	// Load the current index value
+	addressOffset := cg.currentBlock.NewLoad(types.I32, indexAlloc)
+	addressOffset.LocalName = cg.uniqueNames.get("index")
+	// Load the iterator length
+	iterLength := cg.currentBlock.NewLoad(types.I32, iterLenAlloc)
+	iterLength.LocalName = cg.uniqueNames.get("iter_len")
+	// Branch to for exit if address offset greater equal to iter len
+	exitCondition := cg.currentBlock.NewICmp(enum.IPredSLT, addressOffset, iterLength)
+	exitCondition.LocalName = cg.uniqueNames.get("exit")
+	cg.currentBlock.NewCondBr(exitCondition, forBodyBlock, forExitBlock)
+	// Get the pointer of the iterator at the current index
+	currentAddress := cg.currentBlock.NewGetElementPtr(iterNameType, iterVal, addressOffset)
+	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
+	// Load the value at the incremented address
+	currentVal := cg.currentBlock.NewLoad(iterNameType, currentAddress)
+	currentVal.LocalName = cg.uniqueNames.get("iter_name")
+	// Store the current value inside of iter_name
+	cg.currentBlock.NewStore(currentVal, iterNameAlloc)
+
+	/* Body block */
+
+	cg.currentBlock.NewRet(nil)
+	forBodyBlock.NewRet(nil)
+	forIncBlock.NewRet(nil)
+	forExitBlock.NewRet(nil)
 }
 
 func (cg *CodeGenerator) VisitPassStmt(passStmt *ast.PassStmt) {
@@ -320,6 +406,7 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 
 	listConst := constant.NewArray(listType, listElems...)
 	listAlloc := cg.currentBlock.NewAlloca(listType)
+	listAlloc.LocalName = cg.uniqueNames.get("list_ptr")
 	cg.currentBlock.NewStore(listConst, listAlloc)
 
 	cg.lastGenerated = listAlloc

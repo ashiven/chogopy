@@ -344,15 +344,14 @@ func (p *Parser) parseFuncParams() []ast.Node {
 	parameters := []ast.Node{}
 
 	paramIndex := 0
-	for p.check(lexer.IDENTIFIER) {
+	for p.check(lexer.IDENTIFIER) ||
+		p.check(lexer.COMMA) {
 
-		if p.check(lexer.RROUNDBRACKET) ||
-			p.check(lexer.NEWLINE) {
-			break
-		}
-
-		if paramIndex > 0 && !p.check(lexer.COMMA) {
-			p.syntaxError(CommaExpected)
+		if paramIndex > 0 {
+			if !p.check(lexer.COMMA) {
+				p.syntaxError(CommaExpected)
+			}
+			p.match(lexer.COMMA)
 		}
 
 		varNameToken := p.match(lexer.IDENTIFIER)
