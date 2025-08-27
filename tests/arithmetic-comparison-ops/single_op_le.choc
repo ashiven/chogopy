@@ -1,0 +1,16 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+print(1 <= 1)
+print(0 <= 1)
+print(2 <= 1)
+print(2 <= -1)
+print(-2 <= -1)
+print(2 <= -1)
+
+# CHECK:      True
+# CHECK-NEXT: True
+# CHECK-NEXT: False
+# CHECK-NEXT: False
+# CHECK-NEXT: True
+# CHECK-NEXT: False

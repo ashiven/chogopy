@@ -1,0 +1,9 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+def foo(x: int):
+  print(x)
+
+foo(51)
+
+# CHECK:      51

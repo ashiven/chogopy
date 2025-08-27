@@ -1,0 +1,20 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+print("foo" == "foo")
+# CHECK: True
+
+print("foo" == "bar")
+# CHECK: False
+
+print("foo" == "baro")
+# CHECK: False
+
+print("foo" != "foo")
+# CHECK: False
+
+print("foo" != "bar")
+# CHECK: True
+
+print("foo" != "baro")
+# CHECK: True

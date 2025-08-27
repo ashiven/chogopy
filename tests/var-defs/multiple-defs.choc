@@ -1,0 +1,14 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+i1: int = 2
+b: bool = True
+i2: int = 40
+
+print(i1)
+print(b)
+print(i2)
+
+# CHECK:      2
+# CHECK:      True
+# CHECK:      40

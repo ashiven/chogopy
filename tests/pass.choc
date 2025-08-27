@@ -1,0 +1,7 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+pass
+print(62)
+
+# CHECK:      62

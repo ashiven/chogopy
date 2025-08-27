@@ -1,0 +1,16 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+print(0 * 1)
+print(1 * 1)
+print(2 * 4)
+print(2 * -4)
+print(-2 * 4)
+print(-2 * -4)
+
+# CHECK:      0
+# CHECK-NEXT: 1
+# CHECK-NEXT: 8
+# CHECK-NEXT: -8
+# CHECK-NEXT: -8
+# CHECK-NEXT: 8

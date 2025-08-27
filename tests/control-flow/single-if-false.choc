@@ -1,0 +1,8 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+if False:
+  print(12)
+print(98)
+
+# CHECK:      98

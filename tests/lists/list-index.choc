@@ -1,0 +1,11 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+a : [int] = None
+
+a = [42,43,44]
+print(a[0])
+print(a[1])
+print(a[2])
+
+# CHECK: 42

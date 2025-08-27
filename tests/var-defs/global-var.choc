@@ -1,0 +1,13 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+x: int = 0
+
+def foo():
+  global x
+  x = 59
+
+foo()
+print(x)
+
+# CHECK:      59

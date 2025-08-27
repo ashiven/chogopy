@@ -1,0 +1,9 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+
+print("Hello")
+print("World!")
+
+# CHECK: Hello
+# CHECK: World!

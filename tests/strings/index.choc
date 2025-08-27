@@ -1,0 +1,7 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+a : str = "aaaaa"
+print(a[0] == a)
+
+# CHECK: False

@@ -1,0 +1,7 @@
+# RUN: lli %s.ll | filecheck %s
+
+l: [int] = None
+
+print(l[0])
+
+# CHECK: TypeError: 'NoneType' object is not subscriptable

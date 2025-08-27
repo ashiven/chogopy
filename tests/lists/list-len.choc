@@ -1,0 +1,9 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+a : [int] = None
+
+a = [40,41,42]
+print(len(a))
+
+# CHECK: 3

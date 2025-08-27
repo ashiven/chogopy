@@ -1,0 +1,11 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+def foo() -> int:
+  x: int = 0
+  x = 42
+  return x
+
+print(foo())
+
+# CHECK:      42

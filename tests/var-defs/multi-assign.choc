@@ -1,0 +1,13 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+i: int = 0
+j: int = 2
+
+i = j = 24
+
+print(i)
+print(j)
+
+# CHECK: 24
+# CHECK: 24

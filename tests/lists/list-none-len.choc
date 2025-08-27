@@ -1,0 +1,7 @@
+# RUN: lli %s.ll | filecheck %s
+
+a : [int] = None
+
+print(len(a))
+
+# CHECK: TypeError: object of type 'NoneType' has no len()

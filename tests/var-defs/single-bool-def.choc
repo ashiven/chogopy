@@ -1,0 +1,7 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+x: bool = True
+print(x)
+
+# CHECK:      True
