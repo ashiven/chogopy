@@ -166,6 +166,8 @@ func isAssignmentCompatible(t1 Type, t2 Type) bool {
 		return true
 	case t1IsList && t2IsList && t1.(ListType).elemType == noneType && isAssignmentCompatible(noneType, t2.(ListType).elemType):
 		return true
+	case t1IsList && t2IsList && t1.(ListType).elemType == t2.(ListType).elemType:
+		return true
 	}
 	return false
 }

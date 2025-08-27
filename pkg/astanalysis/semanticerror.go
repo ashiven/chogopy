@@ -43,6 +43,7 @@ const (
 	ExpectedNonNoneListType
 	IsBinaryExpectedTwoObjectTypes
 	FunctionCallArgumentMismatch
+	AssignTargetInvalid
 )
 
 func typeSemanticError(errorKind TypeSemanticErrorKind, t1 Type, t2 Type, defName string, funcArgs int, callArgs int) {
@@ -65,6 +66,8 @@ func typeSemanticError(errorKind TypeSemanticErrorKind, t1 Type, t2 Type, defNam
 		fmt.Printf("Semantic Error: Expected both operands to be of object type\n")
 	case FunctionCallArgumentMismatch:
 		fmt.Printf("Semantic Error: Expected %d arguments but got %d\n", funcArgs, callArgs)
+	case AssignTargetInvalid:
+		fmt.Printf("Semantic Error: Cannot assign to non-identifier or index expression\n")
 	}
 	os.Exit(0)
 }

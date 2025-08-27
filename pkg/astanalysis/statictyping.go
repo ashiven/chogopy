@@ -257,6 +257,12 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 		currentAssign := assignStmt
 
 		for valueIsAssign {
+			_, targetIsIdent := currentAssign.Target.(*ast.IdentExpr)
+			_, targetIsIndex := currentAssign.Target.(*ast.IndexExpr)
+			if !targetIsIdent && !targetIsIndex {
+				typeSemanticError(AssignTargetInvalid, nil, nil, "", 0, 0)
+			}
+
 			currentAssign = assignStmt.Value.(*ast.AssignStmt)
 			assignNodes = append(assignNodes, currentAssign.Target)
 			_, valueIsAssign = currentAssign.Value.(*ast.AssignStmt)
@@ -323,6 +329,10 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 		checkAssignmentCompatible(valueType, targetValueType.(ListType).elemType)
 
 		target.TypeHint = attrFromType(targetValueType)
+
+	// Assigning to anything that doesn't represent an identifier / index expression is illegal
+	default:
+		typeSemanticError(AssignTargetInvalid, nil, nil, "", 0, 0)
 	}
 }
 
