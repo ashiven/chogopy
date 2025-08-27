@@ -142,6 +142,19 @@ func (cg *CodeGenerator) Traverse() bool {
 	return false
 }
 
+// OptionalLoad is a convenience method that can be called on a value
+// if one is unsure whether it is a pointer to something whose value we would like to use
+// or if it already is an SSA Value containing that something.
+// If the given value is a pointer, it will load the value at that pointer.
+func (cg *CodeGenerator) OptionalLoad(val value.Value) value.Value {
+	if _, ok := val.Type().(*types.PointerType); ok {
+		valueLoad := cg.currentBlock.NewLoad(val.Type().(*types.PointerType).ElemType, val)
+		valueLoad.LocalName = cg.uniqueNames.get("opt_val")
+		return valueLoad
+	}
+	return val
+}
+
 func (cg *CodeGenerator) VisitNamedType(namedType *ast.NamedType) {
 	/* no op */
 }
@@ -259,16 +272,7 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 
 	/* Condition block */
 	cg.currentBlock = whileCondBlock
-
-	// We only need to load the continue condition into an SSA value if it is not a literal expression
-	// (literal expressions are already loaded into SSA values in visitLiteralExpr)
-	var continueLoop value.Value
-	if _, ok := whileStmt.Condition.(*ast.LiteralExpr); ok {
-		continueLoop = cond
-	} else {
-		continueLoop = cg.currentBlock.NewLoad(types.I1, cond)
-		continueLoop.(*ir.InstLoad).LocalName = cg.uniqueNames.get("continue")
-	}
+	continueLoop := cg.OptionalLoad(cond)
 	cg.currentBlock.NewCondBr(continueLoop, whileBodyBlock, whileExitBlock)
 
 	/* Body block */
@@ -475,7 +479,6 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	switch callExpr.FuncName {
 	case "print":
 		for i, arg := range args {
-			// Bitcast will convert an argument of a type like [10 x i8]* to an arg of type i8*
 			bitCast := cg.currentBlock.NewBitCast(arg, types.I8Ptr)
 			bitCast.LocalName = cg.uniqueNames.get("print_arg_cast")
 			args[i] = bitCast
@@ -488,5 +491,18 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 }
 
 func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
-	// TODO: implement
+	indexExpr.Value.Visit(cg)
+	val := cg.OptionalLoad(cg.lastGenerated)
+
+	indexExpr.Index.Visit(cg)
+	index := cg.lastGenerated
+
+	currentAddr := cg.currentBlock.NewGetElementPtr(val.Type().(*types.PointerType).ElemType, val, index)
+	currentAddr.LocalName = cg.uniqueNames.get("index_addr")
+
+	cg.lastGenerated = cg.OptionalLoad(currentAddr)
+
+	// TODO: this works for simple index exprs but will go horribly
+	// wrong for anything more complicated like nested index exprs
+	// or indexing into a string literal etc.
 }
