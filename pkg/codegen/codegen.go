@@ -69,13 +69,11 @@ func astTypeToType(astType any) types.Type {
 type UniqueNames map[string]int
 
 func (un UniqueNames) get(name string) string {
-	_, nameExists := un[name]
-	if !nameExists {
+	if _, ok := un[name]; ok {
+		un[name]++
+	} else {
 		un[name] = 0
-		return name + strconv.Itoa(un[name])
 	}
-
-	un[name]++
 	return name + strconv.Itoa(un[name])
 }
 
@@ -239,7 +237,27 @@ func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
 }
 
 func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
-	// TODO: implement
+	whileCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.cond"))
+	whileBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.body"))
+	whileExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.exit"))
+
+	whileStmt.Condition.Visit(cg)
+	cond := cg.lastGenerated
+	cg.currentBlock.NewBr(whileCondBlock)
+
+	/* Condition block */
+	cg.currentBlock = whileCondBlock
+	cg.currentBlock.NewCondBr(cond, whileBodyBlock, whileExitBlock)
+
+	/* Body block */
+	cg.currentBlock = whileBodyBlock
+	for _, bodyOp := range whileStmt.Body {
+		bodyOp.Visit(cg)
+	}
+	cg.currentBlock.NewBr(whileCondBlock)
+
+	/* Exit block */
+	cg.currentBlock = whileExitBlock
 }
 
 func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
@@ -268,7 +286,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 			iterLength = iter.TypeHint.(ast.ListAttribute).Length
 		} else {
 			iterNameType = types.I8
-			// TODO: figure out a way to get the length for a variable to a string
+			// TODO: figure out a way to get the length for a string variable.
 		}
 	}
 
@@ -368,19 +386,13 @@ func (cg *CodeGenerator) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 
 func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	identName := identExpr.Identifier
-	// The identifier can refer to one of three things:
 
-	// 1) A global function definition. (Do we even support the use of function identifiers anywhere outside of call expressions?)
-	if funcDef, ok := cg.funcDefs[identName]; ok {
-		cg.lastGenerated = funcDef
-	}
-
-	// 2) A global variable definition.
+	// Case 1: The identifier refers to a global var def.
 	if varDef, ok := cg.varDefs[identName]; ok {
-		cg.lastGenerated = varDef
+		cg.lastGenerated = cg.currentBlock.NewLoad(varDef.Typ.ElemType, varDef)
 	}
 
-	// 3) The name of a parameter of the current function.
+	// Case 2: The identifier refers to the name of a parameter of the current function. (overwrites global def)
 	for _, param := range cg.currentFunction.Params {
 		if identName == param.LocalName {
 			cg.lastGenerated = param
