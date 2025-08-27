@@ -259,8 +259,16 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 
 	/* Condition block */
 	cg.currentBlock = whileCondBlock
-	continueLoop := cg.currentBlock.NewLoad(types.I1, cond)
-	continueLoop.LocalName = cg.uniqueNames.get("continue")
+
+	// We only need to load the continue condition into an SSA value if it is not a literal expression
+	// (literal expressions are already loaded into SSA values in visitLiteralExpr)
+	var continueLoop value.Value
+	if _, ok := whileStmt.Condition.(*ast.LiteralExpr); ok {
+		continueLoop = cond
+	} else {
+		continueLoop = cg.currentBlock.NewLoad(types.I1, cond)
+		continueLoop.(*ir.InstLoad).LocalName = cg.uniqueNames.get("continue")
+	}
 	cg.currentBlock.NewCondBr(continueLoop, whileBodyBlock, whileExitBlock)
 
 	/* Body block */
