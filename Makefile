@@ -1,4 +1,4 @@
-.PHONY: clean, test
+.PHONY: test, compile, clean
 
 test: cgp
 	make compile && lit -v tests
