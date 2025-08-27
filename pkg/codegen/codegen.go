@@ -492,6 +492,8 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 
 func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 	indexExpr.Value.Visit(cg)
+	// We have to do this to get the value out of the global variable pointer
+	// returned after visiting identExpr but it will break stuff if this is done again inside a nested indexExpr
 	val := cg.OptionalLoad(cg.lastGenerated)
 
 	indexExpr.Index.Visit(cg)
