@@ -99,8 +99,7 @@ type CodeGenerator struct {
 	varDefs  VarDefs
 	funcDefs FuncDefs
 
-	lastGenerated     value.Value
-	lastGeneratedType types.Type
+	lastGenerated value.Value
 	ast.BaseVisitor
 }
 
@@ -256,12 +255,11 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 
 	whileStmt.Condition.Visit(cg)
 	cond := cg.lastGenerated
-	condType := cg.lastGeneratedType
 	cg.currentBlock.NewBr(whileCondBlock)
 
 	/* Condition block */
 	cg.currentBlock = whileCondBlock
-	continueLoop := cg.currentBlock.NewLoad(condType, cond)
+	continueLoop := cg.currentBlock.NewLoad(types.I1, cond)
 	continueLoop.LocalName = cg.uniqueNames.get("continue")
 	cg.currentBlock.NewCondBr(continueLoop, whileBodyBlock, whileExitBlock)
 
@@ -300,9 +298,8 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 		_, identIsList := iter.TypeHint.(ast.ListAttribute)
 		if identIsList {
 			iterLength = iter.TypeHint.(ast.ListAttribute).Length
-		} else {
-			// TODO: figure out a way to get the length for a string variable.
 		}
+		// TODO: figure out a way to get the length for a string variable.
 	}
 
 	// Some constants for convenience
@@ -368,7 +365,7 @@ func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 	target := cg.lastGenerated
 
 	assignStmt.Value.Visit(cg)
-	value := cg.lastGenerated // cg.currentBlock.NewLoad(cg.lastGeneratedType, cg.lastGenerated)
+	value := cg.lastGenerated
 
 	cg.currentBlock.NewStore(value, target)
 }
@@ -392,7 +389,6 @@ func (cg *CodeGenerator) VisitLiteralExpr(literalExpr *ast.LiteralExpr) {
 	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())
 	literalAlloc.LocalName = cg.uniqueNames.get("literal_ptr")
 	cg.currentBlock.NewStore(literalConst, literalAlloc)
-	cg.lastGeneratedType = literalConst.Type()
 
 	if _, ok := literalExpr.Value.(string); ok {
 		cg.lastGenerated = literalAlloc
@@ -408,16 +404,13 @@ func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 
 	// Case 1: The identifier refers to a global var def.
 	if varDef, ok := cg.varDefs[identName]; ok {
-		// cg.lastGenerated = cg.currentBlock.NewLoad(varDef.Typ.ElemType, varDef)
 		cg.lastGenerated = varDef.value
-		cg.lastGeneratedType = varDef.elemType
 	}
 
 	// Case 2: The identifier refers to the name of a parameter of the current function. (overwrites global def)
 	for _, param := range cg.currentFunction.Params {
 		if identName == param.LocalName {
 			cg.lastGenerated = param
-			cg.lastGeneratedType = param.Type()
 		}
 	}
 }
@@ -462,7 +455,6 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 	}
 
 	cg.lastGenerated = listAlloc
-	cg.lastGeneratedType = listAlloc.Type()
 }
 
 func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
