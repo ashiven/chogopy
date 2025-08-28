@@ -23,16 +23,17 @@ func (un UniqueNames) get(name string) string {
 	return name + strconv.Itoa(un[name])
 }
 
-type VarDef struct {
+type VarInfo struct {
 	name     string
 	elemType types.Type
 	value    value.Value
+	length   int // relevant to keep track of the length of strings and lists at runtime
 }
 
 type (
-	FuncDefs map[string]*ir.Func
-	VarDefs  map[string]VarDef
-	TypeDefs map[string]types.Type
+	Functions map[string]*ir.Func
+	Variables map[string]VarInfo
+	Types     map[string]types.Type
 )
 
 type CodeGenerator struct {
@@ -43,9 +44,9 @@ type CodeGenerator struct {
 
 	uniqueNames UniqueNames
 
-	varDefs  VarDefs
-	funcDefs FuncDefs
-	typeDefs TypeDefs
+	variables Variables
+	functions Functions
+	types     Types
 
 	lastGenerated value.Value
 	ast.BaseVisitor
@@ -54,9 +55,9 @@ type CodeGenerator struct {
 func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.Module = ir.NewModule()
 	cg.uniqueNames = UniqueNames{}
-	cg.varDefs = VarDefs{}
-	cg.funcDefs = FuncDefs{}
-	cg.typeDefs = TypeDefs{}
+	cg.variables = Variables{}
+	cg.functions = Functions{}
+	cg.types = Types{}
 
 	print_ := cg.Module.NewFunc(
 		"printf",
@@ -73,18 +74,18 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 		ir.NewParam("", types.NewPointer(types.I8)),
 	)
 
-	cg.funcDefs["print"] = print_
-	cg.funcDefs["input"] = input
-	cg.funcDefs["len"] = len_
+	cg.functions["print"] = print_
+	cg.functions["input"] = input
+	cg.functions["len"] = len_
 
 	// We use arbitrary unused pointer types and then bitcasting them to match the actually expected pointer type
 	objType := cg.Module.NewTypeDef("object", types.I16Ptr)
 	noneType := cg.Module.NewTypeDef("none", types.I64Ptr)
 	emptyType := cg.Module.NewTypeDef("empty", types.I128Ptr)
 
-	cg.typeDefs["object"] = objType
-	cg.typeDefs["none"] = noneType
-	cg.typeDefs["empty"] = emptyType
+	cg.types["object"] = objType
+	cg.types["none"] = noneType
+	cg.types["empty"] = emptyType
 
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)

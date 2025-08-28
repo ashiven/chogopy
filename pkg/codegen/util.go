@@ -11,7 +11,7 @@ import (
 )
 
 func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
-	for _, type_ := range cg.typeDefs {
+	for _, type_ := range cg.types {
 		if hasType(val, type_) || isPtrTo(val, type_) {
 			return true
 		}
@@ -56,11 +56,11 @@ func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	case ast.String:
 		return types.I8Ptr
 	case ast.None:
-		return cg.typeDefs["none"]
+		return cg.types["none"]
 	case ast.Empty:
-		return cg.typeDefs["empty"]
+		return cg.types["empty"]
 	case ast.Object:
-		return cg.typeDefs["object"]
+		return cg.types["object"]
 	}
 
 	log.Fatalf("Expected type attribute but got: %# v", pretty.Formatter(attr))
@@ -82,9 +82,9 @@ func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 	case "bool":
 		return types.I1
 	case "<None>":
-		return cg.typeDefs["none"]
+		return cg.types["none"]
 	case "object":
-		return cg.typeDefs["object"]
+		return cg.types["object"]
 	}
 
 	log.Fatalf("Expected AST Type but got: %# v", pretty.Formatter(astType))
@@ -173,7 +173,7 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	case string:
 		literalConst = constant.NewCharArrayFromString(literal + "\x00")
 	case nil:
-		literalConst = constant.NewNull(cg.typeDefs["none"].(*types.PointerType))
+		literalConst = constant.NewNull(cg.types["none"].(*types.PointerType))
 	}
 
 	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())

@@ -34,7 +34,6 @@ const (
 
 type ListAttribute struct {
 	ElemType TypeAttr
-	Length   int
 }
 
 func (ba BasicAttribute) String() string {

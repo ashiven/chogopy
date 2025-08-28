@@ -415,8 +415,7 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		}
 		if binaryExpr.Op == "+" && lhsIsList && rhsIsList {
 			st.visitedType = ListType{
-				elemType: join(lhsType, rhsType),
-				length:   lhsType.(ListType).length + rhsType.(ListType).length,
+				elemType: join(lhsType.(ListType).elemType, rhsType.(ListType).elemType),
 			}
 			binaryExpr.TypeHint = attrFromType(st.visitedType)
 			return
@@ -478,7 +477,7 @@ func (st *StaticTyping) VisitListExpr(listExpr *ast.ListExpr) {
 		joinedType = join(joinedType, elemType)
 	}
 
-	st.visitedType = ListType{elemType: joinedType, length: len(listExpr.Elements)}
+	st.visitedType = ListType{elemType: joinedType}
 	listExpr.TypeHint = attrFromType(st.visitedType)
 }
 

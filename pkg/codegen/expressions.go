@@ -18,8 +18,8 @@ func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 	identName := identExpr.Identifier
 
 	// Case 1: The identifier refers to a global var def.
-	if varDef, ok := cg.varDefs[identName]; ok {
-		cg.lastGenerated = varDef.value
+	if variable, ok := cg.variables[identName]; ok {
+		cg.lastGenerated = variable.value
 	}
 
 	// Case 2: The identifier refers to the name of a parameter of the current function. (overwrites global def)
@@ -176,9 +176,11 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 		args = cg.convertPrintArgs(args)
 	}
 
-	callee := cg.funcDefs[callExpr.FuncName]
-	newCall := cg.currentBlock.NewCall(callee, args...)
-	newCall.LocalName = cg.uniqueNames.get("call")
+	callee := cg.functions[callExpr.FuncName]
+	callRes := cg.currentBlock.NewCall(callee, args...)
+	callRes.LocalName = cg.uniqueNames.get("call_res")
+
+	cg.lastGenerated = callRes
 }
 
 func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {

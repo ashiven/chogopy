@@ -24,7 +24,7 @@ func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 	newFunction := cg.Module.NewFunc(funcDef.FuncName, returnType, params...)
 	newBlock := newFunction.NewBlock(cg.uniqueNames.get("entry"))
 
-	cg.funcDefs[funcDef.FuncName] = newFunction
+	cg.functions[funcDef.FuncName] = newFunction
 	cg.currentFunction = newFunction
 	cg.currentBlock = newBlock
 
@@ -32,7 +32,7 @@ func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 		bodyNode.Visit(cg)
 	}
 
-	if returnType == cg.typeDefs["none"] {
+	if returnType == cg.types["none"] {
 		cg.currentBlock.NewRet(cg.NewLiteral(nil))
 	}
 }
@@ -80,5 +80,5 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	}
 
 	newVar := cg.Module.NewGlobalDef(varName, literalConst)
-	cg.varDefs[varName] = VarDef{name: varName, elemType: newVar.Typ.ElemType, value: newVar}
+	cg.variables[varName] = VarInfo{name: varName, elemType: newVar.Typ.ElemType, value: newVar}
 }

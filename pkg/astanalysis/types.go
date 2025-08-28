@@ -15,7 +15,6 @@ type BasicType struct {
 
 type ListType struct {
 	elemType Type
-	length   int
 	Type
 }
 
@@ -90,7 +89,7 @@ func attrFromType(nodeType Type) ast.TypeAttr {
 	_, isListType := nodeType.(ListType)
 	if isListType {
 		elemType := attrFromType(nodeType.(ListType).elemType)
-		return ast.ListAttribute{ElemType: elemType, Length: nodeType.(ListType).length}
+		return ast.ListAttribute{ElemType: elemType}
 	}
 
 	log.Fatalf("Expected Type but found %# v", nodeType)

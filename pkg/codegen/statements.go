@@ -66,26 +66,17 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.exit"))
 
 	// NOTE: We are using iterName to iterate over a string/list, so we should reset its value to an empty string/0 before assigning to it.
-	iterName := cg.varDefs[forStmt.IterName].value
-	iterNameType := cg.varDefs[forStmt.IterName].elemType
+	iterName := cg.variables[forStmt.IterName].value
+	iterNameType := cg.variables[forStmt.IterName].elemType
 
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
-
-	var iterLength int
-	switch iter := forStmt.Iter.(type) {
-	case *ast.ListExpr:
-		iterLength = iter.TypeHint.(ast.ListAttribute).Length
-	case *ast.LiteralExpr:
-		strLiteral := forStmt.Iter.(*ast.LiteralExpr).Value
-		iterLength = len(strLiteral.(string))
-	case *ast.IdentExpr:
-		_, identIsList := iter.TypeHint.(ast.ListAttribute)
-		if identIsList {
-			iterLength = iter.TypeHint.(ast.ListAttribute).Length
-		}
-		// TODO: figure out a way to get the length for a string variable.
+	if isIdentOrIndex(forStmt.Iter) {
+		iterVal = cg.LoadVal(iterVal)
 	}
+
+	// TODO: figure out a way to get the length for a list/string variable
+	iterLength := 0
 
 	// Some constants for convenience
 	zero := constant.NewInt(types.I32, 0)
