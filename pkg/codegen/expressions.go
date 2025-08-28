@@ -30,7 +30,20 @@ func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 }
 
 func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
+	unaryExpr.Value.Visit(cg)
+	unaryVal := cg.lastGenerated
+
+	var resVal value.Value
+
 	// TODO: implement
+	switch unaryExpr.Op {
+	case "not":
+	case "-":
+		zero := cg.NewLiteral(0)
+		resVal = cg.currentBlock.NewSub(zero, unaryVal)
+	}
+
+	cg.lastGenerated = resVal
 }
 
 func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {

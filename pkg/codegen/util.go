@@ -83,7 +83,7 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 		if hasType(arg, types.I32) || isPtrTo(arg, types.I32) {
 
 			/* Integer print */
-			digitStr := cg.NewLiteral("%d")
+			digitStr := cg.NewLiteral("%d\n")
 			argVal := cg.LoadVal(arg)
 			printArgs = append(printArgs, digitStr)
 			printArgs = append(printArgs, argVal)
