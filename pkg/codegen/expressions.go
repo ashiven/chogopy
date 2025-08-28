@@ -4,6 +4,7 @@ import (
 	"chogopy/pkg/ast"
 
 	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -55,14 +56,39 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 
 	var resVal value.Value
 
-	// TODO: implement
 	switch binaryExpr.Op {
 	case "and":
 		resVal = cg.currentBlock.NewAnd(lhsValue, rhsValue)
 	case "or":
 		resVal = cg.currentBlock.NewOr(lhsValue, rhsValue)
+	case "%":
+		resVal = cg.currentBlock.NewSRem(lhsValue, rhsValue)
+	case "*":
+		resVal = cg.currentBlock.NewMul(lhsValue, rhsValue)
+	case "//":
+		// TODO: implement floor div for negative values:
+		// (if the div result is negative, it will just be rounded
+		// to the next whole number in a positive direction while
+		// we want this direction to still remain negative)
+		resVal = cg.currentBlock.NewSDiv(lhsValue, rhsValue)
 	case "+":
 		resVal = cg.currentBlock.NewAdd(lhsValue, rhsValue)
+	case "-":
+		resVal = cg.currentBlock.NewSub(lhsValue, rhsValue)
+	case "<":
+		resVal = cg.currentBlock.NewICmp(enum.IPredSLT, lhsValue, rhsValue)
+	case "<=":
+		resVal = cg.currentBlock.NewICmp(enum.IPredSLE, lhsValue, rhsValue)
+	case ">":
+		resVal = cg.currentBlock.NewICmp(enum.IPredSGT, lhsValue, rhsValue)
+	case ">=":
+		resVal = cg.currentBlock.NewICmp(enum.IPredSGE, lhsValue, rhsValue)
+	case "==":
+		resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsValue, rhsValue)
+	case "!=":
+		resVal = cg.currentBlock.NewICmp(enum.IPredNE, lhsValue, rhsValue)
+	case "is":
+		resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsValue, rhsValue)
 	}
 
 	cg.lastGenerated = resVal
