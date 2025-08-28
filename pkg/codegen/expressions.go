@@ -36,9 +36,11 @@ func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 
 	var resVal value.Value
 
-	// TODO: implement
 	switch unaryExpr.Op {
 	case "not":
+		true_ := cg.NewLiteral(true)
+		resVal = cg.currentBlock.NewXor(true_, unaryVal)
+
 	case "-":
 		zero := cg.NewLiteral(0)
 		resVal = cg.currentBlock.NewSub(zero, unaryVal)
@@ -50,6 +52,24 @@ func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	binaryExpr.Lhs.Visit(cg)
 	lhsValue := cg.lastGenerated
+
+	// Short circuit AND expr if lhs is literal False
+	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {
+		literalVal := binaryExpr.Lhs.(*ast.LiteralExpr).Value
+		if binaryExpr.Op == "and" && literalVal == false {
+			cg.lastGenerated = cg.NewLiteral(false)
+			return
+		}
+	}
+
+	// Short circuit OR expr if lhs is literal True
+	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {
+		literalVal := binaryExpr.Lhs.(*ast.LiteralExpr).Value
+		if binaryExpr.Op == "or" && literalVal == true {
+			cg.lastGenerated = cg.NewLiteral(true)
+			return
+		}
+	}
 
 	binaryExpr.Rhs.Visit(cg)
 	rhsValue := cg.lastGenerated

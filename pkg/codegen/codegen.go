@@ -77,7 +77,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.funcDefs["input"] = input
 	cg.funcDefs["len"] = len_
 
-	// just using random different pointers for these and then bitcasting them to match the actual value
+	// We use arbitrary unused pointer types and then bitcasting them to match the actually expected pointer type
 	objType := cg.Module.NewTypeDef("object", types.I16Ptr)
 	noneType := cg.Module.NewTypeDef("none", types.I64Ptr)
 	emptyType := cg.Module.NewTypeDef("empty", types.I128Ptr)
