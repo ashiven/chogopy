@@ -10,14 +10,14 @@ import (
 )
 
 func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
+	ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if.then"))
+	elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if.else"))
+	exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if.exit"))
+
 	ifStmt.Condition.Visit(cg)
-	condition := cg.lastGenerated
-
-	ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if"))
-	elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("else"))
-	exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("exit"))
-
-	cg.currentBlock.NewCondBr(condition, ifBlock, elseBlock)
+	cond := cg.lastGenerated
+	cond = cg.LoadVal(cond)
+	cg.currentBlock.NewCondBr(cond, ifBlock, elseBlock)
 
 	cg.currentBlock = ifBlock
 	for _, ifBodyNode := range ifStmt.IfBody {
@@ -45,8 +45,8 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 
 	/* Condition block */
 	cg.currentBlock = whileCondBlock
-	continueLoop := cg.LoadVal(cond)
-	cg.currentBlock.NewCondBr(continueLoop, whileBodyBlock, whileExitBlock)
+	cond = cg.LoadVal(cond)
+	cg.currentBlock.NewCondBr(cond, whileBodyBlock, whileExitBlock)
 
 	/* Body block */
 	cg.currentBlock = whileBodyBlock

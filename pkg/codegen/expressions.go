@@ -40,16 +40,48 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	binaryExpr.Rhs.Visit(cg)
 	rhsValue := cg.lastGenerated
 
+	var resVal value.Value
+
 	// TODO: implement
 	switch binaryExpr.Op {
+	case "and":
+		resVal = cg.currentBlock.NewAnd(lhsValue, rhsValue)
+	case "or":
+		resVal = cg.currentBlock.NewOr(lhsValue, rhsValue)
 	case "+":
-		newAdd := cg.currentBlock.NewAdd(lhsValue, rhsValue)
-		cg.lastGenerated = newAdd
+		resVal = cg.currentBlock.NewAdd(lhsValue, rhsValue)
 	}
+
+	cg.lastGenerated = resVal
 }
 
 func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
-	// TODO: implement
+	ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("ifexpr.then"))
+	elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("ifexpr.else"))
+	exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("ifexpr.exit"))
+
+	resAlloc := cg.currentBlock.NewAlloca(attrToType(ifExpr.TypeHint))
+	resAlloc.LocalName = cg.uniqueNames.get("ifexpr_res_ptr")
+
+	ifExpr.Condition.Visit(cg)
+	cond := cg.lastGenerated
+	cond = cg.LoadVal(cond)
+	cg.currentBlock.NewCondBr(cond, ifBlock, elseBlock)
+
+	cg.currentBlock = ifBlock
+	ifExpr.IfNode.Visit(cg)
+	ifBlockRes := cg.lastGenerated
+	cg.currentBlock.NewStore(ifBlockRes, resAlloc)
+	cg.currentBlock.NewBr(exitBlock)
+
+	cg.currentBlock = elseBlock
+	ifExpr.ElseNode.Visit(cg)
+	elseBlockRes := cg.lastGenerated
+	cg.currentBlock.NewStore(elseBlockRes, resAlloc)
+	cg.currentBlock.NewBr(exitBlock)
+
+	cg.currentBlock = exitBlock
+	cg.lastGenerated = resAlloc
 }
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
@@ -93,9 +125,8 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 				// TODO: use something like a ternary expr to print "True" if val is 1 else "False"
 			} else {
 				/* String print */
-				bitCast := cg.currentBlock.NewBitCast(arg, types.I8Ptr)
-				bitCast.LocalName = cg.uniqueNames.get("print_arg_cast")
-				printArgs = append(printArgs, bitCast)
+				argVal := cg.LoadVal(arg)
+				printArgs = append(printArgs, argVal)
 			}
 		}
 		args = printArgs

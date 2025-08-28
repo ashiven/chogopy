@@ -55,14 +55,24 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.varDefs = VarDefs{}
 	cg.funcDefs = FuncDefs{}
 
-	// TODO: add functions for builtin calls to print, input, and len
-	// Note that since we are using puts for print, it currently only supports string literals.
 	print_ := cg.Module.NewFunc(
 		"printf",
 		types.I32,
 		ir.NewParam("", types.NewPointer(types.I8)),
 	)
+	input := cg.Module.NewFunc(
+		"scanf",
+		types.I32,
+	)
+	len_ := cg.Module.NewFunc(
+		"strlen",
+		types.I32,
+		ir.NewParam("", types.NewPointer(types.I8)),
+	)
+
 	cg.funcDefs["print"] = print_
+	cg.funcDefs["input"] = input
+	cg.funcDefs["len"] = len_
 
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)

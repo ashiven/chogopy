@@ -97,7 +97,9 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	cg.currentBlock.NewStore(literalConst, literalAlloc)
 
 	if _, ok := literal.(string); ok {
-		return literalAlloc
+		literalAllocCast := cg.currentBlock.NewBitCast(literalAlloc, types.I8Ptr)
+		literalAllocCast.LocalName = cg.uniqueNames.get("literal_val")
+		return literalAllocCast
 	} else {
 		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalAlloc)
 		literalLoad.LocalName = cg.uniqueNames.get("literal_val")
