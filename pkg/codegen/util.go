@@ -10,55 +10,23 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
-func attrToType(attr ast.TypeAttr) types.Type {
-	_, isListAttr := attr.(ast.ListAttribute)
-	if isListAttr {
-		elemType := attrToType(attr.(ast.ListAttribute).ElemType)
-		return types.NewPointer(elemType)
+func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
+	for _, type_ := range cg.typeDefs {
+		if isPtrTo(val, type_) {
+			return true
+		}
 	}
-
-	switch attr.(ast.BasicAttribute) {
-	case ast.Integer:
-		return types.I32
-	case ast.Boolean:
-		return types.I1
-	case ast.String:
-		return types.I8Ptr
-	case ast.None:
-		return types.Void
-	case ast.Empty:
-		// TODO:
-	case ast.Object:
-		// TODO:
-	}
-
-	log.Fatalf("Expected type attribute but got: %# v", pretty.Formatter(attr))
-	return nil
+	return false
 }
 
-func astTypeToType(astType any) types.Type {
-	_, isListType := astType.(*ast.ListType)
-	if isListType {
-		elemType := astTypeToType(astType.(*ast.ListType).ElemType)
-		return types.NewPointer(elemType)
+func isIdentOrIndex(astNode ast.Node) bool {
+	switch astNode.(type) {
+	case *ast.IdentExpr:
+		return true
+	case *ast.IndexExpr:
+		return true
 	}
-
-	switch astType.(*ast.NamedType).TypeName {
-	case "int":
-		return types.I32
-	case "str":
-		return types.I8Ptr
-	case "bool":
-		return types.I1
-	case "<None>":
-		return types.Void
-	case "object":
-		// TODO: support object type somehow?
-		return types.Void
-	}
-
-	log.Fatalf("Expected AST Type but got: %# v", pretty.Formatter(astType))
-	return nil
+	return false
 }
 
 func hasType(val value.Value, type_ types.Type) bool {
@@ -71,6 +39,56 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 		return false
 	}
 	return val.Type().(*types.PointerType).ElemType.Equal(type_)
+}
+
+func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
+	_, isListAttr := attr.(ast.ListAttribute)
+	if isListAttr {
+		elemType := cg.attrToType(attr.(ast.ListAttribute).ElemType)
+		return types.NewPointer(elemType)
+	}
+
+	switch attr.(ast.BasicAttribute) {
+	case ast.Integer:
+		return types.I32
+	case ast.Boolean:
+		return types.I1
+	case ast.String:
+		return types.I8Ptr
+	case ast.None:
+		return cg.typeDefs["none"]
+	case ast.Empty:
+		return cg.typeDefs["empty"]
+	case ast.Object:
+		return cg.typeDefs["object"]
+	}
+
+	log.Fatalf("Expected type attribute but got: %# v", pretty.Formatter(attr))
+	return nil
+}
+
+func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
+	_, isListType := astType.(*ast.ListType)
+	if isListType {
+		elemType := cg.astTypeToType(astType.(*ast.ListType).ElemType)
+		return types.NewPointer(elemType)
+	}
+
+	switch astType.(*ast.NamedType).TypeName {
+	case "int":
+		return types.I32
+	case "str":
+		return types.I8Ptr
+	case "bool":
+		return types.I1
+	case "<None>":
+		return cg.typeDefs["none"]
+	case "object":
+		return cg.typeDefs["object"]
+	}
+
+	log.Fatalf("Expected AST Type but got: %# v", pretty.Formatter(astType))
+	return nil
 }
 
 // convertPrintArgs converts a list of argument values serving as input
@@ -142,7 +160,7 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	case string:
 		literalConst = constant.NewCharArrayFromString(literal + "\x00")
 	case nil:
-		literalConst = constant.NewNull(types.I8Ptr)
+		literalConst = constant.NewNull(cg.typeDefs["none"].(*types.PointerType))
 	}
 
 	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())
@@ -150,9 +168,13 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	cg.currentBlock.NewStore(literalConst, literalAlloc)
 
 	if _, ok := literal.(string); ok {
+		// literalConst will be something like [4 x i8] leading to an allocation type of [4 x i8]*.
+		// What we want however, is a value of type i8* as opposed to [4 x i8].
+		// To achieve this, we cast the the allocated pointer from [4 x i8]* to i8* with a bitcast instruction.
 		literalAllocCast := cg.currentBlock.NewBitCast(literalAlloc, types.I8Ptr)
 		literalAllocCast.LocalName = cg.uniqueNames.get("literal_val")
 		return literalAllocCast
+
 	} else {
 		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalAlloc)
 		literalLoad.LocalName = cg.uniqueNames.get("literal_val")

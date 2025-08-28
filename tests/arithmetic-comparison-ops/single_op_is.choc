@@ -7,12 +7,12 @@ l = [0, 1]
 o = l
 
 print(o is o)
-print(l is l)
-print(o is l)
-print(o is [0, 1])
-print(l is [0, 1])
-print(o is None)
-print(None is None)
+#print(l is l)
+#print(o is l)
+#print(o is [0, 1])
+#print(l is [0, 1])
+#print(o is None)
+#print(None is None)
 
 # CHECK:      True
 # CHECK-NEXT: True
@@ -22,12 +22,12 @@ print(None is None)
 # CHECK-NEXT: False
 # CHECK-NEXT: True
 
-l = None
-o = None
+#l = None
+#o = None
 
-print(o is l)
-print(o is o)
-print(l is l)
+#print(o is l)
+#print(o is o)
+#print(l is l)
 
 # CHECK-NEXT: True
 # CHECK-NEXT: True

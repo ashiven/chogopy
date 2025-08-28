@@ -152,5 +152,17 @@ func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 	assignStmt.Value.Visit(cg)
 	value := cg.lastGenerated
 
+	if isIdentOrIndex(assignStmt.Value) {
+		value = cg.LoadVal(value)
+	}
+
+	// object, none, empty types need to be cast to specific types first
+	if cg.needsTypeCast(target) {
+		target = cg.currentBlock.NewBitCast(target, types.NewPointer(value.Type()))
+	}
+	//if cg.needsTypeCast(value) {
+	//	value = cg.currentBlock.NewBitCast(value, target.Type().(*types.PointerType).ElemType)
+	//}
+
 	cg.currentBlock.NewStore(value, target)
 }

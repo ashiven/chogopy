@@ -32,6 +32,7 @@ type VarDef struct {
 type (
 	FuncDefs map[string]*ir.Func
 	VarDefs  map[string]VarDef
+	TypeDefs map[string]types.Type
 )
 
 type CodeGenerator struct {
@@ -44,6 +45,7 @@ type CodeGenerator struct {
 
 	varDefs  VarDefs
 	funcDefs FuncDefs
+	typeDefs TypeDefs
 
 	lastGenerated value.Value
 	ast.BaseVisitor
@@ -54,6 +56,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.uniqueNames = UniqueNames{}
 	cg.varDefs = VarDefs{}
 	cg.funcDefs = FuncDefs{}
+	cg.typeDefs = TypeDefs{}
 
 	print_ := cg.Module.NewFunc(
 		"printf",
@@ -73,6 +76,15 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.funcDefs["print"] = print_
 	cg.funcDefs["input"] = input
 	cg.funcDefs["len"] = len_
+
+	// just using random different pointers for these and then bitcasting them to match the actual value
+	objType := cg.Module.NewTypeDef("object", types.I16Ptr)
+	noneType := cg.Module.NewTypeDef("none", types.I64Ptr)
+	emptyType := cg.Module.NewTypeDef("empty", types.I128Ptr)
+
+	cg.typeDefs["object"] = objType
+	cg.typeDefs["none"] = noneType
+	cg.typeDefs["empty"] = emptyType
 
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)

@@ -52,7 +52,7 @@ var expressionTokens = []lexer.TokenKind{
 	lexer.MINUS,
 }
 
-var simpleCompoundExpressionTokens = append(expressionTokens, []lexer.TokenKind{
+var simpleCompoundExpressionTokens = append(literalTokens, []lexer.TokenKind{
 	lexer.IDENTIFIER,
 	lexer.LSQUAREBRACKET,
 	lexer.LROUNDBRACKET,

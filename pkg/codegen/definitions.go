@@ -14,12 +14,12 @@ func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 	params := []*ir.Param{}
 	for _, paramNode := range funcDef.Parameters {
 		paramName := paramNode.(*ast.TypedVar).VarName
-		paramType := astTypeToType(paramNode.(*ast.TypedVar).VarType)
+		paramType := cg.astTypeToType(paramNode.(*ast.TypedVar).VarType)
 		param := ir.NewParam(paramName, paramType)
 		params = append(params, param)
 	}
 
-	returnType := astTypeToType(funcDef.ReturnType)
+	returnType := cg.astTypeToType(funcDef.ReturnType)
 
 	newFunction := cg.Module.NewFunc(funcDef.FuncName, returnType, params...)
 	newBlock := newFunction.NewBlock(cg.uniqueNames.get("entry"))
@@ -51,7 +51,7 @@ func (cg *CodeGenerator) VisitNonLocalDecl(nonLocalDecl *ast.NonLocalDecl) {
 
 func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varName := varDef.TypedVar.(*ast.TypedVar).VarName
-	varType := astTypeToType(varDef.TypedVar.(*ast.TypedVar).VarType)
+	varType := cg.astTypeToType(varDef.TypedVar.(*ast.TypedVar).VarType)
 	literalVal := varDef.Literal.(*ast.LiteralExpr).Value
 
 	var literalConst constant.Constant
@@ -61,11 +61,11 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	case ast.Boolean:
 		literalConst = constant.NewBool(literalVal.(bool))
 	case ast.String:
-		literalConst = constant.NewCharArrayFromString(literalVal.(string))
 		// TODO: we want strings to represented internally as I8*
 		// but LLVM will create a type like [4 x I8] which we need to bitcast into I8*
 		// For the same reason, the newly created var will have type [4 x I8]* with elemType I8.
 		// We need to adjust this so the variable has type I8** with elemType I8*
+		literalConst = constant.NewCharArrayFromString(literalVal.(string))
 	case ast.None:
 		switch varType := varType.(type) {
 		case *types.PointerType:
@@ -73,6 +73,10 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 		case *types.IntType:
 			literalConst = constant.NewInt(varType, int64(0))
 		}
+	case ast.Empty:
+		literalConst = constant.NewNull(varType.(*types.PointerType))
+	case ast.Object:
+		literalConst = constant.NewNull(varType.(*types.PointerType))
 	}
 
 	newVar := cg.Module.NewGlobalDef(varName, literalConst)

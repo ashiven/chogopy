@@ -62,6 +62,8 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	case "or":
 		resVal = cg.currentBlock.NewOr(lhsValue, rhsValue)
 	case "%":
+		// TODO: this is broken for negative values for the same
+		// reason that div below is broken
 		resVal = cg.currentBlock.NewSRem(lhsValue, rhsValue)
 	case "*":
 		resVal = cg.currentBlock.NewMul(lhsValue, rhsValue)
@@ -99,7 +101,7 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 	elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("ifexpr.else"))
 	exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("ifexpr.exit"))
 
-	resAlloc := cg.currentBlock.NewAlloca(attrToType(ifExpr.TypeHint))
+	resAlloc := cg.currentBlock.NewAlloca(cg.attrToType(ifExpr.TypeHint))
 	resAlloc.LocalName = cg.uniqueNames.get("ifexpr_res_ptr")
 
 	ifExpr.Condition.Visit(cg)
@@ -124,7 +126,7 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 }
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
-	listElemType := attrToType(listExpr.TypeHint.(ast.ListAttribute).ElemType)
+	listElemType := cg.attrToType(listExpr.TypeHint.(ast.ListAttribute).ElemType)
 	listAlloc := cg.currentBlock.NewAlloca(listElemType)
 	listAlloc.LocalName = cg.uniqueNames.get("list_ptr")
 
