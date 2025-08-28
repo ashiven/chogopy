@@ -62,6 +62,10 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 		literalConst = constant.NewBool(literalVal.(bool))
 	case ast.String:
 		literalConst = constant.NewCharArrayFromString(literalVal.(string))
+		// TODO: we want strings to represented internally as I8*
+		// but LLVM will create a type like [4 x I8] which we need to bitcast into I8*
+		// For the same reason, the newly created var will have type [4 x I8]* with elemType I8.
+		// We need to adjust this so the variable has type I8** with elemType I8*
 	case ast.None:
 		switch varType := varType.(type) {
 		case *types.PointerType:

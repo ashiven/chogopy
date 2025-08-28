@@ -1,6 +1,6 @@
 # RUN: lli %s.ll | filecheck %s
 # RUN: python %s | filecheck %s
 
-print("hello" if False else "bye")
+print(True if True else False)
 
-# CHECK:      False
+# CHECK:      True

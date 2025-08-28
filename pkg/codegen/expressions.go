@@ -112,24 +112,7 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 
 	switch callExpr.FuncName {
 	case "print":
-		printArgs := []value.Value{}
-		for _, arg := range args {
-			if hasType(arg, types.I32) || isPtrTo(arg, types.I32) {
-				/* Integer print */
-				digitStr := cg.NewLiteral("%d")
-				argVal := cg.LoadVal(arg)
-				printArgs = append(printArgs, digitStr)
-				printArgs = append(printArgs, argVal)
-			} else if hasType(arg, types.I1) || isPtrTo(arg, types.I1) {
-				/* Boolean print */
-				// TODO: use something like a ternary expr to print "True" if val is 1 else "False"
-			} else {
-				/* String print */
-				argVal := cg.LoadVal(arg)
-				printArgs = append(printArgs, argVal)
-			}
-		}
-		args = printArgs
+		args = cg.convertPrintArgs(args)
 	}
 
 	callee := cg.funcDefs[callExpr.FuncName]

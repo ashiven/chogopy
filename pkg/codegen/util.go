@@ -73,11 +73,64 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 	return val.Type().(*types.PointerType).ElemType.Equal(type_)
 }
 
-// NewLiteral takes any literal of types int, bool, string, or nil
+// convertPrintArgs converts a list of argument values serving as input
+// to a call of the print function so that they are printed correctly.
+// For example, given an arg of type bool (I1), it converts it into the string "True"
+// if its value is 1, or "False" if its value is 0.
+func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
+	printArgs := []value.Value{}
+	for _, arg := range args {
+		if hasType(arg, types.I32) || isPtrTo(arg, types.I32) {
+
+			/* Integer print */
+			digitStr := cg.NewLiteral("%d")
+			argVal := cg.LoadVal(arg)
+			printArgs = append(printArgs, digitStr)
+			printArgs = append(printArgs, argVal)
+		} else if hasType(arg, types.I1) || isPtrTo(arg, types.I1) {
+
+			/* Boolean print
+			> Uses a ternary to determine whether to print "True" or "False" based on the given I1 argument */
+			ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("boolprint.then"))
+			elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("boolprint.else"))
+			exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("boolprint.exit"))
+
+			resAlloc := cg.currentBlock.NewAlloca(types.I8Ptr)
+			resAlloc.LocalName = cg.uniqueNames.get("boolprint_res_ptr")
+
+			cond := arg
+			cond = cg.LoadVal(cond)
+			cg.currentBlock.NewCondBr(cond, ifBlock, elseBlock)
+
+			cg.currentBlock = ifBlock
+			ifBlockRes := cg.NewLiteral("True\n")
+			cg.currentBlock.NewStore(ifBlockRes, resAlloc)
+			cg.currentBlock.NewBr(exitBlock)
+
+			cg.currentBlock = elseBlock
+			elseBlockRes := cg.NewLiteral("False\n")
+			cg.currentBlock.NewStore(elseBlockRes, resAlloc)
+			cg.currentBlock.NewBr(exitBlock)
+
+			cg.currentBlock = exitBlock
+
+			argVal := cg.LoadVal(resAlloc)
+			printArgs = append(printArgs, argVal)
+
+		} else {
+
+			/* String print */
+			argVal := cg.LoadVal(arg)
+			printArgs = append(printArgs, argVal)
+		}
+	}
+	return printArgs
+}
+
+// NewLiteral takes any literal of type int, bool, string, or nil
 // and creates a new allocation and store for that value.
-// If the literal is an int, bool, or nil it also loads the newly allocated
-// store into an SSA Value and returns that. If it is a string,
-// the pointer to the allocated store is returned instead.
+// It returns an SSA value containing the value of the given literal.
+// The types for this value are int: I32  str: I8*  bool: I1  nil: I8*
 func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	var literalConst constant.Constant
 
