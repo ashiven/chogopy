@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  A compiler for the Chocopy language written in Go
+  A ChocoPy compiler written in Go
 </p>
 
 <div align="center">
