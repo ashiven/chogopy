@@ -11,3 +11,4 @@ compile:
 
 clean:
 	C:/Program\ Files/Git/usr/bin/find.exe tests -type f -name '*.ll' -delete
+	rm cgp.exe
