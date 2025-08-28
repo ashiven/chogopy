@@ -71,12 +71,13 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
+	iterLength := cg.lengths[iterVal]
 	if isIdentOrIndex(forStmt.Iter) {
+		iterLength = cg.variables[iterVal.Ident()[1:]].length
 		iterVal = cg.LoadVal(iterVal)
 	}
 
 	// TODO: figure out a way to get the length for a list/string variable
-	iterLength := 0
 
 	// Some constants for convenience
 	zero := constant.NewInt(types.I32, 0)

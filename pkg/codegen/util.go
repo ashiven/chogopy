@@ -155,6 +155,18 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 	if cg.needsTypeCast(src) {
 		src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)
 	}
+
+	// If src is a list or a string literal, we check for its length inside of cg.lengths
+	// and then update the variable info of target via cg.variables[target.name].length = newLength
+	if _, ok := cg.lengths[src]; ok {
+		srcLen := cg.lengths[src]
+		targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
+		if _, ok := cg.variables[targetName]; ok {
+			varInfo := cg.variables[targetName]
+			varInfo.length = srcLen
+			cg.variables[targetName] = varInfo
+		}
+	}
 	cg.currentBlock.NewStore(src, target)
 }
 
@@ -186,6 +198,7 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		// To achieve this, we cast the the allocated pointer from [4 x i8]* to i8* with a bitcast instruction.
 		literalAllocCast := cg.currentBlock.NewBitCast(literalAlloc, types.I8Ptr)
 		literalAllocCast.LocalName = cg.uniqueNames.get("literal_val")
+		cg.lengths[literalAllocCast] = len(literal.(string))
 		return literalAllocCast
 
 	} else {

@@ -94,6 +94,7 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		// we want this direction to still remain negative)
 		resVal = cg.currentBlock.NewSDiv(lhsValue, rhsValue)
 	case "+":
+		// TODO: string/list concat and updating lengths in cg.lengths and variables.length
 		resVal = cg.currentBlock.NewAdd(lhsValue, rhsValue)
 	case "-":
 		resVal = cg.currentBlock.NewSub(lhsValue, rhsValue)
@@ -147,21 +148,22 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 	listElemType := cg.attrToType(listExpr.TypeHint.(ast.ListAttribute).ElemType)
-	listAlloc := cg.currentBlock.NewAlloca(listElemType)
-	listAlloc.LocalName = cg.uniqueNames.get("list_ptr")
+	listPtr := cg.currentBlock.NewAlloca(listElemType)
+	listPtr.LocalName = cg.uniqueNames.get("list_ptr")
 
 	for elemIdx, elem := range listExpr.Elements {
 		elem.Visit(cg)
 		elemVal := cg.lastGenerated
 
 		elemIdxConst := constant.NewInt(types.I32, int64(elemIdx))
-		elemPtr := cg.currentBlock.NewGetElementPtr(listElemType, listAlloc, elemIdxConst)
+		elemPtr := cg.currentBlock.NewGetElementPtr(listElemType, listPtr, elemIdxConst)
 		elemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
 
 		cg.NewStore(elemVal, elemPtr)
 	}
 
-	cg.lastGenerated = listAlloc
+	cg.lengths[listPtr] = len(listExpr.Elements)
+	cg.lastGenerated = listPtr
 }
 
 func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {

@@ -27,13 +27,14 @@ type VarInfo struct {
 	name     string
 	elemType types.Type
 	value    value.Value
-	length   int // relevant to keep track of the length of strings and lists at runtime
+	length   int
 }
 
 type (
 	Functions map[string]*ir.Func
 	Variables map[string]VarInfo
 	Types     map[string]types.Type
+	Lengths   map[value.Value]int // keeps track of the length of string and list values
 )
 
 type CodeGenerator struct {
@@ -48,6 +49,8 @@ type CodeGenerator struct {
 	functions Functions
 	types     Types
 
+	lengths Lengths
+
 	lastGenerated value.Value
 	ast.BaseVisitor
 }
@@ -58,6 +61,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.variables = Variables{}
 	cg.functions = Functions{}
 	cg.types = Types{}
+	cg.lengths = Lengths{}
 
 	print_ := cg.Module.NewFunc(
 		"printf",
