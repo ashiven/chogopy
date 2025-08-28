@@ -160,9 +160,9 @@ func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 	if cg.needsTypeCast(target) {
 		target = cg.currentBlock.NewBitCast(target, types.NewPointer(value.Type()))
 	}
-	//if cg.needsTypeCast(value) {
-	//	value = cg.currentBlock.NewBitCast(value, target.Type().(*types.PointerType).ElemType)
-	//}
+	if cg.needsTypeCast(value) {
+		value = cg.currentBlock.NewBitCast(value, target.Type().(*types.PointerType).ElemType)
+	}
 
 	cg.currentBlock.NewStore(value, target)
 }

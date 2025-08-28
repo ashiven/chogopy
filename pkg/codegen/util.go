@@ -12,7 +12,7 @@ import (
 
 func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
 	for _, type_ := range cg.typeDefs {
-		if isPtrTo(val, type_) {
+		if hasType(val, type_) || isPtrTo(val, type_) {
 			return true
 		}
 	}
