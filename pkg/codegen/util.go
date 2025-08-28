@@ -122,12 +122,12 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 
 			cg.currentBlock = ifBlock
 			ifBlockRes := cg.NewLiteral("True\n")
-			cg.currentBlock.NewStore(ifBlockRes, resAlloc)
+			cg.NewStore(ifBlockRes, resAlloc)
 			cg.currentBlock.NewBr(exitBlock)
 
 			cg.currentBlock = elseBlock
 			elseBlockRes := cg.NewLiteral("False\n")
-			cg.currentBlock.NewStore(elseBlockRes, resAlloc)
+			cg.NewStore(elseBlockRes, resAlloc)
 			cg.currentBlock.NewBr(exitBlock)
 
 			cg.currentBlock = exitBlock
@@ -143,6 +143,19 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 		}
 	}
 	return printArgs
+}
+
+// NewStore is a wrapper around the regular block.NewStore() that first
+// checks whether the src or the target are of the types which require a typecast: object, none, empty.
+// And if that is the case, it performs a typecast before adding a new store instruction.
+func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
+	if cg.needsTypeCast(target) {
+		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
+	}
+	if cg.needsTypeCast(src) {
+		src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)
+	}
+	cg.currentBlock.NewStore(src, target)
 }
 
 // NewLiteral takes any literal of type int, bool, string, or nil
@@ -165,7 +178,7 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 
 	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())
 	literalAlloc.LocalName = cg.uniqueNames.get("literal_ptr")
-	cg.currentBlock.NewStore(literalConst, literalAlloc)
+	cg.NewStore(literalConst, literalAlloc)
 
 	if _, ok := literal.(string); ok {
 		// literalConst will be something like [4 x i8] leading to an allocation type of [4 x i8]*.

@@ -112,13 +112,13 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 	cg.currentBlock = ifBlock
 	ifExpr.IfNode.Visit(cg)
 	ifBlockRes := cg.lastGenerated
-	cg.currentBlock.NewStore(ifBlockRes, resAlloc)
+	cg.NewStore(ifBlockRes, resAlloc)
 	cg.currentBlock.NewBr(exitBlock)
 
 	cg.currentBlock = elseBlock
 	ifExpr.ElseNode.Visit(cg)
 	elseBlockRes := cg.lastGenerated
-	cg.currentBlock.NewStore(elseBlockRes, resAlloc)
+	cg.NewStore(elseBlockRes, resAlloc)
 	cg.currentBlock.NewBr(exitBlock)
 
 	cg.currentBlock = exitBlock
@@ -138,7 +138,7 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 		elemPtr := cg.currentBlock.NewGetElementPtr(listElemType, listAlloc, elemIdxConst)
 		elemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
 
-		cg.currentBlock.NewStore(elemVal, elemPtr)
+		cg.NewStore(elemVal, elemPtr)
 	}
 
 	cg.lastGenerated = listAlloc

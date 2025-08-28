@@ -32,8 +32,8 @@ func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 		bodyNode.Visit(cg)
 	}
 
-	if returnType == types.Void {
-		cg.currentBlock.NewRet(nil)
+	if returnType == cg.typeDefs["none"] {
+		cg.currentBlock.NewRet(cg.NewLiteral(nil))
 	}
 }
 

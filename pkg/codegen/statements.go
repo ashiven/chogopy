@@ -95,7 +95,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	// Initialize iteration index
 	indexAlloc := cg.currentBlock.NewAlloca(types.I32)
 	indexAlloc.LocalName = cg.uniqueNames.get("index_ptr")
-	cg.currentBlock.NewStore(zero, indexAlloc)
+	cg.NewStore(zero, indexAlloc)
 	cg.currentBlock.NewBr(forCondBlock)
 
 	/* Condition block */
@@ -112,7 +112,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
 	currentVal := cg.currentBlock.NewLoad(iterNameType, currentAddress)
 	currentVal.LocalName = cg.uniqueNames.get("curr_val")
-	cg.currentBlock.NewStore(currentVal, iterName)
+	cg.NewStore(currentVal, iterName)
 	for _, bodyOp := range forStmt.Body {
 		bodyOp.Visit(cg)
 	}
@@ -122,7 +122,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	cg.currentBlock = forIncBlock
 	incremented := cg.currentBlock.NewAdd(index, one)
 	incremented.LocalName = cg.uniqueNames.get("inc")
-	cg.currentBlock.NewStore(incremented, indexAlloc)
+	cg.NewStore(incremented, indexAlloc)
 	cg.currentBlock.NewBr(forCondBlock)
 
 	/* Exit block */
@@ -156,13 +156,5 @@ func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 		value = cg.LoadVal(value)
 	}
 
-	// object, none, empty types need to be cast to specific types first
-	if cg.needsTypeCast(target) {
-		target = cg.currentBlock.NewBitCast(target, types.NewPointer(value.Type()))
-	}
-	if cg.needsTypeCast(value) {
-		value = cg.currentBlock.NewBitCast(value, target.Type().(*types.PointerType).ElemType)
-	}
-
-	cg.currentBlock.NewStore(value, target)
+	cg.NewStore(value, target)
 }
