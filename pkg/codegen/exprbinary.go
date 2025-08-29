@@ -109,14 +109,9 @@ func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs
 }
 
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
-	concatPtr := cg.currentBlock.NewAlloca(types.I8)
-	lhsLen := cg.currentBlock.NewCall(cg.functions["len"], lhs)
-	rhsLen := cg.currentBlock.NewCall(cg.functions["len"], rhs)
-	concatLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
-
-	concatenator := cg.NewLiteral("%s%s")
-	cg.currentBlock.NewCall(cg.functions["snprintf"], concatPtr, concatLen, concatenator, lhs, rhs)
-	return concatPtr
+	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], lhs, rhs)
+	concatRes.LocalName = "concat_str"
+	return concatRes
 }
 
 func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType types.Type) value.Value {

@@ -86,17 +86,17 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 		types.I32,
 		ir.NewParam("", types.NewPointer(types.I8)),
 	)
-	snprintf := cg.Module.NewFunc(
-		"snprintf",
-		types.I32,
+	strcat := cg.Module.NewFunc(
+		"strcat",
+		types.NewPointer(types.I8),
 		ir.NewParam("", types.NewPointer(types.I8)),
-		ir.NewParam("", types.I32),
+		ir.NewParam("", types.NewPointer(types.I8)),
 	)
 
 	cg.functions["print"] = print_
 	cg.functions["input"] = input
 	cg.functions["len"] = len_
-	cg.functions["snprintf"] = snprintf
+	cg.functions["strcat"] = strcat
 
 	// We use arbitrary unused pointer types and then bitcasting them to match the actually expected pointer type
 	objType := cg.Module.NewTypeDef("object", types.I16Ptr)
