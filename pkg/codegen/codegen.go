@@ -75,7 +75,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	print_ := cg.Module.NewFunc(
 		"printf",
 		types.I32,
-		ir.NewParam("", types.I8),
+		ir.NewParam("", types.I8Ptr),
 	)
 	input := cg.Module.NewFunc(
 		"input",
@@ -89,13 +89,19 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	strcat := cg.Module.NewFunc(
 		"strcat",
 		types.I8Ptr,
-		ir.NewParam("", types.I8),
-		ir.NewParam("", types.I8),
+		ir.NewParam("", types.I8Ptr),
+		ir.NewParam("", types.I8Ptr),
 	)
 	scanf := cg.Module.NewFunc(
 		"scanf",
 		types.I32,
-		ir.NewParam("", types.I8),
+		ir.NewParam("", types.I8Ptr),
+	)
+	strcpy := cg.Module.NewFunc(
+		"strcpy",
+		types.I8Ptr,
+		ir.NewParam("", types.I8Ptr),
+		ir.NewParam("", types.I8Ptr),
 	)
 
 	cg.functions["print"] = print_
@@ -103,6 +109,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.functions["len"] = len_
 	cg.functions["strcat"] = strcat
 	cg.functions["scanf"] = scanf
+	cg.functions["strcpy"] = strcpy
 
 	// We use arbitrary unused pointer types for our custom types and then bitcast them to match the actually expected pointer type
 	objType := cg.Module.NewTypeDef("object", types.I16Ptr)

@@ -85,11 +85,22 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 		} else {
 
 			/* String print */
-
-			// TODO: append newline to string before printing
 			arg = cg.LoadVal(arg)
+			newline := cg.NewLiteral("\n")
 
-			printArgs = append(printArgs, arg)
+			// 1) Allocate a destination buffer of size: char[BUFFER_SIZE] (needs extra space for stuff to be appended)
+			destBuffer := cg.currentBlock.NewAlloca(types.NewArray(50, types.I8))
+			destBuffer.LocalName = cg.uniqueNames.get("print_buffer_res")
+
+			// 2) Copy the string that should be printed over into that buffer
+			copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], destBuffer, arg)
+			copyRes.LocalName = cg.uniqueNames.get("print_copy_res")
+
+			// 3) Append the newline string via strcat
+			concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], destBuffer, newline)
+			concatRes.LocalName = cg.uniqueNames.get("print_append_res")
+
+			printArgs = append(printArgs, destBuffer)
 		}
 	}
 	return printArgs
