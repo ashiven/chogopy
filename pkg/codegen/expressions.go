@@ -52,6 +52,9 @@ func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	binaryExpr.Lhs.Visit(cg)
 	lhsValue := cg.lastGenerated
+	if isIdentOrIndex(binaryExpr.Lhs) {
+		lhsValue = cg.LoadVal(lhsValue)
+	}
 
 	// Short circuit AND expr if lhs is literal False
 	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {
@@ -73,6 +76,9 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 
 	binaryExpr.Rhs.Visit(cg)
 	rhsValue := cg.lastGenerated
+	if isIdentOrIndex(binaryExpr.Rhs) {
+		rhsValue = cg.LoadVal(rhsValue)
+	}
 
 	var resVal value.Value
 

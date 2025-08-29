@@ -39,13 +39,15 @@ func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
 	whileBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.body"))
 	whileExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.exit"))
 
-	whileStmt.Condition.Visit(cg)
-	cond := cg.lastGenerated
 	cg.currentBlock.NewBr(whileCondBlock)
 
 	/* Condition block */
 	cg.currentBlock = whileCondBlock
-	cond = cg.LoadVal(cond)
+	whileStmt.Condition.Visit(cg)
+	cond := cg.lastGenerated
+	if isIdentOrIndex(whileStmt.Condition) {
+		cond = cg.LoadVal(cond)
+	}
 	cg.currentBlock.NewCondBr(cond, whileBodyBlock, whileExitBlock)
 
 	/* Body block */
