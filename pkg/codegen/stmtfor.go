@@ -6,60 +6,7 @@ import (
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
-	"github.com/llir/llvm/ir/value"
 )
-
-func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
-	ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if.then"))
-	elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if.else"))
-	exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if.exit"))
-
-	ifStmt.Condition.Visit(cg)
-	cond := cg.lastGenerated
-	cond = cg.LoadVal(cond)
-	cg.currentBlock.NewCondBr(cond, ifBlock, elseBlock)
-
-	cg.currentBlock = ifBlock
-	for _, ifBodyNode := range ifStmt.IfBody {
-		ifBodyNode.Visit(cg)
-	}
-	cg.currentBlock.NewBr(exitBlock)
-
-	cg.currentBlock = elseBlock
-	for _, elseBodyNode := range ifStmt.ElseBody {
-		elseBodyNode.Visit(cg)
-	}
-	cg.currentBlock.NewBr(exitBlock)
-
-	cg.currentBlock = exitBlock
-}
-
-func (cg *CodeGenerator) VisitWhileStmt(whileStmt *ast.WhileStmt) {
-	whileCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.cond"))
-	whileBodyBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.body"))
-	whileExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("while.exit"))
-
-	cg.currentBlock.NewBr(whileCondBlock)
-
-	/* Condition block */
-	cg.currentBlock = whileCondBlock
-	whileStmt.Condition.Visit(cg)
-	cond := cg.lastGenerated
-	if isIdentOrIndex(whileStmt.Condition) {
-		cond = cg.LoadVal(cond)
-	}
-	cg.currentBlock.NewCondBr(cond, whileBodyBlock, whileExitBlock)
-
-	/* Body block */
-	cg.currentBlock = whileBodyBlock
-	for _, bodyOp := range whileStmt.Body {
-		bodyOp.Visit(cg)
-	}
-	cg.currentBlock.NewBr(whileCondBlock)
-
-	/* Exit block */
-	cg.currentBlock = whileExitBlock
-}
 
 func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	forCondBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.cond"))
@@ -119,32 +66,4 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 
 	/* Exit block */
 	cg.currentBlock = forExitBlock
-}
-
-func (cg *CodeGenerator) VisitPassStmt(passStmt *ast.PassStmt) {
-	/* no op */
-}
-
-func (cg *CodeGenerator) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
-	var returnVal value.Value
-	if returnStmt.ReturnVal != nil {
-		returnStmt.ReturnVal.Visit(cg)
-		returnVal = cg.lastGenerated
-	}
-
-	cg.currentBlock.NewRet(returnVal)
-}
-
-func (cg *CodeGenerator) VisitAssignStmt(assignStmt *ast.AssignStmt) {
-	assignStmt.Target.Visit(cg)
-	target := cg.lastGenerated
-
-	assignStmt.Value.Visit(cg)
-	value := cg.lastGenerated
-
-	if isIdentOrIndex(assignStmt.Value) {
-		value = cg.LoadVal(value)
-	}
-
-	cg.NewStore(value, target)
 }

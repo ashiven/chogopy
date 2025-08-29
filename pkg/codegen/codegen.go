@@ -126,3 +126,78 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 func (cg *CodeGenerator) Traverse() bool {
 	return false
 }
+
+// NewStore is a wrapper around the regular block.NewStore() that first
+// checks whether the src or the target are of the types which require a typecast: object, none, empty.
+// And if that is the case, it performs a typecast before adding a new store instruction.
+func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
+	if cg.needsTypeCast(target) {
+		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
+	}
+	if cg.needsTypeCast(src) {
+		src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)
+	}
+
+	// If src is a list or a string literal, we check for its length inside of cg.lengths
+	// and then update the variable info of target via cg.variables[target.name].length = newLength
+	srcLen := 1
+	if _, ok := cg.lengths[src]; ok {
+		srcLen = cg.lengths[src]
+	}
+	targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
+	if _, ok := cg.variables[targetName]; ok {
+		varInfo := cg.variables[targetName]
+		varInfo.length = srcLen
+		cg.variables[targetName] = varInfo
+	}
+
+	cg.currentBlock.NewStore(src, target)
+}
+
+// NewLiteral takes any literal of type int, bool, string, or nil
+// and creates a new allocation and store for that value.
+// It returns an SSA value containing the value of the given literal.
+// The types for this value are int: I32  str: I8*  bool: I1  nil: I8*
+func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
+	var literalConst constant.Constant
+
+	switch literal := literal.(type) {
+	case int:
+		literalConst = constant.NewInt(types.I32, int64(literal))
+	case bool:
+		literalConst = constant.NewBool(literal)
+	case string:
+		literalConst = constant.NewCharArrayFromString(literal + "\x00")
+	case nil:
+		literalConst = constant.NewNull(cg.types["none"].(*types.PointerType))
+	}
+
+	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())
+	literalAlloc.LocalName = cg.uniqueNames.get("literal_ptr")
+	cg.NewStore(literalConst, literalAlloc)
+
+	if _, ok := literal.(string); ok {
+		// literalConst will be something like [4 x i8] leading to an allocation type of [4 x i8]*.
+		cg.lengths[literalAlloc] = len(literal.(string))
+		return literalAlloc
+
+	} else {
+		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalAlloc)
+		literalLoad.LocalName = cg.uniqueNames.get("literal_val")
+		return literalLoad
+	}
+}
+
+// LoadVal is a convenience method that can be called on a value
+// if one is unsure whether it is a pointer to something whose value one would like to use
+// or if it already is an SSA Value containing that something.
+// If the given value is a pointer, it will load the value at that pointer, otherwise it will
+// simply return the given value again.
+func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
+	if _, ok := val.Type().(*types.PointerType); ok {
+		valueLoad := cg.currentBlock.NewLoad(val.Type().(*types.PointerType).ElemType, val)
+		valueLoad.LocalName = cg.uniqueNames.get("val")
+		return valueLoad
+	}
+	return val
+}
