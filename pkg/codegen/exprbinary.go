@@ -75,8 +75,14 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	case ">=":
 		resVal = cg.currentBlock.NewICmp(enum.IPredSGE, lhsValue, rhsValue)
 	case "==":
+		if cg.stringEQ(lhsValue, rhsValue) {
+			return
+		}
 		resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsValue, rhsValue)
 	case "!=":
+		if cg.stringNE(lhsValue, rhsValue) {
+			return
+		}
 		resVal = cg.currentBlock.NewICmp(enum.IPredNE, lhsValue, rhsValue)
 	case "is":
 		// TODO: this should compare the addresses of lhs and rhs but since we are loading their
@@ -113,7 +119,7 @@ func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.V
 	destBuffer := cg.currentBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
 	destBuffer.LocalName = cg.uniqueNames.get("concat_buffer_ptr")
 
-	// 2) Copy the string that should be concatenated to over into that buffer
+	// 2) Copy the string that should be appended to into that buffer
 	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], destBuffer, lhs)
 	copyRes.LocalName = cg.uniqueNames.get("concat_copy_res")
 
@@ -129,7 +135,7 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType 
 	concatListPtr.LocalName = cg.uniqueNames.get("concat_list_ptr")
 	concatListLength := 0
 
-	// TODO: we need a method to get the lengths of lists/strings at runtime
+	// TODO: we need a method to get the lengths of lists at runtime
 	for i := range cg.getLength(lhs) {
 		index := constant.NewInt(types.I64, int64(i))
 		elemPtr := cg.currentBlock.NewGetElementPtr(lhs.Type().(*types.PointerType).ElemType, lhs, index)
@@ -148,4 +154,24 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType 
 
 	cg.lengths[concatListPtr] = concatListLength
 	return concatListPtr
+}
+
+func (cg *CodeGenerator) stringEQ(lhs value.Value, rhs value.Value) bool {
+	if (isCharArr(lhs) || containsCharArr(lhs)) && (isCharArr(rhs) || containsCharArr(rhs)) {
+		cmpResInt := cg.currentBlock.NewCall(cg.functions["strcmp"], lhs, rhs)
+		cmpRes := cg.currentBlock.NewICmp(enum.IPredEQ, cmpResInt, constant.NewInt(types.I32, 0))
+		cg.lastGenerated = cmpRes
+		return true
+	}
+	return false
+}
+
+func (cg *CodeGenerator) stringNE(lhs value.Value, rhs value.Value) bool {
+	if (isCharArr(lhs) || containsCharArr(lhs)) && (isCharArr(rhs) || containsCharArr(rhs)) {
+		cmpResInt := cg.currentBlock.NewCall(cg.functions["strcmp"], lhs, rhs)
+		cmpRes := cg.currentBlock.NewICmp(enum.IPredEQ, cmpResInt, constant.NewInt(types.I32, 1))
+		cg.lastGenerated = cmpRes
+		return true
+	}
+	return false
 }

@@ -117,6 +117,12 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 		ir.NewParam("", types.I8Ptr),
 		ir.NewParam("", types.I8Ptr),
 	)
+	strcmp := cg.Module.NewFunc(
+		"strcmp",
+		types.I32,
+		ir.NewParam("", types.I8Ptr),
+		ir.NewParam("", types.I8Ptr),
+	)
 	//fgets := cg.Module.NewFunc(
 	//	"fgets",
 	//	types.I8Ptr,
@@ -137,6 +143,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.functions["strcat"] = strcat
 	cg.functions["scanf"] = scanf
 	cg.functions["strcpy"] = strcpy
+	cg.functions["strcmp"] = strcmp
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 
