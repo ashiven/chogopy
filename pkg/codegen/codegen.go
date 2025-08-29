@@ -166,7 +166,7 @@ func (cg *CodeGenerator) Traverse() bool {
 func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 	if !isPtrTo(target, src.Type()) {
 		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
-		target.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("assign_cast")
+		target.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("store_cast")
 	}
 	//if cg.needsTypeCast(src) {
 	//	src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)

@@ -14,9 +14,14 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	forIncBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.inc"))
 	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.exit"))
 
-	// NOTE: We are using iterName to iterate over a string/list, so we should reset its value to an empty string/0 before assigning to it.
 	iterName := cg.variables[forStmt.IterName].value
 	iterNameType := cg.variables[forStmt.IterName].elemType
+
+	// TODO: clamp the string to length 1 with a helper method
+	// that adds a string terminator at index 1
+	if iterName.Type().Equal(types.NewPointer(types.I8Ptr)) {
+		iterNameType = types.I8
+	}
 
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
@@ -49,8 +54,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	cg.currentBlock = forBodyBlock
 	currentAddress := cg.currentBlock.NewGetElementPtr(iterNameType, iterVal, index)
 	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
-	currentVal := cg.currentBlock.NewLoad(iterNameType, currentAddress)
-	currentVal.LocalName = cg.uniqueNames.get("curr_val")
+	currentVal := cg.LoadVal(currentAddress)
 	cg.NewStore(currentVal, iterName)
 	for _, bodyOp := range forStmt.Body {
 		bodyOp.Visit(cg)
