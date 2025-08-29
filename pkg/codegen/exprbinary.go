@@ -9,6 +9,8 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
+const concatBufferSize = uint64(10000)
+
 func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	binaryExpr.Lhs.Visit(cg)
 	lhsValue := cg.lastGenerated
@@ -109,8 +111,18 @@ func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs
 }
 
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
-	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], lhs, rhs)
-	concatRes.LocalName = cg.uniqueNames.get("concat_str")
+	// 1) Allocate a destination buffer of size: char[BUFFER_SIZE] (needs extra space for stuff to be appended)
+	destBuffer := cg.currentBlock.NewAlloca(types.NewArray(concatBufferSize, types.I8))
+	destBuffer.LocalName = cg.uniqueNames.get("concat_buffer_ptr")
+
+	// 2) Copy the string that should be concatenated to over into that buffer
+	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], destBuffer, lhs)
+	copyRes.LocalName = cg.uniqueNames.get("concat_copy_res")
+
+	// 3) Append the other string via strcat
+	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], destBuffer, rhs)
+	concatRes.LocalName = cg.uniqueNames.get("concat_append_res")
+
 	return concatRes
 }
 
