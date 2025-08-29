@@ -36,7 +36,7 @@ type (
 	Functions map[string]*ir.Func
 	Variables map[string]VarInfo
 	Types     map[string]types.Type
-	Lengths   map[value.Value]int // keeps track of the length of string and list values
+	Lengths   map[value.Value]int // keeps track of the length of string and list literals
 )
 
 type CodeGenerator struct {
@@ -51,15 +51,6 @@ type CodeGenerator struct {
 	functions Functions
 	types     Types
 
-	// TODO: This is complete nonsense by the way.
-	// If you have a loop that increases the length of a variable in
-	// each iteration, this already becomes incorrect.
-	// Length tracking needs to be performed at runtime using for instance strlen
-	// or other similar methods to get the length of a string or a list
-	// So I need to start using ArrayTypes for lists and CharArray types for strings
-	// because otherwise tracking the length at runtime will be impossible.
-	// It is okay to use this to track the length of string/list literals
-	// but thinking you can track the length of variables statically is some nonsense
 	lengths Lengths
 
 	lastGenerated value.Value
@@ -77,13 +68,11 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	objType := cg.Module.NewTypeDef("object", &types.StructType{Opaque: true})
 	noneType := cg.Module.NewTypeDef("none", &types.StructType{Opaque: true})
 	emptyType := cg.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
-
 	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})
 
 	cg.types["object"] = objType
 	cg.types["none"] = noneType
 	cg.types["empty"] = emptyType
-
 	// cg.types["FILE"] = fileType
 
 	print_ := cg.Module.NewFunc(
@@ -167,21 +156,18 @@ func (cg *CodeGenerator) Traverse() bool {
 	return false
 }
 
-// NewStore is a wrapper around the regular block.NewStore() that first
-// checks whether the src or the target are of the types which require a typecast: object, none, empty.
-// And if that is the case, it performs a typecast before adding a new store instruction.
+// NewStore is a wrapper around the regular ir.Block.NewStore() that first checks whether the src requires a typecast.
 func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 	if !isPtrTo(target, src.Type()) {
 		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
 		target.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("store_cast")
 	}
 
-	// If src is a list or a string literal, we check for its length inside of cg.lengths
-	// and then update the variable info of target via cg.variables[target.name].length = newLength
 	srcLen := 1
 	if _, ok := cg.lengths[src]; ok {
 		srcLen = cg.lengths[src]
 	}
+
 	targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
 	if _, ok := cg.variables[targetName]; ok {
 		varInfo := cg.variables[targetName]
@@ -192,10 +178,9 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 	cg.currentBlock.NewStore(src, target)
 }
 
-// NewLiteral takes any literal of type int, bool, string, or nil
-// and creates a new allocation and store for that value.
-// It returns an SSA value containing the value of the given literal.
-// The types for this value are int: I32  str: I8*  bool: I1  nil: I8*
+// NewLiteral takes any literal of type int, bool, string, or nil and creates a new allocation and store for that value.
+// It returns an SSA value containing the value of the given literal with the following types:
+// int: i32   str: [n x i8]*   bool: i1   nil: %none*
 func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	var literalConst constant.Constant
 
@@ -210,38 +195,42 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		literalConst = constant.NewNull(types.NewPointer(cg.types["none"]))
 	}
 
-	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())
-	literalAlloc.LocalName = cg.uniqueNames.get("literal_ptr")
-	cg.NewStore(literalConst, literalAlloc)
+	literalPtr := cg.currentBlock.NewAlloca(literalConst.Type())
+	literalPtr.LocalName = cg.uniqueNames.get("literal_ptr")
+	cg.NewStore(literalConst, literalPtr)
 
 	if _, ok := literal.(string); ok {
-		// literalConst will be something like [4 x i8] leading to an allocation type of [4 x i8]*.
-		cg.lengths[literalAlloc] = len(literal.(string))
-		return literalAlloc
+		cg.lengths[literalPtr] = len(literal.(string))
+		return literalPtr
 
 	} else {
-		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalAlloc)
+		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalPtr)
 		literalLoad.LocalName = cg.uniqueNames.get("literal_val")
 		return literalLoad
 	}
 }
 
-// LoadVal is a convenience method that can be called on a value
-// if one is unsure whether it is a pointer to something whose value one would like to use
-// or if it already is an SSA Value containing that something.
-// If the given value is a pointer, it will load the value at that pointer, otherwise it will
-// simply return the given value again.
+// LoadVal can be used to load the value out of an identifier or an index expression.
+// If the given value points to a char array [n x i8]* it will simply be cast into a string i8* and returned.
+// If the given value is already a string or is not of a pointer type (variables are always of a pointer type) it will simply be returned.
 func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
-	if containsCharArr(val) {
+	_, valIsPtr := val.Type().(*types.PointerType)
+
+	switch {
+	case containsCharArr(val):
 		strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
 		strCast.LocalName = cg.uniqueNames.get("load_str_cast")
 		return strCast
-	} else if hasType(val, types.I8Ptr) {
+
+	case hasType(val, types.I8Ptr):
 		return val
-	} else if _, ok := val.Type().(*types.PointerType); ok {
+
+	case valIsPtr:
 		valueLoad := cg.currentBlock.NewLoad(val.Type().(*types.PointerType).ElemType, val)
 		valueLoad.LocalName = cg.uniqueNames.get("val")
 		return valueLoad
+
+	default:
+		return val
 	}
-	return val
 }
