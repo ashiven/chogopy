@@ -248,12 +248,8 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 
 	if _, ok := literal.(string); ok {
 		// literalConst will be something like [4 x i8] leading to an allocation type of [4 x i8]*.
-		// What we want however, is a value of type i8* as opposed to [4 x i8].
-		// To achieve this, we cast the the allocated pointer from [4 x i8]* to i8* with a bitcast instruction.
-		literalAllocCast := cg.currentBlock.NewBitCast(literalAlloc, types.I8Ptr)
-		literalAllocCast.LocalName = cg.uniqueNames.get("literal_val")
-		cg.lengths[literalAllocCast] = len(literal.(string))
-		return literalAllocCast
+		cg.lengths[literalAlloc] = len(literal.(string))
+		return literalAlloc
 
 	} else {
 		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalAlloc)
