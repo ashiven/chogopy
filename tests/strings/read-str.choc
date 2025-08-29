@@ -3,6 +3,7 @@
 
 a : str = ""
 a = input()
+print(a)
 print(":" + a + ":")
 
 # CHECK: :Hello-World:

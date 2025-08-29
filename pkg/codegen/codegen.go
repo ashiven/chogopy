@@ -75,30 +75,36 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	print_ := cg.Module.NewFunc(
 		"printf",
 		types.I32,
-		ir.NewParam("", types.NewPointer(types.I8)),
+		ir.NewParam("", types.I8),
 	)
 	input := cg.Module.NewFunc(
-		"scanf",
-		types.I32,
+		"input",
+		types.I8Ptr,
 	)
 	len_ := cg.Module.NewFunc(
 		"strlen",
 		types.I32,
-		ir.NewParam("", types.NewPointer(types.I8)),
+		ir.NewParam("", types.I8Ptr),
 	)
 	strcat := cg.Module.NewFunc(
 		"strcat",
-		types.NewPointer(types.I8),
-		ir.NewParam("", types.NewPointer(types.I8)),
-		ir.NewParam("", types.NewPointer(types.I8)),
+		types.I8Ptr,
+		ir.NewParam("", types.I8),
+		ir.NewParam("", types.I8),
+	)
+	scanf := cg.Module.NewFunc(
+		"scanf",
+		types.I32,
+		ir.NewParam("", types.I8),
 	)
 
 	cg.functions["print"] = print_
 	cg.functions["input"] = input
 	cg.functions["len"] = len_
 	cg.functions["strcat"] = strcat
+	cg.functions["scanf"] = scanf
 
-	// We use arbitrary unused pointer types and then bitcasting them to match the actually expected pointer type
+	// We use arbitrary unused pointer types for our custom types and then bitcast them to match the actually expected pointer type
 	objType := cg.Module.NewTypeDef("object", types.I16Ptr)
 	noneType := cg.Module.NewTypeDef("none", types.I64Ptr)
 	emptyType := cg.Module.NewTypeDef("empty", types.I128Ptr)
@@ -133,6 +139,7 @@ func (cg *CodeGenerator) Traverse() bool {
 func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 	if !isPtrTo(target, src.Type()) {
 		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
+		target.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("assign_cast")
 	}
 	//if cg.needsTypeCast(src) {
 	//	src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)

@@ -3,6 +3,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -17,6 +18,9 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	switch callExpr.FuncName {
 	case "print":
 		args = cg.convertPrintArgs(args)
+	case "input":
+		cg.readString()
+		return
 	}
 
 	callee := cg.functions[callExpr.FuncName]
@@ -24,6 +28,15 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	callRes.LocalName = cg.uniqueNames.get("call_res")
 
 	cg.lastGenerated = callRes
+}
+
+func (cg *CodeGenerator) readString() {
+	inputPtr := cg.currentBlock.NewAlloca(types.I8Ptr)
+	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
+	format := cg.NewLiteral("%s")
+	scanRes := cg.currentBlock.NewCall(cg.functions["scanf"], format, inputPtr)
+	scanRes.LocalName = cg.uniqueNames.get("scan_res")
+	cg.lastGenerated = cg.LoadVal(inputPtr)
 }
 
 // convertPrintArgs converts a list of argument values serving as input
@@ -78,6 +91,7 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 
 			if containsCharArr(arg) {
 				arg = cg.currentBlock.NewBitCast(arg, types.I8Ptr)
+				arg.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("print_cast")
 			} else if hasType(arg, types.I8Ptr) {
 				/* no op */
 			} else {

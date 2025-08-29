@@ -110,7 +110,7 @@ func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs
 
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
 	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], lhs, rhs)
-	concatRes.LocalName = "concat_str"
+	concatRes.LocalName = cg.uniqueNames.get("concat_str")
 	return concatRes
 }
 
