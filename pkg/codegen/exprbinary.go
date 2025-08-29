@@ -60,15 +60,8 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		// we want this direction to still remain negative)
 		resVal = cg.currentBlock.NewSDiv(lhsValue, rhsValue)
 	case "+":
-		// TODO: string/list concat and updating lengths in cg.lengths and variables.length
-		if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
-			elemTypeAttr := binaryExpr.TypeHint.(ast.ListAttribute).ElemType
-			elemType := cg.attrToType(elemTypeAttr)
-			resVal = cg.concatLists(lhsValue, rhsValue, elemType)
-			break
-		} else if binaryExpr.TypeHint == ast.String {
-			resVal = cg.concatStrings(lhsValue, rhsValue)
-			break
+		if cg.concat(binaryExpr, lhsValue, rhsValue) {
+			return
 		}
 		resVal = cg.currentBlock.NewAdd(lhsValue, rhsValue)
 	case "-":
@@ -99,6 +92,20 @@ func (cg *CodeGenerator) getLength(val value.Value) int {
 		return cg.lengths[val]
 	}
 	return cg.variables[val.Ident()[1:]].length
+}
+
+// TODO: string/list concat and updating lengths in cg.lengths and variables.length
+func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs value.Value) bool {
+	if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
+		elemTypeAttr := binaryExpr.TypeHint.(ast.ListAttribute).ElemType
+		elemType := cg.attrToType(elemTypeAttr)
+		cg.lastGenerated = cg.concatLists(lhs, rhs, elemType)
+		return true
+	} else if binaryExpr.TypeHint == ast.String {
+		cg.lastGenerated = cg.concatStrings(lhs, rhs)
+		return true
+	}
+	return false
 }
 
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {

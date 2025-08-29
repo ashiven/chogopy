@@ -42,14 +42,14 @@ func containsCharArr(val value.Value) bool {
 	return false
 }
 
-func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
-	for _, type_ := range cg.types {
-		if hasType(val, type_) || isPtrTo(val, type_) {
-			return true
-		}
-	}
-	return false
-}
+//func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
+//	for _, type_ := range cg.types {
+//		if hasType(val, type_) || isPtrTo(val, type_) {
+//			return true
+//		}
+//	}
+//	return false
+//}
 
 func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	_, isListAttr := attr.(ast.ListAttribute)

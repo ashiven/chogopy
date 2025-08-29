@@ -131,12 +131,12 @@ func (cg *CodeGenerator) Traverse() bool {
 // checks whether the src or the target are of the types which require a typecast: object, none, empty.
 // And if that is the case, it performs a typecast before adding a new store instruction.
 func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
-	if cg.needsTypeCast(target) {
+	if !isPtrTo(target, src.Type()) {
 		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
 	}
-	if cg.needsTypeCast(src) {
-		src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)
-	}
+	//if cg.needsTypeCast(src) {
+	//	src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)
+	//}
 
 	// If src is a list or a string literal, we check for its length inside of cg.lengths
 	// and then update the variable info of target via cg.variables[target.name].length = newLength
