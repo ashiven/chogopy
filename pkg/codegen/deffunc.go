@@ -4,6 +4,7 @@ import (
 	"chogopy/pkg/ast"
 
 	"github.com/llir/llvm/ir"
+	"github.com/llir/llvm/ir/types"
 )
 
 func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
@@ -28,7 +29,7 @@ func (cg *CodeGenerator) VisitFuncDef(funcDef *ast.FuncDef) {
 		bodyNode.Visit(cg)
 	}
 
-	if returnType == cg.types["none"] {
+	if returnType.Equal(types.NewPointer(cg.types["none"])) {
 		cg.currentBlock.NewRet(cg.NewLiteral(nil))
 	}
 }

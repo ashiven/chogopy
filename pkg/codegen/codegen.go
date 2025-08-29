@@ -203,7 +203,7 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	case string:
 		literalConst = constant.NewCharArrayFromString(literal + "\x00")
 	case nil:
-		literalConst = constant.NewNull(cg.types["none"].(*types.PointerType))
+		literalConst = constant.NewNull(types.NewPointer(cg.types["none"]))
 	}
 
 	literalAlloc := cg.currentBlock.NewAlloca(literalConst.Type())

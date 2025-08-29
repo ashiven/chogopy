@@ -66,11 +66,11 @@ func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	case ast.String:
 		return types.I8Ptr
 	case ast.None:
-		return cg.types["none"]
+		return types.NewPointer(cg.types["none"])
 	case ast.Empty:
-		return cg.types["empty"]
+		return types.NewPointer(cg.types["empty"])
 	case ast.Object:
-		return cg.types["object"]
+		return types.NewPointer(cg.types["object"])
 	}
 
 	log.Fatalf("Expected type attribute but got: %# v", pretty.Formatter(attr))
@@ -92,9 +92,9 @@ func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 	case "bool":
 		return types.I1
 	case "<None>":
-		return cg.types["none"]
+		return types.NewPointer(cg.types["none"])
 	case "object":
-		return cg.types["object"]
+		return types.NewPointer(cg.types["object"])
 	}
 
 	log.Fatalf("Expected AST Type but got: %# v", pretty.Formatter(astType))
