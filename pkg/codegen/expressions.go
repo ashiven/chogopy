@@ -101,6 +101,12 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		resVal = cg.currentBlock.NewSDiv(lhsValue, rhsValue)
 	case "+":
 		// TODO: string/list concat and updating lengths in cg.lengths and variables.length
+		if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
+			elemTypeAttr := binaryExpr.TypeHint.(ast.ListAttribute).ElemType
+			elemType := cg.attrToType(elemTypeAttr)
+			resVal = cg.concatLists(lhsValue, rhsValue, elemType)
+			break
+		}
 		resVal = cg.currentBlock.NewAdd(lhsValue, rhsValue)
 	case "-":
 		resVal = cg.currentBlock.NewSub(lhsValue, rhsValue)
@@ -117,6 +123,8 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	case "!=":
 		resVal = cg.currentBlock.NewICmp(enum.IPredNE, lhsValue, rhsValue)
 	case "is":
+		// TODO: this should compare the addresses of lhs and rhs but since we are loading their
+		// values above (cg.Load(lhs)...) we are actually comparing values here (incorrect)
 		resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsValue, rhsValue)
 	}
 

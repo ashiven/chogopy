@@ -49,6 +49,15 @@ type CodeGenerator struct {
 	functions Functions
 	types     Types
 
+	// TODO: This is complete nonsense by the way.
+	// If you have a loop that increases the length of a variable in
+	// each iteration, this already becomes incorrect.
+	// Length tracking needs to be performed at runtime using for instance strlen
+	// or other similar methods to get the length of a string or a list
+	// So I need to start using ArrayTypes for lists and CharArray types for strings
+	// because otherwise tracking the length at runtime will be impossible.
+	// It is okay to use this to track the length of string/list literals
+	// but thinking you can track the length of variables statically is some nonsense
 	lengths Lengths
 
 	lastGenerated value.Value

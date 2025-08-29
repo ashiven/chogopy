@@ -43,6 +43,39 @@ func containsCharArr(val value.Value) bool {
 	return false
 }
 
+func (cg *CodeGenerator) getLength(val value.Value) int {
+	if _, ok := cg.lengths[val]; ok {
+		return cg.lengths[val]
+	}
+	return cg.variables[val.Ident()[1:]].length
+}
+
+func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType types.Type) value.Value {
+	concatListPtr := cg.currentBlock.NewAlloca(elemType)
+	concatListPtr.LocalName = cg.uniqueNames.get("concat_list_ptr")
+	concatListLength := 0
+
+	// TODO: we need a method to get the lengths of lists/strings at runtime
+	for i := range cg.getLength(lhs) {
+		index := constant.NewInt(types.I64, int64(i))
+		elemPtr := cg.currentBlock.NewGetElementPtr(lhs.Type().(*types.PointerType).ElemType, lhs, index)
+		elem := cg.currentBlock.NewLoad(lhs.Type().(*types.PointerType).ElemType, elemPtr)
+		cg.NewStore(elem, concatListPtr)
+		concatListLength++
+	}
+
+	for i := range cg.getLength(rhs) {
+		index := constant.NewInt(types.I64, int64(i))
+		elemPtr := cg.currentBlock.NewGetElementPtr(rhs.Type().(*types.PointerType).ElemType, rhs, index)
+		elem := cg.currentBlock.NewLoad(rhs.Type().(*types.PointerType).ElemType, elemPtr)
+		cg.NewStore(elem, concatListPtr)
+		concatListLength++
+	}
+
+	cg.lengths[concatListPtr] = concatListLength
+	return concatListPtr
+}
+
 func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
 	for _, type_ := range cg.types {
 		if hasType(val, type_) || isPtrTo(val, type_) {

@@ -130,8 +130,6 @@ func (cg *CodeGenerator) VisitReturnStmt(returnStmt *ast.ReturnStmt) {
 	if returnStmt.ReturnVal != nil {
 		returnStmt.ReturnVal.Visit(cg)
 		returnVal = cg.lastGenerated
-	} else {
-		returnVal = nil
 	}
 
 	cg.currentBlock.NewRet(returnVal)
