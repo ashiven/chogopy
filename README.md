@@ -18,7 +18,7 @@
 ## About
 
 **ChoGoPy** is a compiler for the [ChocoPy language](https://chocopy.org/) written purely in Go as a fun way to learn more about compilers and get better at Go.
-It includes multiple analysis passes that perform type checking or variable scope analysis and it compiles down to LLVM IR for greater flexibility and platform support.
+It includes multiple analysis passes that perform type checking, variable scope analysis, and more, and compiles down to LLVM IR for flexibility and platform support.
 
 ## Setup
 
@@ -42,6 +42,7 @@ stages that the compiler should go through by using the following command line f
 - `-p` to parse the given source code and print the resulting AST.
 - `-t` to parse the given source code and perform static type checking on it.
 - `-n` to parse the given source code and perform name scope analysis on it.
+- `-c` to generate LLVM IR from the given source code.
 
 An exemplary command would look as follows:
 
