@@ -1,11 +1,11 @@
 # RUN: lli %s.ll | filecheck %s
 # RUN: python %s | filecheck %s
 
-i: int = 0
+i: str = ""
 l: [int] = None
 l = [25, 56, 126]
 
-for i in l:
+for i in "hello":
   print(i)
 
 # CHECK: 25

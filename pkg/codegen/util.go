@@ -10,15 +10,6 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
-func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
-	for _, type_ := range cg.types {
-		if hasType(val, type_) || isPtrTo(val, type_) {
-			return true
-		}
-	}
-	return false
-}
-
 func isIdentOrIndex(astNode ast.Node) bool {
 	switch astNode.(type) {
 	case *ast.IdentExpr:
@@ -39,6 +30,26 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 		return false
 	}
 	return val.Type().(*types.PointerType).ElemType.Equal(type_)
+}
+
+func containsCharArr(val value.Value) bool {
+	if _, ok := val.Type().(*types.PointerType); ok {
+		if _, ok := val.Type().(*types.PointerType).ElemType.(*types.ArrayType); ok {
+			if val.Type().(*types.PointerType).ElemType.(*types.ArrayType).ElemType.Equal(types.I8) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (cg *CodeGenerator) needsTypeCast(val value.Value) bool {
+	for _, type_ := range cg.types {
+		if hasType(val, type_) || isPtrTo(val, type_) {
+			return true
+		}
+	}
+	return false
 }
 
 func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
@@ -138,8 +149,14 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 		} else {
 
 			/* String print */
-			argVal := cg.LoadVal(arg)
-			printArgs = append(printArgs, argVal)
+
+			if containsCharArr(arg) {
+				arg = cg.currentBlock.NewBitCast(arg, types.I8Ptr)
+			} else {
+				arg = cg.LoadVal(arg)
+			}
+
+			printArgs = append(printArgs, arg)
 		}
 	}
 	return printArgs
