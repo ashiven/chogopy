@@ -6,6 +6,7 @@ import (
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 )
 
 func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
@@ -17,8 +18,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	iterName := cg.variables[forStmt.IterName].value
 	iterNameType := cg.variables[forStmt.IterName].elemType
 
-	// TODO: clamp the string to length 1 with a helper method
-	// that adds a string terminator at index 1
+	/* Iterating over a string */
 	if iterName.Type().Equal(types.NewPointer(types.I8Ptr)) {
 		iterNameType = types.I8
 	}
@@ -26,12 +26,12 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
 	iterLength := cg.lengths[iterVal]
+
 	if isIdentOrIndex(forStmt.Iter) {
 		iterLength = cg.variables[iterVal.Ident()[1:]].length
 		iterVal = cg.LoadVal(iterVal)
 	}
 
-	// Some constants for convenience
 	zero := constant.NewInt(types.I32, 0)
 	one := constant.NewInt(types.I32, 1)
 	iterLen := constant.NewInt(types.I32, int64(iterLength))
@@ -55,7 +55,14 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	currentAddress := cg.currentBlock.NewGetElementPtr(iterNameType, iterVal, index)
 	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
 	currentVal := cg.LoadVal(currentAddress)
+
+	/* Iterating over a string */
+	if iterName.Type().Equal(types.NewPointer(types.I8Ptr)) {
+		currentVal = cg.clampStrSize(currentVal)
+	}
+
 	cg.NewStore(currentVal, iterName)
+
 	for _, bodyOp := range forStmt.Body {
 		bodyOp.Visit(cg)
 	}
@@ -70,4 +77,22 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 
 	/* Exit block */
 	cg.currentBlock = forExitBlock
+}
+
+// clampStrSize will return a copy of the given string that has size 1
+// and only contains the first char of the given string.
+func (cg *CodeGenerator) clampStrSize(strVal value.Value) value.Value {
+	one := constant.NewInt(types.I32, 1)
+	term := constant.NewCharArrayFromString("\x00")
+
+	copyBuffer := cg.currentBlock.NewAlloca(types.NewArray(uint64(2), types.I8))
+	copyBuffer.LocalName = cg.uniqueNames.get("clamp_buf_ptr")
+	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], copyBuffer, strVal)
+	copyRes.LocalName = cg.uniqueNames.get("clamp_copy_res")
+
+	elemAddr := cg.currentBlock.NewGetElementPtr(types.I8, copyBuffer, one)
+	elemAddr.LocalName = cg.uniqueNames.get("clamp_addr")
+	cg.NewStore(term, elemAddr)
+
+	return copyBuffer
 }

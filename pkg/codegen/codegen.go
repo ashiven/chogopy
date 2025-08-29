@@ -168,9 +168,6 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
 		target.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("store_cast")
 	}
-	//if cg.needsTypeCast(src) {
-	//	src = cg.currentBlock.NewBitCast(src, target.Type().(*types.PointerType).ElemType)
-	//}
 
 	// If src is a list or a string literal, we check for its length inside of cg.lengths
 	// and then update the variable info of target via cg.variables[target.name].length = newLength
