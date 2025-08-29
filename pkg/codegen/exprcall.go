@@ -48,12 +48,7 @@ func (cg *CodeGenerator) readString() {
 	/* int scanf(format i8*, buf i8*)  */
 
 	format := cg.NewLiteral("%s")
-	// inputPtr := cg.currentBlock.NewAlloca(types.NewArray(10000, types.I8))
-	// TODO: the commented out version above doesn't work but this allocation
-	// does work somehow.. but it only allocates 8 bytes (size of a pointer) and
-	// therefore we can only receive 8 characters of input (also 8 bytes)...
-	// i am losing my mind
-	inputPtr := cg.currentBlock.NewAlloca(types.I8Ptr)
+	inputPtr := cg.currentBlock.NewAlloca(types.NewArray(10000, types.I8))
 	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
 
 	scanRes := cg.currentBlock.NewCall(cg.functions["scanf"], format, inputPtr)

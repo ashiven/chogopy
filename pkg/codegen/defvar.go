@@ -14,14 +14,23 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 
 	literalLength := 1
 	var literalConst constant.Constant
+
 	switch varDef.Literal.(*ast.LiteralExpr).TypeHint {
 	case ast.Integer:
 		literalConst = constant.NewInt(types.I32, int64(literalVal.(int)))
+
 	case ast.Boolean:
 		literalConst = constant.NewBool(literalVal.(bool))
+
 	case ast.String:
-		literalConst = constant.NewCharArrayFromString(literalVal.(string) + "\x00")
+		strConst := constant.NewCharArrayFromString(literalVal.(string) + "\x00")
+		strDef := cg.Module.NewGlobalDef(cg.uniqueNames.get("str"), strConst)
+
+		zero := constant.NewInt(types.I32, 0)
+		literalConst = constant.NewGetElementPtr(strDef.Typ.ElemType, strDef, zero, zero)
+
 		literalLength = len(literalVal.(string)) + 1
+
 	case ast.None:
 		switch varType := varType.(type) {
 		case *types.PointerType:
@@ -29,8 +38,10 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 		case *types.IntType:
 			literalConst = constant.NewInt(varType, int64(0))
 		}
+
 	case ast.Empty:
 		literalConst = constant.NewNull(varType.(*types.PointerType))
+
 	case ast.Object:
 		literalConst = constant.NewNull(varType.(*types.PointerType))
 	}
