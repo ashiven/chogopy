@@ -150,6 +150,8 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 
 			/* String print */
 
+			// TODO: append newline to string before printing
+
 			if containsCharArr(arg) {
 				arg = cg.currentBlock.NewBitCast(arg, types.I8Ptr)
 			} else {
@@ -175,15 +177,17 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 
 	// If src is a list or a string literal, we check for its length inside of cg.lengths
 	// and then update the variable info of target via cg.variables[target.name].length = newLength
+	srcLen := 1
 	if _, ok := cg.lengths[src]; ok {
-		srcLen := cg.lengths[src]
-		targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
-		if _, ok := cg.variables[targetName]; ok {
-			varInfo := cg.variables[targetName]
-			varInfo.length = srcLen
-			cg.variables[targetName] = varInfo
-		}
+		srcLen = cg.lengths[src]
 	}
+	targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
+	if _, ok := cg.variables[targetName]; ok {
+		varInfo := cg.variables[targetName]
+		varInfo.length = srcLen
+		cg.variables[targetName] = varInfo
+	}
+
 	cg.currentBlock.NewStore(src, target)
 }
 

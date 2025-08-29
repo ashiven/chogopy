@@ -69,12 +69,6 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	iterName := cg.variables[forStmt.IterName].value
 	iterNameType := cg.variables[forStmt.IterName].elemType
 
-	if containsCharArr(iterName) {
-		// Cast iterName from [n x i8]* to i8*
-		iterName = cg.currentBlock.NewBitCast(iterName, types.I8Ptr)
-		iterNameType = types.I8
-	}
-
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
 	iterLength := cg.lengths[iterVal]

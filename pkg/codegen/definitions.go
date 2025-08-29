@@ -54,6 +54,7 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varType := cg.astTypeToType(varDef.TypedVar.(*ast.TypedVar).VarType)
 	literalVal := varDef.Literal.(*ast.LiteralExpr).Value
 
+	literalLength := 1
 	var literalConst constant.Constant
 	switch varDef.Literal.(*ast.LiteralExpr).TypeHint {
 	case ast.Integer:
@@ -62,6 +63,7 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 		literalConst = constant.NewBool(literalVal.(bool))
 	case ast.String:
 		literalConst = constant.NewCharArrayFromString(literalVal.(string) + "\x00")
+		literalLength = len(literalVal.(string)) + 1
 	case ast.None:
 		switch varType := varType.(type) {
 		case *types.PointerType:
@@ -76,5 +78,5 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	}
 
 	newVar := cg.Module.NewGlobalDef(varName, literalConst)
-	cg.variables[varName] = VarInfo{name: varName, elemType: newVar.Typ.ElemType, value: newVar}
+	cg.variables[varName] = VarInfo{name: varName, elemType: newVar.Typ.ElemType, value: newVar, length: literalLength}
 }
