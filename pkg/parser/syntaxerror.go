@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"chogopy/pkg/lexer"
 	"fmt"
 	"os"
 	"strings"
@@ -21,16 +20,6 @@ const (
 	UnmatchedParantheses
 	VariableDefinedLater
 )
-
-type Parser struct {
-	lexer *lexer.Lexer
-}
-
-func NewParser(lexer *lexer.Lexer) Parser {
-	return Parser{
-		lexer,
-	}
-}
 
 func (p *Parser) syntaxError(errorKind SyntaxErrorKind) {
 	peekedTokens := p.lexer.Peek(1)

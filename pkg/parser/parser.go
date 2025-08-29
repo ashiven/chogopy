@@ -63,6 +63,16 @@ var statementTokens = []lexer.TokenKind{
 	lexer.FOR,
 }
 
+type Parser struct {
+	lexer *lexer.Lexer
+}
+
+func NewParser(lexer *lexer.Lexer) Parser {
+	return Parser{
+		lexer,
+	}
+}
+
 func (p *Parser) nextTokenIn(tokenKindSlice []lexer.TokenKind) bool {
 	peekedTokens := p.lexer.Peek(1)
 	peekedToken := &peekedTokens[0]
