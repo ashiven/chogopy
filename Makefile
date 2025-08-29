@@ -10,5 +10,5 @@ compile:
 	find tests -type f -exec ./cgp.exe -c {} \; &>/dev/null
 
 clean:
-	find tests -type f -name '*.ll' -delete
+	find tests -type f -name "*.ll" -delete
 	rm -f cgp.exe
