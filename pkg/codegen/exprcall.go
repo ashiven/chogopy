@@ -3,7 +3,6 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
-	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -88,15 +87,7 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 			/* String print */
 
 			// TODO: append newline to string before printing
-
-			if containsCharArr(arg) {
-				arg = cg.currentBlock.NewBitCast(arg, types.I8Ptr)
-				arg.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("print_cast")
-			} else if hasType(arg, types.I8Ptr) {
-				/* no op */
-			} else {
-				arg = cg.LoadVal(arg)
-			}
+			arg = cg.LoadVal(arg)
 
 			printArgs = append(printArgs, arg)
 		}

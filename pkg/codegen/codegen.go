@@ -201,7 +201,13 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 // If the given value is a pointer, it will load the value at that pointer, otherwise it will
 // simply return the given value again.
 func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
-	if _, ok := val.Type().(*types.PointerType); ok {
+	if containsCharArr(val) {
+		strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
+		strCast.LocalName = cg.uniqueNames.get("load_str_cast")
+		return strCast
+	} else if hasType(val, types.I8Ptr) {
+		return val
+	} else if _, ok := val.Type().(*types.PointerType); ok {
 		valueLoad := cg.currentBlock.NewLoad(val.Type().(*types.PointerType).ElemType, val)
 		valueLoad.LocalName = cg.uniqueNames.get("val")
 		return valueLoad
