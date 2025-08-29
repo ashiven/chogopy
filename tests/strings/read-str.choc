@@ -1,5 +1,5 @@
-# RUN: echo "Hello-World" && lli %s.ll | filecheck %s
-# RUN: echo ":Hello-World:\n" | python %s | filecheck %s
+# RUN: echo "Hello-World" | lli %s.ll | filecheck %s
+# RUN: echo "Hello-World" | python %s | filecheck %s
 
 a : str = ""
 a = input()

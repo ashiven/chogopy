@@ -72,6 +72,18 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.types = Types{}
 	cg.lengths = Lengths{}
 
+	objType := cg.Module.NewTypeDef("object", &types.StructType{Opaque: true})
+	noneType := cg.Module.NewTypeDef("none", &types.StructType{Opaque: true})
+	emptyType := cg.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
+
+	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})
+
+	cg.types["object"] = objType
+	cg.types["none"] = noneType
+	cg.types["empty"] = emptyType
+
+	// cg.types["FILE"] = fileType
+
 	print_ := cg.Module.NewFunc(
 		"printf",
 		types.I32,
@@ -103,6 +115,19 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 		ir.NewParam("", types.I8Ptr),
 		ir.NewParam("", types.I8Ptr),
 	)
+	//fgets := cg.Module.NewFunc(
+	//	"fgets",
+	//	types.I8Ptr,
+	//	ir.NewParam("", types.I8Ptr),
+	//	ir.NewParam("", types.I32),
+	//	ir.NewParam("", types.I8Ptr),
+	//)
+	//fdopen := cg.Module.NewFunc(
+	//	"fdopen",
+	//	cg.types["FILE"],
+	//	ir.NewParam("", types.I32),
+	//	ir.NewParam("", types.I8Ptr),
+	//)
 
 	cg.functions["print"] = print_
 	cg.functions["input"] = input
@@ -110,15 +135,8 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.functions["strcat"] = strcat
 	cg.functions["scanf"] = scanf
 	cg.functions["strcpy"] = strcpy
-
-	// We use arbitrary unused pointer types for our custom types and then bitcast them to match the actually expected pointer type
-	objType := cg.Module.NewTypeDef("object", types.I16Ptr)
-	noneType := cg.Module.NewTypeDef("none", types.I64Ptr)
-	emptyType := cg.Module.NewTypeDef("empty", types.I128Ptr)
-
-	cg.types["object"] = objType
-	cg.types["none"] = noneType
-	cg.types["empty"] = emptyType
+	// cg.functions["fgets"] = fgets
+	// cg.functions["fdopen"] = fdopen
 
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)

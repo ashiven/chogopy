@@ -30,11 +30,35 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 }
 
 func (cg *CodeGenerator) readString() {
+	/* i8* fgets(buf i8*, size i32, fd FILE*) */
+
+	// fileDes := constant.NewInt(types.I32, 0)
+	// readMode := cg.NewLiteral("r")
+	// stdin := cg.currentBlock.NewCall(cg.functions["fdopen"], fileDes, readMode)
+	// stdin.LocalName = cg.uniqueNames.get("stdin")
+
+	// inputPtr := cg.currentBlock.NewAlloca(types.NewArray(10000, types.I8))
+	// inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
+	// inputPtrSize := cg.NewLiteral(10000)
+
+	// scanRes := cg.currentBlock.NewCall(cg.functions["fgets"], inputPtr, inputPtrSize, stdin)
+	// scanRes.LocalName = cg.uniqueNames.get("fgets_res")
+	// cg.lastGenerated = cg.LoadVal(inputPtr)
+
+	/* int scanf(format i8*, buf i8*)  */
+
+	format := cg.NewLiteral("%s")
+	// inputPtr := cg.currentBlock.NewAlloca(types.NewArray(10000, types.I8))
+	// TODO: the commented out version above doesn't work but this allocation
+	// does work somehow.. but it only allocates 8 bytes (size of a pointer) and
+	// therefore we can only receive 8 characters of input (also 8 bytes)...
+	// i am losing my mind
 	inputPtr := cg.currentBlock.NewAlloca(types.I8Ptr)
 	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
-	format := cg.NewLiteral("%s")
+
 	scanRes := cg.currentBlock.NewCall(cg.functions["scanf"], format, inputPtr)
 	scanRes.LocalName = cg.uniqueNames.get("scan_res")
+
 	cg.lastGenerated = cg.LoadVal(inputPtr)
 }
 

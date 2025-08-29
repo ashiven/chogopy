@@ -96,7 +96,7 @@ func (cg *CodeGenerator) getLength(val value.Value) int {
 	return cg.variables[val.Ident()[1:]].length
 }
 
-// TODO: string/list concat and updating lengths in cg.lengths and variables.length
+// TODO: list concat
 func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs value.Value) bool {
 	if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
 		elemTypeAttr := binaryExpr.TypeHint.(ast.ListAttribute).ElemType
