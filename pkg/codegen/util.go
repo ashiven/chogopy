@@ -50,6 +50,17 @@ func (cg *CodeGenerator) getLength(val value.Value) int {
 	return cg.variables[val.Ident()[1:]].length
 }
 
+func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
+	concatPtr := cg.currentBlock.NewAlloca(types.I8)
+	lhsLen := cg.currentBlock.NewCall(cg.functions["len"], lhs)
+	rhsLen := cg.currentBlock.NewCall(cg.functions["len"], rhs)
+	concatLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
+
+	concatenator := cg.NewLiteral("%s%s")
+	cg.currentBlock.NewCall(cg.functions["snprintf"], concatPtr, concatLen, concatenator, lhs, rhs)
+	return concatPtr
+}
+
 func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType types.Type) value.Value {
 	concatListPtr := cg.currentBlock.NewAlloca(elemType)
 	concatListPtr.LocalName = cg.uniqueNames.get("concat_list_ptr")
@@ -187,6 +198,8 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 
 			if containsCharArr(arg) {
 				arg = cg.currentBlock.NewBitCast(arg, types.I8Ptr)
+			} else if hasType(arg, types.I8Ptr) {
+				/* no op */
 			} else {
 				arg = cg.LoadVal(arg)
 			}

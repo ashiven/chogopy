@@ -106,6 +106,9 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 			elemType := cg.attrToType(elemTypeAttr)
 			resVal = cg.concatLists(lhsValue, rhsValue, elemType)
 			break
+		} else if binaryExpr.TypeHint == ast.String {
+			resVal = cg.concatStrings(lhsValue, rhsValue)
+			break
 		}
 		resVal = cg.currentBlock.NewAdd(lhsValue, rhsValue)
 	case "-":
