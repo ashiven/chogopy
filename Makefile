@@ -4,11 +4,11 @@ test: cgp compile
 	lit -v tests
 
 cgp: 
-	go build -o cgp.exe
+	go build -o cgp
 
 compile:
-	find tests -type f -name "*.choc" -exec ./cgp.exe -c {} \; >/dev/null 2>&1
+	find tests -type f -name "*.choc" -exec ./cgp -c {} \; >/dev/null 2>&1
 
 clean:
 	find tests -type f -name "*.ll" -delete
-	rm -f cgp.exe
+	rm -f cgp
