@@ -16,22 +16,8 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		lhsValue = cg.LoadVal(lhsValue)
 	}
 
-	// Short circuit AND expr if lhs is literal False
-	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {
-		literalVal := binaryExpr.Lhs.(*ast.LiteralExpr).Value
-		if binaryExpr.Op == "and" && literalVal == false {
-			cg.lastGenerated = cg.NewLiteral(false)
-			return
-		}
-	}
-
-	// Short circuit OR expr if lhs is literal True
-	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {
-		literalVal := binaryExpr.Lhs.(*ast.LiteralExpr).Value
-		if binaryExpr.Op == "or" && literalVal == true {
-			cg.lastGenerated = cg.NewLiteral(true)
-			return
-		}
+	if cg.shortCircuit(binaryExpr) {
+		return
 	}
 
 	binaryExpr.Rhs.Visit(cg)
@@ -93,6 +79,26 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	cg.lastGenerated = resVal
 }
 
+func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
+	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {
+		literalVal := binaryExpr.Lhs.(*ast.LiteralExpr).Value
+		if binaryExpr.Op == "and" && literalVal == false {
+			cg.lastGenerated = cg.NewLiteral(false)
+			return true
+		}
+	}
+
+	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {
+		literalVal := binaryExpr.Lhs.(*ast.LiteralExpr).Value
+		if binaryExpr.Op == "or" && literalVal == true {
+			cg.lastGenerated = cg.NewLiteral(true)
+			return true
+		}
+	}
+
+	return false
+}
+
 func (cg *CodeGenerator) getLength(val value.Value) int {
 	if _, ok := cg.lengths[val]; ok {
 		return cg.lengths[val]
@@ -107,10 +113,12 @@ func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs
 		elemType := cg.attrToType(elemTypeAttr)
 		cg.lastGenerated = cg.concatLists(lhs, rhs, elemType)
 		return true
+
 	} else if binaryExpr.TypeHint == ast.String {
 		cg.lastGenerated = cg.concatStrings(lhs, rhs)
 		return true
 	}
+
 	return false
 }
 

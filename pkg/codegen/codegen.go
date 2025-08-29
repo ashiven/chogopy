@@ -136,6 +136,8 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 
+	cg.functions["boolprint"] = cg.defineBoolPrint()
+
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)
 	}

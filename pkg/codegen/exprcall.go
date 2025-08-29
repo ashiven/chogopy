@@ -3,6 +3,8 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
+	"github.com/llir/llvm/ir"
+	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -65,44 +67,19 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 	printArgs := []value.Value{}
 	for _, arg := range args {
 		if hasType(arg, types.I32) || isPtrTo(arg, types.I32) {
-
 			/* Integer print */
 			digitStr := cg.NewLiteral("%d\n")
 			argVal := cg.LoadVal(arg)
 			printArgs = append(printArgs, digitStr)
 			printArgs = append(printArgs, argVal)
+
 		} else if hasType(arg, types.I1) || isPtrTo(arg, types.I1) {
-
-			/* Boolean print
-			> Uses a ternary to determine whether to print "True" or "False" based on the given I1 argument */
-			ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("boolprint.then"))
-			elseBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("boolprint.else"))
-			exitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("boolprint.exit"))
-
-			resAlloc := cg.currentBlock.NewAlloca(types.I8Ptr)
-			resAlloc.LocalName = cg.uniqueNames.get("boolprint_res_ptr")
-
-			cond := arg
-			cond = cg.LoadVal(cond)
-			cg.currentBlock.NewCondBr(cond, ifBlock, elseBlock)
-
-			cg.currentBlock = ifBlock
-			ifBlockRes := cg.NewLiteral("True\n")
-			cg.NewStore(ifBlockRes, resAlloc)
-			cg.currentBlock.NewBr(exitBlock)
-
-			cg.currentBlock = elseBlock
-			elseBlockRes := cg.NewLiteral("False\n")
-			cg.NewStore(elseBlockRes, resAlloc)
-			cg.currentBlock.NewBr(exitBlock)
-
-			cg.currentBlock = exitBlock
-
-			argVal := cg.LoadVal(resAlloc)
+			/* Boolean print */
+			argVal := cg.LoadVal(arg)
+			argVal = cg.currentBlock.NewCall(cg.functions["boolprint"], argVal)
 			printArgs = append(printArgs, argVal)
 
 		} else {
-
 			/* String print */
 			arg = cg.LoadVal(arg)
 			newline := cg.NewLiteral("\n")
@@ -111,4 +88,38 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 		}
 	}
 	return printArgs
+}
+
+// defineBoolPrint determines whether to print "True" or "False" based on the given i1 argument */
+func (cg *CodeGenerator) defineBoolPrint() *ir.Func {
+	arg := ir.NewParam("", types.I1)
+	boolPrint := cg.Module.NewFunc("boolprint", types.I8Ptr, arg)
+
+	entry := boolPrint.NewBlock(cg.uniqueNames.get("entry"))
+	ifBlock := boolPrint.NewBlock(cg.uniqueNames.get("boolprint.then"))
+	elseBlock := boolPrint.NewBlock(cg.uniqueNames.get("boolprint.else"))
+	exitBlock := boolPrint.NewBlock(cg.uniqueNames.get("boolprint.exit"))
+
+	resPtr := entry.NewAlloca(types.I8Ptr)
+	resPtr.LocalName = cg.uniqueNames.get("boolprint_res_ptr")
+	entry.NewCondBr(arg, ifBlock, elseBlock)
+
+	ifBlockConst := constant.NewCharArrayFromString("True\n\x00")
+	ifBlockPtr := ifBlock.NewAlloca(ifBlockConst.Type())
+	ifBlock.NewStore(ifBlockConst, ifBlockPtr)
+	ifBlockPtrCast := ifBlock.NewBitCast(ifBlockPtr, types.I8Ptr)
+	ifBlock.NewStore(ifBlockPtrCast, resPtr)
+	ifBlock.NewBr(exitBlock)
+
+	elseBlockConst := constant.NewCharArrayFromString("False\n\x00")
+	elseBlockPtr := elseBlock.NewAlloca(elseBlockConst.Type())
+	elseBlock.NewStore(elseBlockConst, elseBlockPtr)
+	elseBlockPtrCast := elseBlock.NewBitCast(elseBlockPtr, types.I8Ptr)
+	elseBlock.NewStore(elseBlockPtrCast, resPtr)
+	elseBlock.NewBr(exitBlock)
+
+	resLoad := exitBlock.NewLoad(types.I8Ptr, resPtr)
+	exitBlock.NewRet(resLoad)
+
+	return boolPrint
 }
