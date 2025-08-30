@@ -1,5 +1,5 @@
-# RUN: lli %s.ll | filecheck %s
-# RUN: python %s | filecheck %s
+# RUN: echo "41" | lli %s.ll | filecheck %s
+# RUN: echo "41" | python %s | filecheck %s
 
 def char_to_int(c: str) -> int:
   if c == "1":
