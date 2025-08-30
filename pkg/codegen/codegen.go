@@ -135,6 +135,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 		types.I32,
 		ir.NewParam("", types.I8Ptr),
 	)
+	print_.Sig.Variadic = true
 	input := cg.Module.NewFunc(
 		"input",
 		types.I8Ptr,
@@ -155,6 +156,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 		types.I32,
 		ir.NewParam("", types.I8Ptr),
 	)
+	scanf.Sig.Variadic = true
 	strcpy := cg.Module.NewFunc(
 		"strcpy",
 		types.I8Ptr,

@@ -99,7 +99,7 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 	return printArgs
 }
 
-// defineBoolPrint determines whether to print "True" or "False" based on the given i1 argument */
+// defineBoolPrint converts an i1 to its string representation "True" or "False" */
 func (cg *CodeGenerator) defineBoolPrint() *ir.Func {
 	arg := ir.NewParam("", types.I1)
 	boolPrint := cg.Module.NewFunc("boolprint", types.I8Ptr, arg)
@@ -113,21 +113,26 @@ func (cg *CodeGenerator) defineBoolPrint() *ir.Func {
 	resPtr.LocalName = cg.uniqueNames.get("boolprint_res_ptr")
 	entry.NewCondBr(arg, ifBlock, elseBlock)
 
-	ifBlockConst := constant.NewCharArrayFromString("True\n\x00")
-	ifBlockPtr := ifBlock.NewAlloca(ifBlockConst.Type())
-	ifBlock.NewStore(ifBlockConst, ifBlockPtr)
-	ifBlockPtrCast := ifBlock.NewBitCast(ifBlockPtr, types.I8Ptr)
-	ifBlock.NewStore(ifBlockPtrCast, resPtr)
+	trueConst := constant.NewCharArrayFromString("True\n\x00")
+	truePtr := ifBlock.NewAlloca(trueConst.Type())
+	truePtr.LocalName = cg.uniqueNames.get("true_ptr")
+	ifBlock.NewStore(trueConst, truePtr)
+	truePtrCast := ifBlock.NewBitCast(truePtr, types.I8Ptr)
+	truePtrCast.LocalName = cg.uniqueNames.get("true_ptr_cast")
+	ifBlock.NewStore(truePtrCast, resPtr)
 	ifBlock.NewBr(exitBlock)
 
-	elseBlockConst := constant.NewCharArrayFromString("False\n\x00")
-	elseBlockPtr := elseBlock.NewAlloca(elseBlockConst.Type())
-	elseBlock.NewStore(elseBlockConst, elseBlockPtr)
-	elseBlockPtrCast := elseBlock.NewBitCast(elseBlockPtr, types.I8Ptr)
-	elseBlock.NewStore(elseBlockPtrCast, resPtr)
+	falseConst := constant.NewCharArrayFromString("False\n\x00")
+	falsePtr := elseBlock.NewAlloca(falseConst.Type())
+	falsePtr.LocalName = cg.uniqueNames.get("false_ptr")
+	elseBlock.NewStore(falseConst, falsePtr)
+	falsePtrCast := elseBlock.NewBitCast(falsePtr, types.I8Ptr)
+	falsePtrCast.LocalName = cg.uniqueNames.get("false_ptr_cast")
+	elseBlock.NewStore(falsePtrCast, resPtr)
 	elseBlock.NewBr(exitBlock)
 
 	resLoad := exitBlock.NewLoad(types.I8Ptr, resPtr)
+	resLoad.LocalName = cg.uniqueNames.get("res_load")
 	exitBlock.NewRet(resLoad)
 
 	return boolPrint
