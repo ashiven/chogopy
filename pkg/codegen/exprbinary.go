@@ -203,13 +203,14 @@ func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.V
 	// 1) Allocate a destination buffer of size: char[BUFFER_SIZE] (needs extra space for stuff to be appended)
 	destBuffer := cg.currentBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
 	destBuffer.LocalName = cg.uniqueNames.get("concat_buffer_ptr")
+	destBufferCast := cg.toString(destBuffer)
 
 	// 2) Copy the string that should be appended to into that buffer
-	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], destBuffer, lhs)
+	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], destBufferCast, lhs)
 	copyRes.LocalName = cg.uniqueNames.get("concat_copy_res")
 
 	// 3) Append the other string via strcat
-	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], destBuffer, rhs)
+	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], destBufferCast, rhs)
 	concatRes.LocalName = cg.uniqueNames.get("concat_append_res")
 
 	return concatRes

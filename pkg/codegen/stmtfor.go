@@ -105,5 +105,6 @@ func (cg *CodeGenerator) clampStrSize(strVal value.Value) value.Value {
 	elemAddr.LocalName = cg.uniqueNames.get("clamp_addr")
 	cg.NewStore(term, elemAddr)
 
-	return copyBuffer
+	strCast := cg.toString(copyBuffer)
+	return strCast
 }

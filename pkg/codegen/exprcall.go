@@ -55,10 +55,11 @@ func (cg *CodeGenerator) readString() {
 	/* int scanf(format i8*, buf i8*)  */
 
 	format := cg.NewLiteral("%s")
-	inputPtr := cg.currentBlock.NewAlloca(types.NewArray(10000, types.I8))
+	inputPtr := cg.currentBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
 	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
+	inputPtrCast := cg.toString(inputPtr)
 
-	scanRes := cg.currentBlock.NewCall(cg.functions["scanf"], format, inputPtr)
+	scanRes := cg.currentBlock.NewCall(cg.functions["scanf"], format, inputPtrCast)
 	scanRes.LocalName = cg.uniqueNames.get("scan_res")
 
 	cg.lastGenerated = cg.LoadVal(inputPtr)

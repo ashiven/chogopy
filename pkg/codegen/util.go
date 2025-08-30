@@ -63,6 +63,12 @@ func containsCharArr(val value.Value) bool {
 	return false
 }
 
+func (cg *CodeGenerator) toString(val value.Value) value.Value {
+	strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
+	strCast.LocalName = cg.uniqueNames.get("str_cast")
+	return strCast
+}
+
 func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	_, isListAttr := attr.(ast.ListAttribute)
 	if isListAttr {

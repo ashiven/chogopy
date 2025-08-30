@@ -272,7 +272,8 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 
 	if _, ok := literal.(string); ok {
 		cg.lengths[literalPtr] = len(literal.(string))
-		return literalPtr
+		strCast := cg.toString(literalPtr)
+		return strCast
 
 	} else {
 		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalPtr)
