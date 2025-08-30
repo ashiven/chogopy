@@ -3,6 +3,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
@@ -18,12 +19,9 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	iterName := cg.variables[forStmt.IterName].value
 	iterNameType := cg.variables[forStmt.IterName].elemType
 
-	if isString(iterName) {
-		iterNameType = types.I8
-	}
-
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
+	// TODO: figure out a way to get this dynamically at runtime for lists
 	iterLength := cg.lengths[iterVal]
 
 	if isIdentOrIndex(forStmt.Iter) {
@@ -31,9 +29,17 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 		iterVal = cg.LoadVal(iterVal)
 	}
 
+	var iterLen value.Value
+	iterLen = constant.NewInt(types.I32, int64(iterLength))
+
+	if isString(iterName) {
+		iterNameType = types.I8
+		iterLen = cg.currentBlock.NewCall(cg.functions["strlen"], iterVal)
+		iterLen.(*ir.InstCall).LocalName = cg.uniqueNames.get("iter_len")
+	}
+
 	zero := constant.NewInt(types.I32, 0)
 	one := constant.NewInt(types.I32, 1)
-	iterLen := constant.NewInt(types.I32, int64(iterLength))
 
 	// Initialize iteration index
 	indexAlloc := cg.currentBlock.NewAlloca(types.I32)

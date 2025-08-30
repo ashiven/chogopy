@@ -14,7 +14,11 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	args := []value.Value{}
 	for _, arg := range callExpr.Arguments {
 		arg.Visit(cg)
-		args = append(args, cg.lastGenerated)
+		argVal := cg.lastGenerated
+		if isIdentOrIndex(arg) {
+			argVal = cg.LoadVal(cg.lastGenerated)
+		}
+		args = append(args, argVal)
 	}
 
 	switch callExpr.FuncName {
