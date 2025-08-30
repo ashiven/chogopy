@@ -436,6 +436,11 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 			binaryExpr.TypeHint = attrFromType(st.visitedType)
 			return
 		}
+		if lhsType == boolType && rhsType == boolType {
+			st.visitedType = boolType
+			binaryExpr.TypeHint = attrFromType(st.visitedType)
+			return
+		}
 		checkType(lhsType, intType)
 		checkType(rhsType, intType)
 		st.visitedType = boolType

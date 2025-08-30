@@ -112,6 +112,10 @@ func (cg *CodeGenerator) floorRem(lhs value.Value, rhs value.Value) value.Value 
 	return floorRem
 }
 
+// TODO: uncomment below and make floatDiv work as
+// a function call so we don't generate tons of repetitive instructions.
+// Would also be good to add a similar function for literal generation.
+
 //func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
 //	lhs := ir.NewParam("", types.I32)
 //	rhs := ir.NewParam("", types.I32)

@@ -1,6 +1,6 @@
 .PHONY: test, compile, clean
 
-test: cgp compile
+test: clean cgp compile
 	lit -v tests
 
 cgp: 

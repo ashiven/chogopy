@@ -10,6 +10,10 @@ func (cg *CodeGenerator) VisitUnaryExpr(unaryExpr *ast.UnaryExpr) {
 	unaryExpr.Value.Visit(cg)
 	unaryVal := cg.lastGenerated
 
+	if isIdentOrIndex(unaryExpr.Value) {
+		unaryVal = cg.LoadVal(unaryVal)
+	}
+
 	var resVal value.Value
 
 	switch unaryExpr.Op {

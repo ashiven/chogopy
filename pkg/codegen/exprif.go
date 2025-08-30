@@ -15,18 +15,31 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 	cond = cg.LoadVal(cond)
 	cg.currentBlock.NewCondBr(cond, ifBlock, elseBlock)
 
+	/* If Block */
 	cg.currentBlock = ifBlock
 	ifExpr.IfNode.Visit(cg)
+
 	ifBlockRes := cg.lastGenerated
+	if isIdentOrIndex(ifExpr.IfNode) {
+		ifBlockRes = cg.LoadVal(ifBlockRes)
+	}
+
 	cg.NewStore(ifBlockRes, resAlloc)
 	cg.currentBlock.NewBr(exitBlock)
 
+	/* Else Block */
 	cg.currentBlock = elseBlock
 	ifExpr.ElseNode.Visit(cg)
+
 	elseBlockRes := cg.lastGenerated
+	if isIdentOrIndex(ifExpr.ElseNode) {
+		elseBlockRes = cg.LoadVal(elseBlockRes)
+	}
+
 	cg.NewStore(elseBlockRes, resAlloc)
 	cg.currentBlock.NewBr(exitBlock)
 
+	/* Exit Block */
 	cg.currentBlock = exitBlock
 	cg.lastGenerated = resAlloc
 }
