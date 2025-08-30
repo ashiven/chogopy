@@ -227,6 +227,10 @@ func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
 	case hasType(val, types.I8Ptr):
 		return val
 
+	// NOTE: We have to tread carefully here because list literals will also have a
+	// pointer type but are still literals and not variables to be loaded.
+	// Therefore, the caller should always check first to ensure that he is calling this
+	// method for a value that really represents a variable to load from. (i.e. using isIdentOrIndex() )
 	case valIsPtr:
 		valueLoad := cg.currentBlock.NewLoad(val.Type().(*types.PointerType).ElemType, val)
 		valueLoad.LocalName = cg.uniqueNames.get("val")

@@ -165,7 +165,7 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType 
 }
 
 func (cg *CodeGenerator) stringEQ(lhs value.Value, rhs value.Value) bool {
-	if (isCharArr(lhs) || containsCharArr(lhs)) && (isCharArr(rhs) || containsCharArr(rhs)) {
+	if isString(lhs) && isString(rhs) {
 		cmpResInt := cg.currentBlock.NewCall(cg.functions["strcmp"], lhs, rhs)
 		cmpRes := cg.currentBlock.NewICmp(enum.IPredEQ, cmpResInt, constant.NewInt(types.I32, 0))
 		cg.lastGenerated = cmpRes
@@ -175,7 +175,7 @@ func (cg *CodeGenerator) stringEQ(lhs value.Value, rhs value.Value) bool {
 }
 
 func (cg *CodeGenerator) stringNE(lhs value.Value, rhs value.Value) bool {
-	if (isCharArr(lhs) || containsCharArr(lhs)) && (isCharArr(rhs) || containsCharArr(rhs)) {
+	if isString(lhs) && isString(rhs) {
 		cmpResInt := cg.currentBlock.NewCall(cg.functions["strcmp"], lhs, rhs)
 		cmpRes := cg.currentBlock.NewICmp(enum.IPredEQ, cmpResInt, constant.NewInt(types.I32, 1))
 		cg.lastGenerated = cmpRes

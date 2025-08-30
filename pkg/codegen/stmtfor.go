@@ -18,8 +18,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	iterName := cg.variables[forStmt.IterName].value
 	iterNameType := cg.variables[forStmt.IterName].elemType
 
-	/* Iterating over a string */
-	if iterName.Type().Equal(types.NewPointer(types.I8Ptr)) {
+	if isString(iterName) {
 		iterNameType = types.I8
 	}
 
@@ -52,12 +51,13 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 
 	/* Body block */
 	cg.currentBlock = forBodyBlock
+	cg.currentBlock.NewBr(forIncBlock)
+
 	currentAddress := cg.currentBlock.NewGetElementPtr(iterNameType, iterVal, index)
 	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
 	currentVal := cg.LoadVal(currentAddress)
 
-	/* Iterating over a string */
-	if iterName.Type().Equal(types.NewPointer(types.I8Ptr)) {
+	if isString(iterName) {
 		currentVal = cg.clampStrSize(currentVal)
 	}
 
@@ -66,14 +66,14 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	for _, bodyOp := range forStmt.Body {
 		bodyOp.Visit(cg)
 	}
-	cg.currentBlock.NewBr(forIncBlock)
 
 	/* Increment block */
 	cg.currentBlock = forIncBlock
+	cg.currentBlock.NewBr(forCondBlock)
+
 	incremented := cg.currentBlock.NewAdd(index, one)
 	incremented.LocalName = cg.uniqueNames.get("inc")
 	cg.NewStore(incremented, indexAlloc)
-	cg.currentBlock.NewBr(forCondBlock)
 
 	/* Exit block */
 	cg.currentBlock = forExitBlock

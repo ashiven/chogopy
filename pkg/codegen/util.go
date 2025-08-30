@@ -31,6 +31,18 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 	return val.Type().(*types.PointerType).ElemType.Equal(type_)
 }
 
+// isString returns true if the value is a
+// - char array: [n x i8]
+// - string: i8*
+// - contains a char array: [n x i8]*
+// - contains a string: i8**
+func isString(val value.Value) bool {
+	return isCharArr(val) ||
+		containsCharArr(val) ||
+		hasType(val, types.I8Ptr) ||
+		hasType(val, types.NewPointer(types.I8Ptr))
+}
+
 func isCharArr(val value.Value) bool {
 	if _, ok := val.Type().(*types.ArrayType); ok {
 		if val.Type().(*types.ArrayType).ElemType.Equal(types.I8) {

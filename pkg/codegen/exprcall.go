@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"log"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -66,25 +67,28 @@ func (cg *CodeGenerator) readString() {
 func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 	printArgs := []value.Value{}
 	for _, arg := range args {
-		if hasType(arg, types.I32) || isPtrTo(arg, types.I32) {
+		if hasType(arg, types.I32) || hasType(arg, types.I32Ptr) {
 			/* Integer print */
 			digitStr := cg.NewLiteral("%d\n")
 			argVal := cg.LoadVal(arg)
 			printArgs = append(printArgs, digitStr)
 			printArgs = append(printArgs, argVal)
 
-		} else if hasType(arg, types.I1) || isPtrTo(arg, types.I1) {
+		} else if hasType(arg, types.I1) || hasType(arg, types.I1Ptr) {
 			/* Boolean print */
 			argVal := cg.LoadVal(arg)
 			argVal = cg.currentBlock.NewCall(cg.functions["boolprint"], argVal)
 			printArgs = append(printArgs, argVal)
 
-		} else {
+		} else if isString(arg) {
 			/* String print */
 			arg = cg.LoadVal(arg)
 			newline := cg.NewLiteral("\n")
 			arg = cg.concatStrings(arg, newline)
 			printArgs = append(printArgs, arg)
+
+		} else {
+			log.Fatalln("Code Generation: print() expected an argument of type int, bool, or str")
 		}
 	}
 	return printArgs
