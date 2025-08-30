@@ -34,9 +34,7 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	case "or":
 		resVal = cg.currentBlock.NewOr(lhsValue, rhsValue)
 	case "%":
-		// TODO: this is broken for negative values for the same
-		// reason that div below is broken
-		resVal = cg.currentBlock.NewSRem(lhsValue, rhsValue)
+		resVal = cg.floorRem(lhsValue, rhsValue)
 	case "*":
 		resVal = cg.currentBlock.NewMul(lhsValue, rhsValue)
 	case "//":
@@ -101,6 +99,16 @@ func (cg *CodeGenerator) floorDiv(lhs value.Value, rhs value.Value) value.Value 
 	return floorRes
 
 	// floatRem := cg.currentBlock.NewFRem(lhsFloat, rhsFloat)
+}
+
+func (cg *CodeGenerator) floorRem(lhs value.Value, rhs value.Value) value.Value {
+	/* rem = lhs - rhs * floorDiv(lhs, rhs) */
+
+	floorDiv := cg.floorDiv(lhs, rhs)
+	rhsMult := cg.currentBlock.NewMul(rhs, floorDiv)
+	floorRem := cg.currentBlock.NewSub(lhs, rhsMult)
+
+	return floorRem
 }
 
 //func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
