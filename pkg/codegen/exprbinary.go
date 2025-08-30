@@ -4,6 +4,7 @@ import (
 	"chogopy/pkg/ast"
 	"log"
 
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
@@ -39,7 +40,7 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	case "*":
 		resVal = cg.currentBlock.NewMul(lhsValue, rhsValue)
 	case "//":
-		resVal = cg.floorDiv(lhsValue, rhsValue)
+		resVal = cg.currentBlock.NewCall(cg.functions["floordiv"], lhsValue, rhsValue)
 	case "+":
 		if cg.concat(binaryExpr, lhsValue, rhsValue) {
 			return
@@ -74,81 +75,46 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	cg.lastGenerated = resVal
 }
 
-func (cg *CodeGenerator) floorDiv(lhs value.Value, rhs value.Value) value.Value {
-	lhsFloat := cg.currentBlock.NewSIToFP(lhs, types.FP128)
-	lhsFloat.LocalName = cg.uniqueNames.get("div_lhs_fp")
-	rhsFloat := cg.currentBlock.NewSIToFP(rhs, types.FP128)
-	rhsFloat.LocalName = cg.uniqueNames.get("div_rhs_fp")
-	floatDiv := cg.currentBlock.NewFDiv(lhsFloat, rhsFloat)
-	floatDiv.LocalName = cg.uniqueNames.get("div_res_fp")
-
-	// NOTE: FP128 is a double and FPToSI is apparently undefined if it contains a value that doesn't fit into the result type I32.
-	// This may cause problems if someone were to perform calculations with huge numbers but I'll leave it like this for now.
-	truncDiv := cg.currentBlock.NewFPToSI(floatDiv, types.I32)
-	truncDiv.LocalName = cg.uniqueNames.get("div_res_trunc")
-	truncDivFloat := cg.currentBlock.NewSIToFP(truncDiv, types.FP128)
-	truncDivFloat.LocalName = cg.uniqueNames.get("div_res_trunc_fp")
-
-	// floor(x) = trunc(x) - ((trunc(x) > x) as I32)
-	subtractOne := cg.currentBlock.NewFCmp(enum.FPredOGT, truncDivFloat, floatDiv)
-	subtractOne.LocalName = cg.uniqueNames.get("trunc_gt_div_res")
-	subtractOneInt := cg.currentBlock.NewZExt(subtractOne, types.I32)
-	subtractOneInt.LocalName = cg.uniqueNames.get("trunc_gt_div_res_int")
-	floorRes := cg.currentBlock.NewSub(truncDiv, subtractOneInt)
-	floorRes.LocalName = cg.uniqueNames.get("floor_res")
-
-	return floorRes
-
-	// floatRem := cg.currentBlock.NewFRem(lhsFloat, rhsFloat)
-}
-
 func (cg *CodeGenerator) floorRem(lhs value.Value, rhs value.Value) value.Value {
 	/* rem = lhs - rhs * floorDiv(lhs, rhs) */
 
-	floorDiv := cg.floorDiv(lhs, rhs)
+	floorDiv := cg.currentBlock.NewCall(cg.functions["floordiv"], lhs, rhs)
 	rhsMult := cg.currentBlock.NewMul(rhs, floorDiv)
 	floorRem := cg.currentBlock.NewSub(lhs, rhsMult)
 
 	return floorRem
 }
 
-// TODO: uncomment below and make floatDiv work as
-// a function call so we don't generate tons of repetitive instructions.
-// Would also be good to add a similar function for literal generation.
+func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
+	lhs := ir.NewParam("", types.I32)
+	rhs := ir.NewParam("", types.I32)
+	floorDiv := cg.Module.NewFunc("floordiv", types.I32, lhs, rhs)
+	funcBlock := floorDiv.NewBlock(cg.uniqueNames.get("entry"))
 
-//func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
-//	lhs := ir.NewParam("", types.I32)
-//	rhs := ir.NewParam("", types.I32)
-//	floorDiv := cg.Module.NewFunc("floordiv", types.I32, lhs, rhs)
-//	funcBlock := floorDiv.NewBlock(cg.uniqueNames.get("entry"))
-//
-//	lhsFloat := funcBlock.NewSIToFP(lhs, types.FP128)
-//	lhsFloat.LocalName = cg.uniqueNames.get("div_lhs_fp")
-//	rhsFloat := funcBlock.NewSIToFP(rhs, types.FP128)
-//	rhsFloat.LocalName = cg.uniqueNames.get("div_rhs_fp")
-//	floatDiv := funcBlock.NewFDiv(lhsFloat, rhsFloat)
-//	floatDiv.LocalName = cg.uniqueNames.get("div_res_fp")
-//
-//	// NOTE: FP128 is a double and FPToSI is apparently undefined if it contains a value that doesn't fit into the result type I32.
-//	// This may cause problems if someone were to perform calculations with huge numbers but I'll leave it like this for now.
-//	truncDiv := funcBlock.NewFPToSI(floatDiv, types.I32)
-//	truncDiv.LocalName = cg.uniqueNames.get("div_res_trunc")
-//	truncDivFloat := funcBlock.NewSIToFP(truncDiv, types.FP128)
-//	truncDivFloat.LocalName = cg.uniqueNames.get("div_res_trunc_fp")
-//
-//	// floor(x) = trunc(x) - ((trunc(x) > x) as I32)
-//	subtractOne := funcBlock.NewFCmp(enum.FPredOGT, truncDivFloat, floatDiv)
-//	subtractOne.LocalName = cg.uniqueNames.get("trunc_gt_div_res")
-//	subtractOneInt := funcBlock.NewZExt(subtractOne, types.I32)
-//	subtractOneInt.LocalName = cg.uniqueNames.get("trunc_gt_div_res_int")
-//	floorRes := funcBlock.NewSub(truncDiv, subtractOneInt)
-//	floorRes.LocalName = cg.uniqueNames.get("floor_res")
-//
-//	funcBlock.NewRet(floorRes)
-//
-//	return floorDiv
-//	// floatRem := cg.currentBlock.NewFRem(lhsFloat, rhsFloat)
-//}
+	lhsFloat := funcBlock.NewSIToFP(lhs, types.Float)
+	lhsFloat.LocalName = cg.uniqueNames.get("div_lhs_fp")
+	rhsFloat := funcBlock.NewSIToFP(rhs, types.Float)
+	rhsFloat.LocalName = cg.uniqueNames.get("div_rhs_fp")
+	floatDiv := funcBlock.NewFDiv(lhsFloat, rhsFloat)
+	floatDiv.LocalName = cg.uniqueNames.get("div_res_fp")
+
+	truncDiv := funcBlock.NewFPToSI(floatDiv, types.I32)
+	truncDiv.LocalName = cg.uniqueNames.get("div_res_trunc")
+	truncDivFloat := funcBlock.NewSIToFP(truncDiv, types.Float)
+	truncDivFloat.LocalName = cg.uniqueNames.get("div_res_trunc_fp")
+
+	// floor(x) = trunc(x) - ((trunc(x) > x) as I32)
+	subtractOne := funcBlock.NewFCmp(enum.FPredOGT, truncDivFloat, floatDiv)
+	subtractOne.LocalName = cg.uniqueNames.get("trunc_gt_div_res")
+	subtractOneInt := funcBlock.NewZExt(subtractOne, types.I32)
+	subtractOneInt.LocalName = cg.uniqueNames.get("trunc_gt_div_res_int")
+	floorRes := funcBlock.NewSub(truncDiv, subtractOneInt)
+	floorRes.LocalName = cg.uniqueNames.get("floor_res")
+
+	funcBlock.NewRet(floorRes)
+
+	return floorDiv
+}
 
 func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
 	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {

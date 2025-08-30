@@ -123,6 +123,9 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	objType := cg.Module.NewTypeDef("object", &types.StructType{Opaque: true})
 	noneType := cg.Module.NewTypeDef("none", &types.StructType{Opaque: true})
 	emptyType := cg.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
+	// listIntType := cg.Module.NewTypeDef("list_int", types.NewStruct(types.I32Ptr, types.I32))
+	// listStrType := cg.Module.NewTypeDef("list_str", types.NewStruct(types.NewPointer(I8Ptr), types.I32))
+	// listBoolType := cg.Module.NewTypeDef("list_bool", types.NewStruct(types.I8Ptr, types.I32))
 	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})
 
 	cg.types["object"] = objType
@@ -199,8 +202,8 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 
-	cg.functions["boolprint"] = cg.defineBoolPrint()
-	// cg.functions["floordiv"] = cg.defineFloorDiv()
+	cg.functions["booltostr"] = cg.defineBoolToStr()
+	cg.functions["floordiv"] = cg.defineFloorDiv()
 
 	cg.mainFunction = cg.Module.NewFunc("main", types.I32)
 	cg.mainBlock = cg.mainFunction.NewBlock(cg.uniqueNames.get("entry"))

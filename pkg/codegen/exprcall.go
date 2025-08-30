@@ -82,7 +82,7 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 		} else if hasType(arg, types.I1) || hasType(arg, types.I1Ptr) {
 			/* Boolean print */
 			argVal := cg.LoadVal(arg)
-			argVal = cg.currentBlock.NewCall(cg.functions["boolprint"], argVal)
+			argVal = cg.currentBlock.NewCall(cg.functions["booltostr"], argVal)
 			printArgs = append(printArgs, argVal)
 
 		} else if isString(arg) {
@@ -100,17 +100,17 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 }
 
 // defineBoolPrint converts an i1 to its string representation "True" or "False" */
-func (cg *CodeGenerator) defineBoolPrint() *ir.Func {
+func (cg *CodeGenerator) defineBoolToStr() *ir.Func {
 	arg := ir.NewParam("", types.I1)
-	boolPrint := cg.Module.NewFunc("boolprint", types.I8Ptr, arg)
+	boolToStr := cg.Module.NewFunc("booltostr", types.I8Ptr, arg)
 
-	entry := boolPrint.NewBlock(cg.uniqueNames.get("entry"))
-	ifBlock := boolPrint.NewBlock(cg.uniqueNames.get("boolprint.then"))
-	elseBlock := boolPrint.NewBlock(cg.uniqueNames.get("boolprint.else"))
-	exitBlock := boolPrint.NewBlock(cg.uniqueNames.get("boolprint.exit"))
+	entry := boolToStr.NewBlock(cg.uniqueNames.get("entry"))
+	ifBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.then"))
+	elseBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.else"))
+	exitBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.exit"))
 
 	resPtr := entry.NewAlloca(types.I8Ptr)
-	resPtr.LocalName = cg.uniqueNames.get("boolprint_res_ptr")
+	resPtr.LocalName = cg.uniqueNames.get("booltostr_res_ptr")
 	entry.NewCondBr(arg, ifBlock, elseBlock)
 
 	trueConst := constant.NewCharArrayFromString("True\n\x00")
@@ -135,5 +135,5 @@ func (cg *CodeGenerator) defineBoolPrint() *ir.Func {
 	resLoad.LocalName = cg.uniqueNames.get("res_load")
 	exitBlock.NewRet(resLoad)
 
-	return boolPrint
+	return boolToStr
 }
