@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
-	"log"
 )
 
 func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
@@ -10,12 +9,9 @@ func (cg *CodeGenerator) VisitIdentExpr(identExpr *ast.IdentExpr) {
 
 	// Case 1: The identifier refers to a variable definition.
 
-	identVarInfo, err := cg.getVar(identName)
-	if err != nil {
-		log.Fatalln(err.Error())
+	if identVarInfo, err := cg.getVar(identName); err == nil {
+		cg.lastGenerated = identVarInfo.value
 	}
-
-	cg.lastGenerated = identVarInfo.value
 
 	// Case 2: The identifier refers to the name of a parameter of the current function. (overwrites definitions)
 

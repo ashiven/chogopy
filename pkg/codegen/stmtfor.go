@@ -31,12 +31,6 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	iterLength := cg.lengths[iterVal]
 
 	if isIdentOrIndex(forStmt.Iter) {
-		iterValInfo, err := cg.getVar(iterVal.Ident()[1:])
-		if err != nil {
-			log.Fatalln(err.Error())
-		}
-
-		iterLength = iterValInfo.length
 		iterVal = cg.LoadVal(iterVal)
 	}
 
