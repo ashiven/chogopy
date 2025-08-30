@@ -12,17 +12,22 @@ func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
 	cond = cg.LoadVal(cond)
 	cg.currentBlock.NewCondBr(cond, ifBlock, elseBlock)
 
+	/* If Block */
 	cg.currentBlock = ifBlock
+	cg.currentBlock.NewBr(exitBlock)
+
 	for _, ifBodyNode := range ifStmt.IfBody {
 		ifBodyNode.Visit(cg)
 	}
+
+	/* Else Block */
+	cg.currentBlock = elseBlock
 	cg.currentBlock.NewBr(exitBlock)
 
-	cg.currentBlock = elseBlock
 	for _, elseBodyNode := range ifStmt.ElseBody {
 		elseBodyNode.Visit(cg)
 	}
-	cg.currentBlock.NewBr(exitBlock)
 
+	/* Exit Block */
 	cg.currentBlock = exitBlock
 }
