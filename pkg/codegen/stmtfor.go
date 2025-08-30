@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"log"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -16,8 +17,13 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	forIncBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.inc"))
 	forExitBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("for.exit"))
 
-	iterName := cg.variables[forStmt.IterName].value
-	iterNameType := cg.variables[forStmt.IterName].elemType
+	iterNameInfo, err := cg.getVar(forStmt.IterName)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	iterName := iterNameInfo.value
+	iterNameType := iterNameInfo.elemType
 
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
@@ -25,7 +31,12 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	iterLength := cg.lengths[iterVal]
 
 	if isIdentOrIndex(forStmt.Iter) {
-		iterLength = cg.variables[iterVal.Ident()[1:]].length
+		iterValInfo, err := cg.getVar(iterVal.Ident()[1:])
+		if err != nil {
+			log.Fatalln(err.Error())
+		}
+
+		iterLength = iterValInfo.length
 		iterVal = cg.LoadVal(iterVal)
 	}
 

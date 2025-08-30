@@ -4,6 +4,7 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"fmt"
 	"strconv"
 
 	"github.com/llir/llvm/ir"
@@ -25,6 +26,14 @@ func (un UniqueNames) get(name string) string {
 	return name + strconv.Itoa(un[name])
 }
 
+type (
+	Functions map[string]*ir.Func
+	VarCtx    map[*ir.Func]Variables
+	Variables map[string]VarInfo
+	Types     map[string]types.Type
+	Lengths   map[value.Value]int // keeps track of the length of string and list literals
+)
+
 type VarInfo struct {
 	name     string
 	elemType types.Type
@@ -32,22 +41,68 @@ type VarInfo struct {
 	length   int
 }
 
-type (
-	Functions map[string]*ir.Func
-	Variables map[string]VarInfo
-	Types     map[string]types.Type
-	Lengths   map[value.Value]int // keeps track of the length of string and list literals
-)
+func (cg *CodeGenerator) varCtx(global bool) Variables {
+	if global {
+		if _, ok := cg.varContext[cg.mainFunction]; !ok {
+			cg.varContext[cg.mainFunction] = Variables{}
+		}
+		return cg.varContext[cg.mainFunction]
+	}
+
+	if _, ok := cg.varContext[cg.currentFunction]; !ok {
+		cg.varContext[cg.currentFunction] = Variables{}
+	}
+	return cg.varContext[cg.currentFunction]
+}
+
+func (cg *CodeGenerator) getVar(name string) (VarInfo, error) {
+	switch cg.currentFunction {
+	case cg.mainFunction:
+		globalVars := cg.varCtx(true)
+		if _, ok := globalVars[name]; ok {
+			return globalVars[name], nil
+		}
+
+	default:
+		// If we are not in the main function but rather inside
+		// of a local scope, we want to first check whether the variable is defined locally
+		// and only if it isn't we want to check the global context for the variable.
+		localVars := cg.varCtx(false)
+		if _, ok := localVars[name]; ok {
+			return localVars[name], nil
+		}
+
+		globalVars := cg.varCtx(true)
+		if _, ok := globalVars[name]; ok {
+			return globalVars[name], nil
+		}
+	}
+	return VarInfo{}, fmt.Errorf("failed to find variable: %s", name)
+}
+
+func (cg *CodeGenerator) setVar(varInfo VarInfo) {
+	if cg.currentFunction == cg.mainFunction {
+		globalVars := cg.varCtx(true)
+		globalVars[varInfo.name] = varInfo
+	} else {
+		localVars := cg.varCtx(false)
+		localVars[varInfo.name] = varInfo
+	}
+}
 
 type CodeGenerator struct {
 	Module *ir.Module
+
+	mainFunction *ir.Func
+	mainBlock    *ir.Block
 
 	currentFunction *ir.Func
 	currentBlock    *ir.Block
 
 	uniqueNames UniqueNames
 
-	variables Variables
+	varContext VarCtx
+
 	functions Functions
 	types     Types
 
@@ -60,7 +115,7 @@ type CodeGenerator struct {
 func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.Module = ir.NewModule()
 	cg.uniqueNames = UniqueNames{}
-	cg.variables = Variables{}
+	cg.varContext = VarCtx{}
 	cg.functions = Functions{}
 	cg.types = Types{}
 	cg.lengths = Lengths{}
@@ -145,14 +200,21 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.functions["boolprint"] = cg.defineBoolPrint()
 	// cg.functions["floordiv"] = cg.defineFloorDiv()
 
-	for _, definition := range program.Definitions {
-		definition.Visit(cg)
-	}
+	cg.mainFunction = cg.Module.NewFunc("main", types.I32)
+	cg.mainBlock = cg.mainFunction.NewBlock(cg.uniqueNames.get("entry"))
 
-	mainFunction := cg.Module.NewFunc("main", types.I32)
-	mainBlock := mainFunction.NewBlock(cg.uniqueNames.get("entry"))
-	cg.currentFunction = mainFunction
-	cg.currentBlock = mainBlock
+	cg.currentFunction = cg.mainFunction
+	cg.currentBlock = cg.mainBlock
+
+	for _, definition := range program.Definitions {
+		if _, ok := definition.(*ast.FuncDef); ok {
+			definition.Visit(cg)
+			cg.currentFunction = cg.mainFunction
+			cg.currentBlock = cg.mainBlock
+		} else {
+			definition.Visit(cg)
+		}
+	}
 
 	for _, statement := range program.Statements {
 		statement.Visit(cg)
@@ -178,10 +240,10 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 	}
 
 	targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
-	if _, ok := cg.variables[targetName]; ok {
-		varInfo := cg.variables[targetName]
+
+	if varInfo, err := cg.getVar(targetName); err != nil {
 		varInfo.length = srcLen
-		cg.variables[targetName] = varInfo
+		cg.setVar(varInfo)
 	}
 
 	cg.currentBlock.NewStore(src, target)

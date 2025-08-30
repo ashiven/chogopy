@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"log"
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
@@ -169,7 +170,13 @@ func (cg *CodeGenerator) getLength(val value.Value) int {
 	if _, ok := cg.lengths[val]; ok {
 		return cg.lengths[val]
 	}
-	return cg.variables[val.Ident()[1:]].length
+
+	varInfo, err := cg.getVar(val.Ident()[1:])
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	return varInfo.length
 }
 
 // TODO: list concat
