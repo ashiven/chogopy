@@ -40,11 +40,7 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	case "*":
 		resVal = cg.currentBlock.NewMul(lhsValue, rhsValue)
 	case "//":
-		// TODO: implement floor div for negative values:
-		// (if the div result is negative, it will just be rounded
-		// to the next whole number in a positive direction while
-		// we want this direction to still remain negative)
-		resVal = cg.currentBlock.NewSDiv(lhsValue, rhsValue)
+		resVal = cg.floorDiv(lhsValue, rhsValue)
 	case "+":
 		if cg.concat(binaryExpr, lhsValue, rhsValue) {
 			return
@@ -78,6 +74,68 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 
 	cg.lastGenerated = resVal
 }
+
+func (cg *CodeGenerator) floorDiv(lhs value.Value, rhs value.Value) value.Value {
+	lhsFloat := cg.currentBlock.NewSIToFP(lhs, types.FP128)
+	lhsFloat.LocalName = cg.uniqueNames.get("div_lhs_fp")
+	rhsFloat := cg.currentBlock.NewSIToFP(rhs, types.FP128)
+	rhsFloat.LocalName = cg.uniqueNames.get("div_rhs_fp")
+	floatDiv := cg.currentBlock.NewFDiv(lhsFloat, rhsFloat)
+	floatDiv.LocalName = cg.uniqueNames.get("div_res_fp")
+
+	// NOTE: FP128 is a double and FPToSI is apparently undefined if it contains a value that doesn't fit into the result type I32.
+	// This may cause problems if someone were to perform calculations with huge numbers but I'll leave it like this for now.
+	truncDiv := cg.currentBlock.NewFPToSI(floatDiv, types.I32)
+	truncDiv.LocalName = cg.uniqueNames.get("div_res_trunc")
+	truncDivFloat := cg.currentBlock.NewSIToFP(truncDiv, types.FP128)
+	truncDivFloat.LocalName = cg.uniqueNames.get("div_res_trunc_fp")
+
+	// floor(x) = trunc(x) - ((trunc(x) > x) as I32)
+	subtractOne := cg.currentBlock.NewFCmp(enum.FPredOGT, truncDivFloat, floatDiv)
+	subtractOne.LocalName = cg.uniqueNames.get("trunc_gt_div_res")
+	subtractOneInt := cg.currentBlock.NewZExt(subtractOne, types.I32)
+	subtractOneInt.LocalName = cg.uniqueNames.get("trunc_gt_div_res_int")
+	floorRes := cg.currentBlock.NewSub(truncDiv, subtractOneInt)
+	floorRes.LocalName = cg.uniqueNames.get("floor_res")
+
+	return floorRes
+
+	// floatRem := cg.currentBlock.NewFRem(lhsFloat, rhsFloat)
+}
+
+//func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
+//	lhs := ir.NewParam("", types.I32)
+//	rhs := ir.NewParam("", types.I32)
+//	floorDiv := cg.Module.NewFunc("floordiv", types.I32, lhs, rhs)
+//	funcBlock := floorDiv.NewBlock(cg.uniqueNames.get("entry"))
+//
+//	lhsFloat := funcBlock.NewSIToFP(lhs, types.FP128)
+//	lhsFloat.LocalName = cg.uniqueNames.get("div_lhs_fp")
+//	rhsFloat := funcBlock.NewSIToFP(rhs, types.FP128)
+//	rhsFloat.LocalName = cg.uniqueNames.get("div_rhs_fp")
+//	floatDiv := funcBlock.NewFDiv(lhsFloat, rhsFloat)
+//	floatDiv.LocalName = cg.uniqueNames.get("div_res_fp")
+//
+//	// NOTE: FP128 is a double and FPToSI is apparently undefined if it contains a value that doesn't fit into the result type I32.
+//	// This may cause problems if someone were to perform calculations with huge numbers but I'll leave it like this for now.
+//	truncDiv := funcBlock.NewFPToSI(floatDiv, types.I32)
+//	truncDiv.LocalName = cg.uniqueNames.get("div_res_trunc")
+//	truncDivFloat := funcBlock.NewSIToFP(truncDiv, types.FP128)
+//	truncDivFloat.LocalName = cg.uniqueNames.get("div_res_trunc_fp")
+//
+//	// floor(x) = trunc(x) - ((trunc(x) > x) as I32)
+//	subtractOne := funcBlock.NewFCmp(enum.FPredOGT, truncDivFloat, floatDiv)
+//	subtractOne.LocalName = cg.uniqueNames.get("trunc_gt_div_res")
+//	subtractOneInt := funcBlock.NewZExt(subtractOne, types.I32)
+//	subtractOneInt.LocalName = cg.uniqueNames.get("trunc_gt_div_res_int")
+//	floorRes := funcBlock.NewSub(truncDiv, subtractOneInt)
+//	floorRes.LocalName = cg.uniqueNames.get("floor_res")
+//
+//	funcBlock.NewRet(floorRes)
+//
+//	return floorDiv
+//	// floatRem := cg.currentBlock.NewFRem(lhsFloat, rhsFloat)
+//}
 
 func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
 	if _, ok := binaryExpr.Lhs.(*ast.LiteralExpr); ok {

@@ -143,6 +143,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	// cg.functions["fdopen"] = fdopen
 
 	cg.functions["boolprint"] = cg.defineBoolPrint()
+	// cg.functions["floordiv"] = cg.defineFloorDiv()
 
 	for _, definition := range program.Definitions {
 		definition.Visit(cg)
