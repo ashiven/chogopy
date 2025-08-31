@@ -73,7 +73,9 @@ func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	_, isListAttr := attr.(ast.ListAttribute)
 	if isListAttr {
 		elemType := cg.attrToType(attr.(ast.ListAttribute).ElemType)
-		return types.NewPointer(elemType)
+		listType := cg.types["list"]
+		listType.(*types.StructType).Fields[0] = types.NewPointer(elemType)
+		return types.NewPointer(listType)
 	}
 
 	switch attr.(ast.BasicAttribute) {
@@ -99,7 +101,13 @@ func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 	_, isListType := astType.(*ast.ListType)
 	if isListType {
 		elemType := cg.astTypeToType(astType.(*ast.ListType).ElemType)
-		return types.NewPointer(elemType)
+		listType := cg.types["list"]
+		listType.(*types.StructType).Fields[0] = types.NewPointer(elemType)
+		return types.NewPointer(listType)
+
+		// [int]  	-->  list{content: i32*, size: i32}*
+		// [str]  	-->  list{content: i8**, size: i32}*
+		// [[int]]  -->  list{content: list{content: i32*, size: i32}*, size: i32}*
 	}
 
 	switch astType.(*ast.NamedType).TypeName {

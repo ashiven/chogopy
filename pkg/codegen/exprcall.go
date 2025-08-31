@@ -27,6 +27,9 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	case "input":
 		cg.readString()
 		return
+	case "len":
+		cg.getLen(args)
+		return
 	}
 
 	callee := cg.functions[callExpr.FuncName]
@@ -34,6 +37,31 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	callRes.LocalName = cg.uniqueNames.get("call_res")
 
 	cg.lastGenerated = callRes
+}
+
+func (cg *CodeGenerator) getLen(args []value.Value) {
+	for _, arg := range args {
+		if isString(arg) {
+			strLen := cg.currentBlock.NewCall(cg.functions["strlen"], arg)
+			strLen.LocalName = cg.uniqueNames.get("str_len")
+			cg.lastGenerated = strLen
+
+			// TODO: for now we just assume if it isn't a string, it's a list but we need a more explicit check
+		} else {
+			zero := constant.NewInt(types.I32, 0)
+			lenFieldIdx := constant.NewInt(types.I32, 1)
+			listLenAddr := cg.currentBlock.NewGetElementPtr(
+				arg.Type().(*types.PointerType).ElemType,
+				arg,
+				zero,
+				lenFieldIdx,
+			)
+			listLenAddr.LocalName = cg.uniqueNames.get("list_len_addr")
+			listLen := cg.currentBlock.NewLoad(types.I32, listLenAddr)
+			listLen.LocalName = cg.uniqueNames.get("list_len")
+			cg.lastGenerated = listLen
+		}
+	}
 }
 
 func (cg *CodeGenerator) readString() {

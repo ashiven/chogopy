@@ -55,12 +55,15 @@ func (cg *CodeGenerator) getLiteralConst(varDef *ast.VarDef) constant.Constant {
 		literalConst = constant.NewGetElementPtr(strDef.Typ.ElemType, strDef, zero, zero)
 
 	case ast.None:
-		switch varType := varType.(type) {
-		case *types.PointerType:
-			literalConst = constant.NewNull(varType)
-		case *types.IntType:
-			literalConst = constant.NewInt(varType, int64(0))
-		}
+		literalConst = constant.NewZeroInitializer(varType)
+		// switch varType := varType.(type) {
+		// case *types.StructType:
+		// 	literalConst = constant.NewZeroInitializer(varType)
+		// case *types.PointerType:
+		// 	literalConst = constant.NewNull(varType)
+		// case *types.IntType:
+		// 	literalConst = constant.NewInt(varType, int64(0))
+		// }
 
 	case ast.Empty:
 		literalConst = constant.NewNull(varType.(*types.PointerType))

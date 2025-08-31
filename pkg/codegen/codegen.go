@@ -123,14 +123,20 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	objType := cg.Module.NewTypeDef("object", &types.StructType{Opaque: true})
 	noneType := cg.Module.NewTypeDef("none", &types.StructType{Opaque: true})
 	emptyType := cg.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
-	// listIntType := cg.Module.NewTypeDef("list_int", types.NewStruct(types.I32Ptr, types.I32))
-	// listStrType := cg.Module.NewTypeDef("list_str", types.NewStruct(types.NewPointer(I8Ptr), types.I32))
-	// listBoolType := cg.Module.NewTypeDef("list_bool", types.NewStruct(types.I8Ptr, types.I32))
+
+	listContent := cg.Module.NewTypeDef("list_content", &types.StructType{Opaque: true})
+	listType := cg.Module.NewTypeDef("list",
+		types.NewStruct(
+			types.NewPointer(listContent),
+			types.I32,
+		),
+	)
 	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})
 
 	cg.types["object"] = objType
 	cg.types["none"] = noneType
 	cg.types["empty"] = emptyType
+	cg.types["list"] = listType
 	// cg.types["FILE"] = fileType
 
 	print_ := cg.Module.NewFunc(
