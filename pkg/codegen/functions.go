@@ -81,7 +81,9 @@ func (cg *CodeGenerator) registerBuiltin() {
 	)
 	print_.Sig.Variadic = true
 
-	// TODO: define
+	// this is basically just a dummy function that doesn't
+	// do anything because if there is an actual call to len()
+	// it will be redirected to strlen or listlen based on argument type
 	len_ := cg.Module.NewFunc(
 		"len",
 		types.I32,
@@ -122,6 +124,7 @@ func (cg *CodeGenerator) registerCustom() {
 	cg.functions["floordiv"] = cg.defineFloorDiv()
 	cg.functions["newint"] = cg.defineNewInt()
 	cg.functions["newbool"] = cg.defineNewBool()
+	cg.functions["listlen"] = cg.defineListLen()
 }
 
 // defineBoolPrint converts an i1 to its string representation "True" or "False" */
@@ -228,4 +231,27 @@ func (cg *CodeGenerator) defineNewBool() *ir.Func {
 	funcBlock.NewRet(boolVal)
 
 	return newBool
+}
+
+func (cg *CodeGenerator) defineListLen() *ir.Func {
+	arg := ir.NewParam("", types.NewPointer(cg.types["list"]))
+	listLenFunc := cg.Module.NewFunc("listlen", types.I32, arg)
+	funcBlock := listLenFunc.NewBlock(cg.uniqueNames.get("entry"))
+
+	zero := constant.NewInt(types.I32, 0)
+	lenFieldIdx := constant.NewInt(types.I32, 1)
+	listLenAddr := funcBlock.NewGetElementPtr(
+		arg.Type().(*types.PointerType).ElemType,
+		arg,
+		zero,
+		lenFieldIdx,
+	)
+	listLenAddr.LocalName = cg.uniqueNames.get("list_len_addr")
+
+	listLen := funcBlock.NewLoad(types.I32, listLenAddr)
+	listLen.LocalName = cg.uniqueNames.get("list_len")
+
+	funcBlock.NewRet(listLen)
+
+	return listLenFunc
 }
