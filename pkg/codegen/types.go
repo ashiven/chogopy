@@ -122,11 +122,26 @@ func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	return nil
 }
 
+func (cg *CodeGenerator) getExisting(checkType types.Type) types.Type {
+	for _, existingType := range cg.types {
+		if existingType.Equal(checkType) {
+			return existingType
+		}
+	}
+	return nil
+}
+
 func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 	_, isListType := astType.(*ast.ListType)
 	if isListType {
 		elemType := cg.astTypeToType(astType.(*ast.ListType).ElemType)
 		listType := cg.types["list"]
+
+		// TODO: this actually just modifies the existing list type rather than creating
+		// a new list type. We would instead have to create a whole new specific list type here
+		// that can then be reused. We would then have to check each time whether the specific type,
+		// i.e. [int] has already been created by comparing types in cg.types via type.Equal()
+		// against the type we are trying to create and just returning that type instead if it exists.
 		listType.(*types.StructType).Fields[0] = types.NewPointer(elemType)
 		return types.NewPointer(listType)
 

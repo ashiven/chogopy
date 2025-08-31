@@ -55,15 +55,31 @@ func (cg *CodeGenerator) getLiteralConst(varDef *ast.VarDef) constant.Constant {
 		literalConst = constant.NewGetElementPtr(strDef.Typ.ElemType, strDef, zero, zero)
 
 	case ast.None:
-		literalConst = constant.NewZeroInitializer(varType)
-		// switch varType := varType.(type) {
-		// case *types.StructType:
-		// 	literalConst = constant.NewZeroInitializer(varType)
-		// case *types.PointerType:
-		// 	literalConst = constant.NewNull(varType)
-		// case *types.IntType:
-		// 	literalConst = constant.NewInt(varType, int64(0))
-		// }
+		// literalConst = constant.NewZeroInitializer(varType)
+		switch varType := varType.(type) {
+		case *types.PointerType:
+			if _, ok := varType.ElemType.(*types.StructType); ok {
+				listContentType := varType.ElemType.(*types.StructType).Fields[0]
+				listContentNone := constant.NewNull(listContentType.(*types.PointerType))
+				zero := constant.NewInt(types.I32, 0)
+				false_ := constant.NewBool(false)
+
+				listNone := cg.Module.NewGlobalDef(
+					cg.uniqueNames.get("list_none"),
+					constant.NewStruct(
+						varType.ElemType.(*types.StructType),
+						listContentNone,
+						zero,
+						false_),
+				)
+
+				literalConst = constant.NewGetElementPtr(listNone.Typ.ElemType, listNone, zero)
+			} else {
+				literalConst = constant.NewNull(varType)
+			}
+		case *types.IntType:
+			literalConst = constant.NewInt(varType, 0)
+		}
 
 	case ast.Empty:
 		literalConst = constant.NewNull(varType.(*types.PointerType))
