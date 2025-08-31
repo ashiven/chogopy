@@ -44,8 +44,8 @@ func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 }
 
 // TODO: implement to be used by caller
-func (cg *CodeGenerator) loadIndexExpr(val value.Value) {
-	if isString(val) {
-	} else if isList(val) {
-	}
-}
+// func (cg *CodeGenerator) loadIndexExpr(val value.Value) {
+// 	if isString(val) {
+// 	} else if isList(val) {
+// 	}
+// }

@@ -27,6 +27,7 @@ func (cg *CodeGenerator) registerTypes() {
 	cg.types["object"] = objType
 	cg.types["none"] = noneType
 	cg.types["empty"] = emptyType
+	cg.types["list_content"] = listContent
 	cg.types["list"] = listType
 	// cg.types["FILE"] = fileType
 }
@@ -104,6 +105,8 @@ func (cg *CodeGenerator) toString(val value.Value) value.Value {
 
 /* Type conversion utils */
 
+// TODO: Something isn't quite right here. list types that already
+// exist are somehow being recreated..
 func (cg *CodeGenerator) getOrCreate(checkType types.Type) types.Type {
 	for _, existingType := range cg.types {
 		if existingType.Equal(checkType) {
