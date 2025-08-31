@@ -8,33 +8,9 @@ import (
 )
 
 func (cg *CodeGenerator) registerFuncs() {
-	cg.registerBuiltin()
 	cg.registerExternal()
+	cg.registerBuiltin()
 	cg.registerCustom()
-}
-
-func (cg *CodeGenerator) registerBuiltin() {
-	print_ := cg.Module.NewFunc(
-		"printf",
-		types.I32,
-		ir.NewParam("", types.I8Ptr),
-	)
-	print_.Sig.Variadic = true
-
-	input := cg.Module.NewFunc(
-		"input",
-		types.I8Ptr,
-	)
-
-	len_ := cg.Module.NewFunc(
-		"len",
-		types.I32,
-		ir.NewParam("", types.I8Ptr),
-	)
-
-	cg.functions["print"] = print_
-	cg.functions["input"] = input
-	cg.functions["len"] = len_
 }
 
 func (cg *CodeGenerator) registerExternal() {
@@ -94,9 +70,58 @@ func (cg *CodeGenerator) registerExternal() {
 	// cg.functions["fdopen"] = fdopen
 }
 
+func (cg *CodeGenerator) registerBuiltin() {
+	// printf is really external but since
+	// we are just reusing it for builtin print
+	// without modification I'll just leave it here
+	print_ := cg.Module.NewFunc(
+		"printf",
+		types.I32,
+		ir.NewParam("", types.I8Ptr),
+	)
+	print_.Sig.Variadic = true
+
+	// TODO: define
+	len_ := cg.Module.NewFunc(
+		"len",
+		types.I32,
+		ir.NewParam("", types.I8Ptr),
+	)
+
+	cg.functions["print"] = print_
+	cg.functions["input"] = cg.defineInput()
+	cg.functions["len"] = len_
+}
+
+func (cg *CodeGenerator) defineInput() *ir.Func {
+	input := cg.Module.NewFunc("input", types.I8Ptr)
+	funcBlock := input.NewBlock(cg.uniqueNames.get("entry"))
+
+	strFormatConst := constant.NewCharArrayFromString("%s\x00")
+	strFormatPtr := funcBlock.NewAlloca(strFormatConst.Type())
+	strFormatPtr.LocalName = cg.uniqueNames.get("str_format_ptr")
+	funcBlock.NewStore(strFormatConst, strFormatPtr)
+	strFormatCast := funcBlock.NewBitCast(strFormatPtr, types.I8Ptr)
+	strFormatCast.LocalName = cg.uniqueNames.get("str_format_ptr_cast")
+
+	inputPtr := funcBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
+	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
+	inputCast := funcBlock.NewBitCast(inputPtr, types.I8Ptr)
+	inputCast.LocalName = cg.uniqueNames.get("input_ptr_cast")
+
+	scanRes := funcBlock.NewCall(cg.functions["scanf"], strFormatCast, inputCast)
+	scanRes.LocalName = cg.uniqueNames.get("scan_res")
+
+	funcBlock.NewRet(inputCast)
+
+	return input
+}
+
 func (cg *CodeGenerator) registerCustom() {
 	cg.functions["booltostr"] = cg.defineBoolToStr()
 	cg.functions["floordiv"] = cg.defineFloorDiv()
+	cg.functions["newint"] = cg.defineNewInt()
+	cg.functions["newbool"] = cg.defineNewBool()
 }
 
 // defineBoolPrint converts an i1 to its string representation "True" or "False" */
@@ -167,4 +192,40 @@ func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
 	funcBlock.NewRet(floorRes)
 
 	return floorDiv
+}
+
+func (cg *CodeGenerator) defineNewInt() *ir.Func {
+	intLiteral := ir.NewParam("", types.I32)
+	newInt := cg.Module.NewFunc("newint", types.I32, intLiteral)
+	funcBlock := newInt.NewBlock(cg.uniqueNames.get("entry"))
+
+	intPtr := funcBlock.NewAlloca(types.I32)
+	intPtr.LocalName = cg.uniqueNames.get("int_ptr")
+
+	funcBlock.NewStore(intLiteral, intPtr)
+
+	intVal := funcBlock.NewLoad(types.I32, intPtr)
+	intVal.LocalName = cg.uniqueNames.get("int_val")
+
+	funcBlock.NewRet(intVal)
+
+	return newInt
+}
+
+func (cg *CodeGenerator) defineNewBool() *ir.Func {
+	boolLiteral := ir.NewParam("", types.I1)
+	newBool := cg.Module.NewFunc("newbool", types.I1, boolLiteral)
+	funcBlock := newBool.NewBlock(cg.uniqueNames.get("entry"))
+
+	boolPtr := funcBlock.NewAlloca(types.I1)
+	boolPtr.LocalName = cg.uniqueNames.get("bool_ptr")
+
+	funcBlock.NewStore(boolLiteral, boolPtr)
+
+	boolVal := funcBlock.NewLoad(types.I1, boolPtr)
+	boolVal.LocalName = cg.uniqueNames.get("bool_val")
+
+	funcBlock.NewRet(boolVal)
+
+	return newBool
 }

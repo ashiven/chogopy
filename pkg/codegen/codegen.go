@@ -5,6 +5,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/llir/llvm/ir"
@@ -174,33 +175,40 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 // It returns an SSA value containing the value of the given literal with the following types:
 // int: i32   str: [n x i8]*   bool: i1   nil: %none*
 func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
-	var literalConst constant.Constant
-
 	switch literal := literal.(type) {
 	case int:
-		literalConst = constant.NewInt(types.I32, int64(literal))
+		intConst := constant.NewInt(types.I32, int64(literal))
+		intLiteral := cg.currentBlock.NewCall(cg.functions["newint"], intConst)
+		intLiteral.LocalName = cg.uniqueNames.get("int_literal")
+		return intLiteral
+
 	case bool:
-		literalConst = constant.NewBool(literal)
+		boolConst := constant.NewBool(literal)
+		boolLiteral := cg.currentBlock.NewCall(cg.functions["newbool"], boolConst)
+		boolLiteral.LocalName = cg.uniqueNames.get("bool_literal")
+		return boolLiteral
+
 	case string:
-		literalConst = constant.NewCharArrayFromString(literal + "\x00")
-	case nil:
-		literalConst = constant.NewNull(types.NewPointer(cg.types["none"]))
-	}
-
-	literalPtr := cg.currentBlock.NewAlloca(literalConst.Type())
-	literalPtr.LocalName = cg.uniqueNames.get("literal_ptr")
-	cg.NewStore(literalConst, literalPtr)
-
-	if _, ok := literal.(string); ok {
-		cg.lengths[literalPtr] = len(literal.(string))
-		strCast := cg.toString(literalPtr)
+		charArrConst := constant.NewCharArrayFromString(literal + "\x00")
+		charArrPtr := cg.currentBlock.NewAlloca(charArrConst.Type())
+		charArrPtr.LocalName = cg.uniqueNames.get("char_arr_ptr")
+		cg.NewStore(charArrConst, charArrPtr)
+		strCast := cg.toString(charArrPtr)
+		cg.lengths[strCast] = len(literal)
 		return strCast
 
-	} else {
-		literalLoad := cg.currentBlock.NewLoad(literalConst.Type(), literalPtr)
-		literalLoad.LocalName = cg.uniqueNames.get("literal_val")
-		return literalLoad
+	case nil:
+		noneConst := constant.NewNull(types.NewPointer(cg.types["none"]))
+		nonePtr := cg.currentBlock.NewAlloca(noneConst.Type())
+		nonePtr.LocalName = cg.uniqueNames.get("none_ptr")
+		cg.NewStore(noneConst, nonePtr)
+		noneLoad := cg.currentBlock.NewLoad(noneConst.Type(), nonePtr)
+		noneLoad.LocalName = cg.uniqueNames.get("none_val")
+		return noneLoad
 	}
+
+	log.Fatalln("NewLiteral: expected literal of type int, bool, str, or nil")
+	return nil
 }
 
 // LoadVal can be used to load the value out of an identifier or an index expression.
