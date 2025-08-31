@@ -53,7 +53,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	cg.currentBlock.NewBr(forIncBlock)
 
 	var currentVal value.Value
-	if isPtrTo(iterVal, cg.types["list"]) {
+	if isList(iterVal) {
 		currentVal = cg.getListElem(iterVal, index)
 	} else {
 		currentVal = cg.getStringElem(iterVal, index)
@@ -96,7 +96,7 @@ func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) valu
 	/* extract element from the list */
 	listElemType := listContentType.(*types.PointerType).ElemType
 	var elemAddr value.Value
-	if isPtrTo(listContentPtr, cg.types["list"]) {
+	if isList(listContentPtr) {
 		contentIdx := constant.NewInt(types.I32, 0)
 		elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
 	} else {

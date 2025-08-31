@@ -3,6 +3,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 	"log"
+	"strings"
 
 	"github.com/kr/pretty"
 	"github.com/llir/llvm/ir/types"
@@ -13,7 +14,6 @@ func (cg *CodeGenerator) registerTypes() {
 	objType := cg.Module.NewTypeDef("object", &types.StructType{Opaque: true})
 	noneType := cg.Module.NewTypeDef("none", &types.StructType{Opaque: true})
 	emptyType := cg.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
-
 	listContent := cg.Module.NewTypeDef("list_content", &types.StructType{Opaque: true})
 	listType := cg.Module.NewTypeDef("list",
 		types.NewStruct(
@@ -22,7 +22,7 @@ func (cg *CodeGenerator) registerTypes() {
 			types.I1,
 		),
 	)
-	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})
+	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})-
 
 	cg.types["object"] = objType
 	cg.types["none"] = noneType
@@ -45,8 +45,18 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 	return val.Type().(*types.PointerType).ElemType.Equal(type_)
 }
 
+func isList(val value.Value) bool {
+	if _, ok := val.Type().(*types.PointerType); ok {
+		typeName := val.Type().(*types.PointerType).ElemType.String()
+		if strings.Contains(typeName, "list") {
+			return true
+		}
+	}
+	return false
+}
+
 func (cg *CodeGenerator) getContentType(list value.Value) types.Type {
-	if isPtrTo(list, cg.types["list"]) {
+	if isList(list) {
 		return list.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[0]
 	}
 
@@ -94,13 +104,28 @@ func (cg *CodeGenerator) toString(val value.Value) value.Value {
 
 /* Type conversion utils */
 
+func (cg *CodeGenerator) getOrCreate(checkType types.Type) types.Type {
+	for _, existingType := range cg.types {
+		if existingType.Equal(checkType) {
+			return existingType
+		}
+	}
+	typeName := cg.uniqueNames.get("list_type")
+	cg.Module.NewTypeDef(typeName, checkType)
+	cg.types[typeName] = checkType
+	return checkType
+}
+
 func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	_, isListAttr := attr.(ast.ListAttribute)
 	if isListAttr {
 		elemType := cg.attrToType(attr.(ast.ListAttribute).ElemType)
-		listType := cg.types["list"]
-		listType.(*types.StructType).Fields[0] = types.NewPointer(elemType)
-		return types.NewPointer(listType)
+		listType := types.NewStruct(
+			types.NewPointer(elemType),
+			types.I32,
+			types.I1,
+		)
+		return types.NewPointer(cg.getOrCreate(listType))
 	}
 
 	switch attr.(ast.BasicAttribute) {
@@ -122,28 +147,16 @@ func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	return nil
 }
 
-func (cg *CodeGenerator) getExisting(checkType types.Type) types.Type {
-	for _, existingType := range cg.types {
-		if existingType.Equal(checkType) {
-			return existingType
-		}
-	}
-	return nil
-}
-
 func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 	_, isListType := astType.(*ast.ListType)
 	if isListType {
 		elemType := cg.astTypeToType(astType.(*ast.ListType).ElemType)
-		listType := cg.types["list"]
-
-		// TODO: this actually just modifies the existing list type rather than creating
-		// a new list type. We would instead have to create a whole new specific list type here
-		// that can then be reused. We would then have to check each time whether the specific type,
-		// i.e. [int] has already been created by comparing types in cg.types via type.Equal()
-		// against the type we are trying to create and just returning that type instead if it exists.
-		listType.(*types.StructType).Fields[0] = types.NewPointer(elemType)
-		return types.NewPointer(listType)
+		listType := types.NewStruct(
+			types.NewPointer(elemType),
+			types.I32,
+			types.I1,
+		)
+		return types.NewPointer(cg.getOrCreate(listType))
 
 		// [int]  	-->  list{content: i32*, size: i32, init: i1}*
 		// [str]  	-->  list{content: i8**, size: i32, init: i1}*

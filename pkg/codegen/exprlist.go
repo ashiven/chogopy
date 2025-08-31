@@ -45,9 +45,7 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 		//
 		// - Now GEP will first need to know which of these lists to address (elemIdx)
 		// - Then GEP will want to know which field of the list to address (contentIdx)
-		//
-		// NOTE: not sure if this will work since we replaced the opaque content pointer with a concrete pointer for any actual lists
-		if isPtrTo(listContentPtr, cg.types["list"]) {
+		if isList(listContentPtr) {
 			contentIdx := constant.NewInt(types.I32, 0)
 			elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
 		} else {

@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"strings"
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
@@ -55,15 +56,14 @@ func (cg *CodeGenerator) getLiteralConst(varDef *ast.VarDef) constant.Constant {
 		literalConst = constant.NewGetElementPtr(strDef.Typ.ElemType, strDef, zero, zero)
 
 	case ast.None:
-		// literalConst = constant.NewZeroInitializer(varType)
 		switch varType := varType.(type) {
 		case *types.PointerType:
-			if _, ok := varType.ElemType.(*types.StructType); ok {
+			/* None init for list* */
+			if strings.Contains(varType.String(), "list") {
 				listContentType := varType.ElemType.(*types.StructType).Fields[0]
 				listContentNone := constant.NewNull(listContentType.(*types.PointerType))
 				zero := constant.NewInt(types.I32, 0)
 				false_ := constant.NewBool(false)
-
 				listNone := cg.Module.NewGlobalDef(
 					cg.uniqueNames.get("list_none"),
 					constant.NewStruct(
@@ -72,11 +72,14 @@ func (cg *CodeGenerator) getLiteralConst(varDef *ast.VarDef) constant.Constant {
 						zero,
 						false_),
 				)
-
 				literalConst = constant.NewGetElementPtr(listNone.Typ.ElemType, listNone, zero)
+
+				/* None init for every other pointer type */
 			} else {
 				literalConst = constant.NewNull(varType)
 			}
+
+		/* None init for i32 and bool */
 		case *types.IntType:
 			literalConst = constant.NewInt(varType, 0)
 		}

@@ -43,7 +43,7 @@ func (cg *CodeGenerator) getLen(arg value.Value) value.Value {
 		strLen.LocalName = cg.uniqueNames.get("str_len")
 		return strLen
 
-	} else if isPtrTo(arg, cg.types["list"]) {
+	} else if isList(arg) {
 		listLen := cg.currentBlock.NewCall(cg.functions["listlen"], arg)
 		listLen.LocalName = cg.uniqueNames.get("list_len")
 		return listLen
