@@ -1,10 +1,11 @@
 package main
 
 import (
-	"chogopy/pkg/astanalysis"
 	"chogopy/pkg/codegen"
 	"chogopy/pkg/lexer"
+	"chogopy/pkg/namescopes"
 	"chogopy/pkg/parser"
+	"chogopy/pkg/typechecking"
 	"fmt"
 	"log"
 	"os"
@@ -44,26 +45,26 @@ func main() {
 			pretty.Println(program)
 		case "-v":
 			program := myParser.ParseProgram()
-			assignTargets := astanalysis.AssignTargets{}
+			assignTargets := namescopes.AssignTargets{}
 			assignTargets.Analyze(&program)
 		case "-e":
 			program := myParser.ParseProgram()
-			environmentBuilder := astanalysis.EnvironmentBuilder{}
+			environmentBuilder := typechecking.EnvironmentBuilder{}
 			environmentBuilder.Build(&program)
 			pretty.Println(environmentBuilder.LocalEnv)
 		case "-t":
 			program := myParser.ParseProgram()
-			staticTyping := astanalysis.StaticTyping{}
+			staticTyping := typechecking.StaticTyping{}
 			staticTyping.Analyze(&program)
 			pretty.Println(program)
 		case "-n":
 			program := myParser.ParseProgram()
-			nameScopes := astanalysis.NameScopes{}
+			nameScopes := namescopes.NameScopes{}
 			nameScopes.Analyze(&program)
 			pretty.Println(nameScopes.NameContext)
 		case "-c":
 			program := myParser.ParseProgram()
-			staticTyping := astanalysis.StaticTyping{}
+			staticTyping := typechecking.StaticTyping{}
 			staticTyping.Analyze(&program)
 			codeGenerator := codegen.CodeGenerator{}
 			codeGenerator.Generate(&program)

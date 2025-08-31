@@ -1,5 +1,4 @@
-// Package astanalysis implements multiple AST analysis passes for the chogopy compiler
-package astanalysis
+package namescopes
 
 import (
 	"chogopy/pkg/ast"
