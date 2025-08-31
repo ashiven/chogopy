@@ -47,6 +47,13 @@ func (cg *CodeGenerator) registerExternal() {
 		types.I32,
 		ir.NewParam("", types.I8Ptr),
 	)
+
+	exit := cg.Module.NewFunc(
+		"exit",
+		types.Void,
+		ir.NewParam("", types.I32),
+	)
+
 	//fgets := cg.Module.NewFunc(
 	//	"fgets",
 	//	types.I8Ptr,
@@ -54,6 +61,7 @@ func (cg *CodeGenerator) registerExternal() {
 	//	ir.NewParam("", types.I32),
 	//	ir.NewParam("", types.I8Ptr),
 	//)
+
 	//fdopen := cg.Module.NewFunc(
 	//	"fdopen",
 	//	cg.types["FILE"],
@@ -66,6 +74,7 @@ func (cg *CodeGenerator) registerExternal() {
 	cg.functions["strcpy"] = strcpy
 	cg.functions["strcmp"] = strcmp
 	cg.functions["strlen"] = strlen
+	cg.functions["exit"] = exit
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 }
@@ -74,12 +83,12 @@ func (cg *CodeGenerator) registerBuiltin() {
 	// printf is really external but since
 	// we are just reusing it for builtin print
 	// without modification I'll just leave it here
-	print_ := cg.Module.NewFunc(
+	printf_ := cg.Module.NewFunc(
 		"printf",
 		types.I32,
 		ir.NewParam("", types.I8Ptr),
 	)
-	print_.Sig.Variadic = true
+	printf_.Sig.Variadic = true
 
 	// this is basically just a dummy function that doesn't
 	// do anything because if there is an actual call to len()
@@ -90,7 +99,7 @@ func (cg *CodeGenerator) registerBuiltin() {
 		ir.NewParam("", types.I8Ptr),
 	)
 
-	cg.functions["print"] = print_
+	cg.functions["printf"] = printf_
 	cg.functions["input"] = cg.defineInput()
 	cg.functions["len"] = len_
 }
@@ -120,51 +129,15 @@ func (cg *CodeGenerator) defineInput() *ir.Func {
 }
 
 func (cg *CodeGenerator) registerCustom() {
+	cg.functions["printstr"] = cg.definePrintString()
+	cg.functions["printint"] = cg.definePrintInt()
 	cg.functions["booltostr"] = cg.defineBoolToStr()
+	cg.functions["printbool"] = cg.definePrintBool()
 	cg.functions["floordiv"] = cg.defineFloorDiv()
 	cg.functions["newint"] = cg.defineNewInt()
 	cg.functions["newbool"] = cg.defineNewBool()
 	cg.functions["listinit"] = cg.defineListInit()
 	cg.functions["listlen"] = cg.defineListLen()
-}
-
-// defineBoolPrint converts an i1 to its string representation "True" or "False" */
-func (cg *CodeGenerator) defineBoolToStr() *ir.Func {
-	arg := ir.NewParam("", types.I1)
-	boolToStr := cg.Module.NewFunc("booltostr", types.I8Ptr, arg)
-
-	entry := boolToStr.NewBlock(cg.uniqueNames.get("entry"))
-	ifBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.then"))
-	elseBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.else"))
-	exitBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.exit"))
-
-	resPtr := entry.NewAlloca(types.I8Ptr)
-	resPtr.LocalName = cg.uniqueNames.get("booltostr_res_ptr")
-	entry.NewCondBr(arg, ifBlock, elseBlock)
-
-	trueConst := constant.NewCharArrayFromString("True\n\x00")
-	truePtr := ifBlock.NewAlloca(trueConst.Type())
-	truePtr.LocalName = cg.uniqueNames.get("true_ptr")
-	ifBlock.NewStore(trueConst, truePtr)
-	truePtrCast := ifBlock.NewBitCast(truePtr, types.I8Ptr)
-	truePtrCast.LocalName = cg.uniqueNames.get("true_ptr_cast")
-	ifBlock.NewStore(truePtrCast, resPtr)
-	ifBlock.NewBr(exitBlock)
-
-	falseConst := constant.NewCharArrayFromString("False\n\x00")
-	falsePtr := elseBlock.NewAlloca(falseConst.Type())
-	falsePtr.LocalName = cg.uniqueNames.get("false_ptr")
-	elseBlock.NewStore(falseConst, falsePtr)
-	falsePtrCast := elseBlock.NewBitCast(falsePtr, types.I8Ptr)
-	falsePtrCast.LocalName = cg.uniqueNames.get("false_ptr_cast")
-	elseBlock.NewStore(falsePtrCast, resPtr)
-	elseBlock.NewBr(exitBlock)
-
-	resLoad := exitBlock.NewLoad(types.I8Ptr, resPtr)
-	resLoad.LocalName = cg.uniqueNames.get("res_load")
-	exitBlock.NewRet(resLoad)
-
-	return boolToStr
 }
 
 func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
@@ -286,8 +259,105 @@ func (cg *CodeGenerator) defineListLen() *ir.Func {
 	initTrueBlock.NewRet(listLen)
 
 	/* Raise runtime exception len called on uninitialized list */
-	// TODO: implement runtime exception
+	errorConst := constant.NewCharArrayFromString("TypeError: object of type 'NoneType' has no len()\n\x00")
+	errorPtr := initFalseBlock.NewAlloca(errorConst.Type())
+	errorPtr.LocalName = cg.uniqueNames.get("error_ptr")
+	initFalseBlock.NewStore(errorConst, errorPtr)
+	errorCast := initFalseBlock.NewBitCast(errorPtr, types.I8Ptr)
+	errorCast.LocalName = cg.uniqueNames.get("error_cast")
+
+	initFalseBlock.NewCall(cg.functions["printf"], errorCast)
+	initFalseBlock.NewCall(cg.functions["exit"], zero)
 	initFalseBlock.NewRet(zero)
 
 	return listLenFunc
+}
+
+func (cg *CodeGenerator) definePrintString() *ir.Func {
+	strArg := ir.NewParam("", types.I8Ptr)
+	printString := cg.Module.NewFunc("printstr", types.I32, strArg)
+	funcBlock := printString.NewBlock(cg.uniqueNames.get("entry"))
+
+	formatConst := constant.NewCharArrayFromString("%s\n\x00")
+	formatPtr := funcBlock.NewAlloca(formatConst.Type())
+	formatPtr.LocalName = cg.uniqueNames.get("print_fmt_ptr")
+	funcBlock.NewStore(formatConst, formatPtr)
+	formatCast := funcBlock.NewBitCast(formatPtr, types.I8Ptr)
+	formatCast.LocalName = cg.uniqueNames.get("print_fmt_cast")
+
+	printRes := funcBlock.NewCall(cg.functions["printf"], formatCast, strArg)
+
+	funcBlock.NewRet(printRes)
+
+	return printString
+}
+
+func (cg *CodeGenerator) definePrintInt() *ir.Func {
+	intArg := ir.NewParam("", types.I32)
+	printInt := cg.Module.NewFunc("printint", types.I32, intArg)
+	funcBlock := printInt.NewBlock(cg.uniqueNames.get("entry"))
+
+	formatConst := constant.NewCharArrayFromString("%d\n\x00")
+	formatPtr := funcBlock.NewAlloca(formatConst.Type())
+	formatPtr.LocalName = cg.uniqueNames.get("print_fmt_ptr")
+	funcBlock.NewStore(formatConst, formatPtr)
+	formatCast := funcBlock.NewBitCast(formatPtr, types.I8Ptr)
+	formatCast.LocalName = cg.uniqueNames.get("print_fmt_cast")
+
+	printRes := funcBlock.NewCall(cg.functions["printf"], formatCast, intArg)
+
+	funcBlock.NewRet(printRes)
+
+	return printInt
+}
+
+func (cg *CodeGenerator) defineBoolToStr() *ir.Func {
+	arg := ir.NewParam("", types.I1)
+	boolToStr := cg.Module.NewFunc("booltostr", types.I8Ptr, arg)
+
+	entry := boolToStr.NewBlock(cg.uniqueNames.get("entry"))
+	ifBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.then"))
+	elseBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.else"))
+	exitBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.exit"))
+
+	resPtr := entry.NewAlloca(types.I8Ptr)
+	resPtr.LocalName = cg.uniqueNames.get("booltostr_res_ptr")
+	entry.NewCondBr(arg, ifBlock, elseBlock)
+
+	trueConst := constant.NewCharArrayFromString("True\n\x00")
+	truePtr := ifBlock.NewAlloca(trueConst.Type())
+	truePtr.LocalName = cg.uniqueNames.get("true_ptr")
+	ifBlock.NewStore(trueConst, truePtr)
+	truePtrCast := ifBlock.NewBitCast(truePtr, types.I8Ptr)
+	truePtrCast.LocalName = cg.uniqueNames.get("true_ptr_cast")
+	ifBlock.NewStore(truePtrCast, resPtr)
+	ifBlock.NewBr(exitBlock)
+
+	falseConst := constant.NewCharArrayFromString("False\n\x00")
+	falsePtr := elseBlock.NewAlloca(falseConst.Type())
+	falsePtr.LocalName = cg.uniqueNames.get("false_ptr")
+	elseBlock.NewStore(falseConst, falsePtr)
+	falsePtrCast := elseBlock.NewBitCast(falsePtr, types.I8Ptr)
+	falsePtrCast.LocalName = cg.uniqueNames.get("false_ptr_cast")
+	elseBlock.NewStore(falsePtrCast, resPtr)
+	elseBlock.NewBr(exitBlock)
+
+	resLoad := exitBlock.NewLoad(types.I8Ptr, resPtr)
+	resLoad.LocalName = cg.uniqueNames.get("res_load")
+	exitBlock.NewRet(resLoad)
+
+	return boolToStr
+}
+
+func (cg *CodeGenerator) definePrintBool() *ir.Func {
+	boolArg := ir.NewParam("", types.I1)
+	printBool := cg.Module.NewFunc("printbool", types.I32, boolArg)
+	funcBlock := printBool.NewBlock(cg.uniqueNames.get("entry"))
+
+	boolStr := funcBlock.NewCall(cg.functions["booltostr"], boolArg)
+	printRes := funcBlock.NewCall(cg.functions["printf"], boolStr)
+
+	funcBlock.NewRet(printRes)
+
+	return printBool
 }

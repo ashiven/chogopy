@@ -25,7 +25,9 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 		cg.lastGenerated = lenRes
 		return
 	case "print":
-		args = cg.convertPrintArgs(args)
+		printRes := cg.printGeneric(args[0])
+		cg.lastGenerated = printRes
+		return
 	}
 
 	callee := cg.functions[callExpr.FuncName]
@@ -51,36 +53,14 @@ func (cg *CodeGenerator) getLen(arg value.Value) value.Value {
 	return nil
 }
 
-// convertPrintArgs converts a list of argument values serving as input
-// to a call of the print function so that they are printed correctly.
-// For example, given an arg of type bool (I1), it converts it into the string "True"
-// if its value is 1, or "False" if its value is 0.
-func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
-	printArgs := []value.Value{}
-	for _, arg := range args {
-		if hasType(arg, types.I32) || hasType(arg, types.I32Ptr) {
-			/* Integer print */
-			digitStr := cg.NewLiteral("%d\n")
-			argVal := cg.LoadVal(arg)
-			printArgs = append(printArgs, digitStr)
-			printArgs = append(printArgs, argVal)
-
-		} else if hasType(arg, types.I1) || hasType(arg, types.I1Ptr) {
-			/* Boolean print */
-			argVal := cg.LoadVal(arg)
-			argVal = cg.currentBlock.NewCall(cg.functions["booltostr"], argVal)
-			printArgs = append(printArgs, argVal)
-
-		} else if isString(arg) {
-			/* String print */
-			arg = cg.LoadVal(arg)
-			newline := cg.NewLiteral("\n")
-			arg = cg.concatStrings(arg, newline)
-			printArgs = append(printArgs, arg)
-
-		} else {
-			log.Fatalln("Code Generation: print() expected an argument of type int, bool, or str")
-		}
+func (cg *CodeGenerator) printGeneric(arg value.Value) value.Value {
+	if hasType(arg, types.I32) {
+		return cg.currentBlock.NewCall(cg.functions["printint"], arg)
+	} else if hasType(arg, types.I1) {
+		return cg.currentBlock.NewCall(cg.functions["printbool"], arg)
+	} else if isString(arg) {
+		return cg.currentBlock.NewCall(cg.functions["printstr"], arg)
 	}
-	return printArgs
+	log.Fatalln("Code Generation: print() expected an argument of type int, bool, or str")
+	return nil
 }

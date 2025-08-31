@@ -1,6 +1,8 @@
 package codegen
 
-import "chogopy/pkg/ast"
+import (
+	"chogopy/pkg/ast"
+)
 
 func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 	ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("ifexpr.then"))
@@ -41,5 +43,7 @@ func (cg *CodeGenerator) VisitIfExpr(ifExpr *ast.IfExpr) {
 
 	/* Exit Block */
 	cg.currentBlock = exitBlock
-	cg.lastGenerated = resAlloc
+
+	resLoad := cg.currentBlock.NewLoad(resAlloc.ElemType, resAlloc)
+	cg.lastGenerated = resLoad
 }
