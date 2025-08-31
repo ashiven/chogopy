@@ -44,6 +44,15 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 	return val.Type().(*types.PointerType).ElemType.Equal(type_)
 }
 
+func (cg *CodeGenerator) getContentType(list value.Value) types.Type {
+	if isPtrTo(list, cg.types["list"]) {
+		return list.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[0]
+	}
+
+	log.Fatalln("getContentType: expected value of type list*")
+	return nil
+}
+
 // isString returns true if the value is a
 // - char array: [n x i8]
 // - string: i8*

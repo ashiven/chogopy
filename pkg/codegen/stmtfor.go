@@ -78,7 +78,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 }
 
 func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) value.Value {
-	/* extract list content */
+	/* get address for list content */
 	zero := constant.NewInt(types.I32, 0)
 	listContentAddr := cg.currentBlock.NewGetElementPtr(
 		list.Type().(*types.PointerType).ElemType,
@@ -87,11 +87,14 @@ func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) valu
 		zero,
 	)
 	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
-	listContentPtr := cg.currentBlock.NewLoad(listContentAddr.ElemType, listContentAddr)
+
+	/* load list at list content address */
+	listContentType := cg.getContentType(list)
+	listContentPtr := cg.currentBlock.NewLoad(listContentType, listContentAddr)
 	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
 
-	/* extract element in list content */
-	listElemType := listContentPtr.Type().(*types.PointerType).ElemType
+	/* extract element from the list */
+	listElemType := listContentType.(*types.PointerType).ElemType
 	var elemAddr value.Value
 	if isPtrTo(listContentPtr, cg.types["list"]) {
 		contentIdx := constant.NewInt(types.I32, 0)
