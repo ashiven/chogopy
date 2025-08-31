@@ -19,6 +19,7 @@ func (cg *CodeGenerator) registerTypes() {
 		types.NewStruct(
 			types.NewPointer(listContent),
 			types.I32,
+			types.I1,
 		),
 	)
 	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})
@@ -129,9 +130,9 @@ func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 		listType.(*types.StructType).Fields[0] = types.NewPointer(elemType)
 		return types.NewPointer(listType)
 
-		// [int]  	-->  list{content: i32*, size: i32}*
-		// [str]  	-->  list{content: i8**, size: i32}*
-		// [[int]]  -->  list{content: list{content: i32*, size: i32}*, size: i32}*
+		// [int]  	-->  list{content: i32*, size: i32, init: i1}*
+		// [str]  	-->  list{content: i8**, size: i32, init: i1}*
+		// [[int]]  -->  list{content: list{content: i32*, size: i32, init: i1}*, size: i32}*
 	}
 
 	switch astType.(*ast.NamedType).TypeName {

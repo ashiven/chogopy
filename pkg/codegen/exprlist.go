@@ -19,7 +19,7 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 	listContentPtr := cg.currentBlock.NewAlloca(listElemType)
 	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
 
-	/* list.content init */
+	/* list.content store */
 	for elemIdx, elem := range listExpr.Elements {
 		elem.Visit(cg)
 		elemVal := cg.lastGenerated
@@ -58,20 +58,29 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 		cg.NewStore(elemVal, elemAddr)
 	}
 
-	/* list.size init */
+	/* list.size */
 	listSize := constant.NewInt(types.I32, int64(len(listExpr.Elements)))
 
-	/* list init */
+	/* list.init */
+	listInit := constant.NewBool(true)
+
+	/* list store */
 	zero := constant.NewInt(types.I32, 0)
 	one := constant.NewInt(types.I32, 1)
+	two := constant.NewInt(types.I32, 2)
+
 	listContentAddr := cg.currentBlock.NewGetElementPtr(listType, listPtr, zero, zero)
 	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
+	cg.NewStore(listContentPtr, listContentAddr)
+
 	listSizeAddr := cg.currentBlock.NewGetElementPtr(listType, listPtr, zero, one)
 	listSizeAddr.LocalName = cg.uniqueNames.get("list_size_addr")
-	cg.NewStore(listContentPtr, listContentAddr)
 	cg.NewStore(listSize, listSizeAddr)
 
-	cg.lengths[listPtr] = len(listExpr.Elements)
+	listInitAddr := cg.currentBlock.NewGetElementPtr(listType, listPtr, zero, two)
+	listInitAddr.LocalName = cg.uniqueNames.get("list_init_addr")
+	cg.NewStore(listInit, listInitAddr)
 
+	cg.lengths[listPtr] = len(listExpr.Elements)
 	cg.lastGenerated = listPtr
 }

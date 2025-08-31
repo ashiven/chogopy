@@ -124,6 +124,7 @@ func (cg *CodeGenerator) registerCustom() {
 	cg.functions["floordiv"] = cg.defineFloorDiv()
 	cg.functions["newint"] = cg.defineNewInt()
 	cg.functions["newbool"] = cg.defineNewBool()
+	cg.functions["listinit"] = cg.defineListInit()
 	cg.functions["listlen"] = cg.defineListLen()
 }
 
@@ -233,14 +234,45 @@ func (cg *CodeGenerator) defineNewBool() *ir.Func {
 	return newBool
 }
 
+func (cg *CodeGenerator) defineListInit() *ir.Func {
+	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
+	listInitFunc := cg.Module.NewFunc("listinit", types.I1, list)
+	funcBlock := listInitFunc.NewBlock(cg.uniqueNames.get("entry"))
+
+	zero := constant.NewInt(types.I32, 0)
+	initFieldIdx := constant.NewInt(types.I32, 2)
+	listInitAddr := funcBlock.NewGetElementPtr(
+		list.Type().(*types.PointerType).ElemType,
+		list,
+		zero,
+		initFieldIdx,
+	)
+	listInitAddr.LocalName = cg.uniqueNames.get("list_init_addr")
+
+	listInit := funcBlock.NewLoad(types.I1, listInitAddr)
+	listInit.LocalName = cg.uniqueNames.get("list_init")
+
+	funcBlock.NewRet(listInit)
+
+	return listInitFunc
+}
+
 func (cg *CodeGenerator) defineListLen() *ir.Func {
 	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
 	listLenFunc := cg.Module.NewFunc("listlen", types.I32, list)
 	funcBlock := listLenFunc.NewBlock(cg.uniqueNames.get("entry"))
 
+	/* Error if list is uninitialized */
+	initTrueBlock := listLenFunc.NewBlock("init.true")
+	initFalseBlock := listLenFunc.NewBlock("init.false")
+
+	listInit := funcBlock.NewCall(cg.functions["listinit"], list)
+	funcBlock.NewCondBr(listInit, initTrueBlock, initFalseBlock)
+
+	/* Get list length */
 	zero := constant.NewInt(types.I32, 0)
 	lenFieldIdx := constant.NewInt(types.I32, 1)
-	listLenAddr := funcBlock.NewGetElementPtr(
+	listLenAddr := initTrueBlock.NewGetElementPtr(
 		list.Type().(*types.PointerType).ElemType,
 		list,
 		zero,
@@ -248,10 +280,14 @@ func (cg *CodeGenerator) defineListLen() *ir.Func {
 	)
 	listLenAddr.LocalName = cg.uniqueNames.get("list_len_addr")
 
-	listLen := funcBlock.NewLoad(types.I32, listLenAddr)
+	listLen := initTrueBlock.NewLoad(types.I32, listLenAddr)
 	listLen.LocalName = cg.uniqueNames.get("list_len")
 
-	funcBlock.NewRet(listLen)
+	initTrueBlock.NewRet(listLen)
+
+	/* Raise runtime exception len called on uninitialized list */
+	// TODO: implement runtime exception
+	initFalseBlock.NewRet(zero)
 
 	return listLenFunc
 }
