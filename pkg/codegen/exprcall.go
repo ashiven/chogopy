@@ -21,7 +21,8 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 
 	switch callExpr.FuncName {
 	case "len":
-		cg.getLen(args[0])
+		lenRes := cg.getLen(args[0])
+		cg.lastGenerated = lenRes
 		return
 	case "print":
 		args = cg.convertPrintArgs(args)
@@ -34,20 +35,20 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	cg.lastGenerated = callRes
 }
 
-func (cg *CodeGenerator) getLen(arg value.Value) {
+func (cg *CodeGenerator) getLen(arg value.Value) value.Value {
 	if isString(arg) {
 		strLen := cg.currentBlock.NewCall(cg.functions["strlen"], arg)
 		strLen.LocalName = cg.uniqueNames.get("str_len")
-		cg.lastGenerated = strLen
+		return strLen
 
 	} else if isPtrTo(arg, cg.types["list"]) {
 		listLen := cg.currentBlock.NewCall(cg.functions["listlen"], arg)
 		listLen.LocalName = cg.uniqueNames.get("list_len")
-		cg.lastGenerated = listLen
-
-	} else {
-		log.Fatalln("Code Generation: len() expected an argument of type str or list")
+		return listLen
 	}
+
+	log.Fatalln("Code Generation: len() expected an argument of type str or list")
+	return nil
 }
 
 // convertPrintArgs converts a list of argument values serving as input

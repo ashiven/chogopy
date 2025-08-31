@@ -5,7 +5,6 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/llir/llvm/ir"
@@ -146,96 +145,5 @@ func (cg *CodeGenerator) setVar(varInfo VarInfo) {
 	} else {
 		localVars := cg.varCtx(false)
 		localVars[varInfo.name] = varInfo
-	}
-}
-
-// NewStore is a wrapper around the regular ir.Block.NewStore() that first checks whether the src requires a typecast.
-func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
-	if !isPtrTo(target, src.Type()) {
-		target = cg.currentBlock.NewBitCast(target, types.NewPointer(src.Type()))
-		target.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("store_cast")
-	}
-
-	srcLen := 1
-	if _, ok := cg.lengths[src]; ok {
-		srcLen = cg.lengths[src]
-	}
-
-	targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
-
-	if varInfo, err := cg.getVar(targetName); err != nil {
-		varInfo.length = srcLen
-		cg.setVar(varInfo)
-	}
-
-	cg.currentBlock.NewStore(src, target)
-}
-
-// NewLiteral takes any literal of type int, bool, string, or nil and creates a new allocation and store for that value.
-// It returns an SSA value containing the value of the given literal with the following types:
-// int: i32   str: [n x i8]*   bool: i1   nil: %none*
-func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
-	switch literal := literal.(type) {
-	case int:
-		intConst := constant.NewInt(types.I32, int64(literal))
-		intLiteral := cg.currentBlock.NewCall(cg.functions["newint"], intConst)
-		intLiteral.LocalName = cg.uniqueNames.get("int_literal")
-		return intLiteral
-
-	case bool:
-		boolConst := constant.NewBool(literal)
-		boolLiteral := cg.currentBlock.NewCall(cg.functions["newbool"], boolConst)
-		boolLiteral.LocalName = cg.uniqueNames.get("bool_literal")
-		return boolLiteral
-
-	case string:
-		charArrConst := constant.NewCharArrayFromString(literal + "\x00")
-		charArrPtr := cg.currentBlock.NewAlloca(charArrConst.Type())
-		charArrPtr.LocalName = cg.uniqueNames.get("char_arr_ptr")
-		cg.NewStore(charArrConst, charArrPtr)
-		strCast := cg.toString(charArrPtr)
-		cg.lengths[strCast] = len(literal)
-		return strCast
-
-	case nil:
-		noneConst := constant.NewNull(types.NewPointer(cg.types["none"]))
-		nonePtr := cg.currentBlock.NewAlloca(noneConst.Type())
-		nonePtr.LocalName = cg.uniqueNames.get("none_ptr")
-		cg.NewStore(noneConst, nonePtr)
-		noneLoad := cg.currentBlock.NewLoad(noneConst.Type(), nonePtr)
-		noneLoad.LocalName = cg.uniqueNames.get("none_val")
-		return noneLoad
-	}
-
-	log.Fatalln("NewLiteral: expected literal of type int, bool, str, or nil")
-	return nil
-}
-
-// LoadVal can be used to load the value out of an identifier or an index expression.
-// If the given value points to a char array [n x i8]* it will simply be cast into a string i8* and returned.
-// If the given value is already a string or is not of a pointer type (variables are always of a pointer type) it will simply be returned.
-func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
-	_, valIsPtr := val.Type().(*types.PointerType)
-
-	switch {
-	case containsCharArr(val):
-		strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
-		strCast.LocalName = cg.uniqueNames.get("load_str_cast")
-		return strCast
-
-	case hasType(val, types.I8Ptr):
-		return val
-
-	// NOTE: We have to tread carefully here because list literals will also have a
-	// pointer type but are still literals and not variables to be loaded.
-	// Therefore, the caller should always check first to ensure that he is calling this
-	// method for a value that really represents a variable to load from. (i.e. using isIdentOrIndex() )
-	case valIsPtr:
-		valueLoad := cg.currentBlock.NewLoad(val.Type().(*types.PointerType).ElemType, val)
-		valueLoad.LocalName = cg.uniqueNames.get("val")
-		return valueLoad
-
-	default:
-		return val
 	}
 }

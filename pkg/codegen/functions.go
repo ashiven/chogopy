@@ -234,15 +234,15 @@ func (cg *CodeGenerator) defineNewBool() *ir.Func {
 }
 
 func (cg *CodeGenerator) defineListLen() *ir.Func {
-	arg := ir.NewParam("", types.NewPointer(cg.types["list"]))
-	listLenFunc := cg.Module.NewFunc("listlen", types.I32, arg)
+	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
+	listLenFunc := cg.Module.NewFunc("listlen", types.I32, list)
 	funcBlock := listLenFunc.NewBlock(cg.uniqueNames.get("entry"))
 
 	zero := constant.NewInt(types.I32, 0)
 	lenFieldIdx := constant.NewInt(types.I32, 1)
 	listLenAddr := funcBlock.NewGetElementPtr(
-		arg.Type().(*types.PointerType).ElemType,
-		arg,
+		list.Type().(*types.PointerType).ElemType,
+		list,
 		zero,
 		lenFieldIdx,
 	)

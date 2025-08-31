@@ -4,7 +4,6 @@ import (
 	"chogopy/pkg/ast"
 	"log"
 
-	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
@@ -23,25 +22,14 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	}
 
 	iterName := iterNameInfo.value
-	iterNameType := iterNameInfo.elemType
 
 	forStmt.Iter.Visit(cg)
 	iterVal := cg.lastGenerated
-	// TODO: figure out a way to get this dynamically at runtime for lists
-	iterLength := cg.lengths[iterVal]
-
 	if isIdentOrIndex(forStmt.Iter) {
 		iterVal = cg.LoadVal(iterVal)
 	}
 
-	var iterLen value.Value
-	iterLen = constant.NewInt(types.I32, int64(iterLength))
-
-	if isString(iterName) {
-		iterNameType = types.I8
-		iterLen = cg.currentBlock.NewCall(cg.functions["strlen"], iterVal)
-		iterLen.(*ir.InstCall).LocalName = cg.uniqueNames.get("iter_len")
-	}
+	iterLen := cg.getLen(iterVal)
 
 	zero := constant.NewInt(types.I32, 0)
 	one := constant.NewInt(types.I32, 1)
@@ -64,12 +52,11 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	cg.currentBlock = forBodyBlock
 	cg.currentBlock.NewBr(forIncBlock)
 
-	currentAddress := cg.currentBlock.NewGetElementPtr(iterNameType, iterVal, index)
-	currentAddress.LocalName = cg.uniqueNames.get("curr_addr")
-	currentVal := cg.LoadVal(currentAddress)
-
-	if isString(iterName) {
-		currentVal = cg.clampStrSize(currentVal)
+	var currentVal value.Value
+	if isPtrTo(iterVal, cg.types["list"]) {
+		currentVal = cg.getListElem(iterVal, index)
+	} else {
+		currentVal = cg.getStringElem(iterVal, index)
 	}
 
 	cg.NewStore(currentVal, iterName)
@@ -88,6 +75,42 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 
 	/* Exit block */
 	cg.currentBlock = forExitBlock
+}
+
+func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) value.Value {
+	/* extract list content */
+	zero := constant.NewInt(types.I32, 0)
+	listContentAddr := cg.currentBlock.NewGetElementPtr(
+		list.Type().(*types.PointerType).ElemType,
+		list,
+		zero,
+		zero,
+	)
+	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
+	listContentPtr := cg.currentBlock.NewLoad(listContentAddr.ElemType, listContentAddr)
+	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
+
+	/* extract element in list content */
+	listElemType := listContentPtr.Type().(*types.PointerType).ElemType
+	var elemAddr value.Value
+	if isPtrTo(listContentPtr, cg.types["list"]) {
+		contentIdx := constant.NewInt(types.I32, 0)
+		elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
+	} else {
+		elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
+	}
+
+	listElem := cg.currentBlock.NewLoad(listElemType, elemAddr)
+	listElem.LocalName = cg.uniqueNames.get("list_elem")
+	return listElem
+}
+
+func (cg *CodeGenerator) getStringElem(strVal value.Value, elemIdx value.Value) value.Value {
+	elemAddress := cg.currentBlock.NewGetElementPtr(types.I8, strVal, elemIdx)
+	elemAddress.LocalName = cg.uniqueNames.get("str_elem_addr")
+	elemVal := cg.LoadVal(elemAddress)
+	elemVal = cg.clampStrSize(elemVal)
+	return elemVal
 }
 
 // clampStrSize will return a copy of the given string that has size 1
