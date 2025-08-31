@@ -26,6 +26,13 @@ func (un UniqueNames) get(name string) string {
 	return name + strconv.Itoa(un[name])
 }
 
+type VarInfo struct {
+	name     string
+	elemType types.Type
+	value    value.Value
+	length   int
+}
+
 type (
 	Functions map[string]*ir.Func
 	VarCtx    map[*ir.Func]Variables
@@ -34,11 +41,62 @@ type (
 	Lengths   map[value.Value]int // keeps track of the length of string and list literals
 )
 
-type VarInfo struct {
-	name     string
-	elemType types.Type
-	value    value.Value
-	length   int
+type CodeGenerator struct {
+	Module      *ir.Module
+	uniqueNames UniqueNames
+	varContext  VarCtx
+	lengths     Lengths
+
+	types     Types
+	functions Functions
+
+	mainFunction *ir.Func
+	mainBlock    *ir.Block
+
+	currentFunction *ir.Func
+	currentBlock    *ir.Block
+
+	lastGenerated value.Value
+	ast.BaseVisitor
+}
+
+func (cg *CodeGenerator) Generate(program *ast.Program) {
+	cg.Module = ir.NewModule()
+	cg.uniqueNames = UniqueNames{}
+	cg.varContext = VarCtx{}
+	cg.lengths = Lengths{}
+
+	cg.types = Types{}
+	cg.registerTypes()
+
+	cg.functions = Functions{}
+	cg.registerFuncs()
+
+	cg.mainFunction = cg.Module.NewFunc("main", types.I32)
+	cg.mainBlock = cg.mainFunction.NewBlock(cg.uniqueNames.get("entry"))
+
+	cg.currentFunction = cg.mainFunction
+	cg.currentBlock = cg.mainBlock
+
+	for _, definition := range program.Definitions {
+		if _, ok := definition.(*ast.FuncDef); ok {
+			definition.Visit(cg)
+			cg.currentFunction = cg.mainFunction
+			cg.currentBlock = cg.mainBlock
+		} else {
+			definition.Visit(cg)
+		}
+	}
+
+	for _, statement := range program.Statements {
+		statement.Visit(cg)
+	}
+
+	cg.currentBlock.NewRet(constant.NewInt(types.I32, 0))
+}
+
+func (cg *CodeGenerator) Traverse() bool {
+	return false
 }
 
 func (cg *CodeGenerator) varCtx(global bool) Variables {
@@ -88,154 +146,6 @@ func (cg *CodeGenerator) setVar(varInfo VarInfo) {
 		localVars := cg.varCtx(false)
 		localVars[varInfo.name] = varInfo
 	}
-}
-
-type CodeGenerator struct {
-	Module *ir.Module
-
-	mainFunction *ir.Func
-	mainBlock    *ir.Block
-
-	currentFunction *ir.Func
-	currentBlock    *ir.Block
-
-	uniqueNames UniqueNames
-
-	varContext VarCtx
-
-	functions Functions
-	types     Types
-
-	lengths Lengths
-
-	lastGenerated value.Value
-	ast.BaseVisitor
-}
-
-func (cg *CodeGenerator) Generate(program *ast.Program) {
-	cg.Module = ir.NewModule()
-	cg.uniqueNames = UniqueNames{}
-	cg.varContext = VarCtx{}
-	cg.functions = Functions{}
-	cg.types = Types{}
-	cg.lengths = Lengths{}
-
-	objType := cg.Module.NewTypeDef("object", &types.StructType{Opaque: true})
-	noneType := cg.Module.NewTypeDef("none", &types.StructType{Opaque: true})
-	emptyType := cg.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
-
-	listContent := cg.Module.NewTypeDef("list_content", &types.StructType{Opaque: true})
-	listType := cg.Module.NewTypeDef("list",
-		types.NewStruct(
-			types.NewPointer(listContent),
-			types.I32,
-		),
-	)
-	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})
-
-	cg.types["object"] = objType
-	cg.types["none"] = noneType
-	cg.types["empty"] = emptyType
-	cg.types["list"] = listType
-	// cg.types["FILE"] = fileType
-
-	print_ := cg.Module.NewFunc(
-		"printf",
-		types.I32,
-		ir.NewParam("", types.I8Ptr),
-	)
-	print_.Sig.Variadic = true
-	input := cg.Module.NewFunc(
-		"input",
-		types.I8Ptr,
-	)
-	len_ := cg.Module.NewFunc(
-		"len",
-		types.I32,
-		ir.NewParam("", types.I8Ptr),
-	)
-	strcat := cg.Module.NewFunc(
-		"strcat",
-		types.I8Ptr,
-		ir.NewParam("", types.I8Ptr),
-		ir.NewParam("", types.I8Ptr),
-	)
-	scanf := cg.Module.NewFunc(
-		"scanf",
-		types.I32,
-		ir.NewParam("", types.I8Ptr),
-	)
-	scanf.Sig.Variadic = true
-	strcpy := cg.Module.NewFunc(
-		"strcpy",
-		types.I8Ptr,
-		ir.NewParam("", types.I8Ptr),
-		ir.NewParam("", types.I8Ptr),
-	)
-	strcmp := cg.Module.NewFunc(
-		"strcmp",
-		types.I32,
-		ir.NewParam("", types.I8Ptr),
-		ir.NewParam("", types.I8Ptr),
-	)
-	strlen := cg.Module.NewFunc(
-		"strlen",
-		types.I32,
-		ir.NewParam("", types.I8Ptr),
-	)
-	//fgets := cg.Module.NewFunc(
-	//	"fgets",
-	//	types.I8Ptr,
-	//	ir.NewParam("", types.I8Ptr),
-	//	ir.NewParam("", types.I32),
-	//	ir.NewParam("", types.I8Ptr),
-	//)
-	//fdopen := cg.Module.NewFunc(
-	//	"fdopen",
-	//	cg.types["FILE"],
-	//	ir.NewParam("", types.I32),
-	//	ir.NewParam("", types.I8Ptr),
-	//)
-
-	cg.functions["print"] = print_
-	cg.functions["input"] = input
-	cg.functions["len"] = len_
-	cg.functions["strcat"] = strcat
-	cg.functions["scanf"] = scanf
-	cg.functions["strcpy"] = strcpy
-	cg.functions["strcmp"] = strcmp
-	cg.functions["strlen"] = strlen
-	// cg.functions["fgets"] = fgets
-	// cg.functions["fdopen"] = fdopen
-
-	cg.functions["booltostr"] = cg.defineBoolToStr()
-	cg.functions["floordiv"] = cg.defineFloorDiv()
-
-	cg.mainFunction = cg.Module.NewFunc("main", types.I32)
-	cg.mainBlock = cg.mainFunction.NewBlock(cg.uniqueNames.get("entry"))
-
-	cg.currentFunction = cg.mainFunction
-	cg.currentBlock = cg.mainBlock
-
-	for _, definition := range program.Definitions {
-		if _, ok := definition.(*ast.FuncDef); ok {
-			definition.Visit(cg)
-			cg.currentFunction = cg.mainFunction
-			cg.currentBlock = cg.mainBlock
-		} else {
-			definition.Visit(cg)
-		}
-	}
-
-	for _, statement := range program.Statements {
-		statement.Visit(cg)
-	}
-
-	cg.currentBlock.NewRet(constant.NewInt(types.I32, 0))
-}
-
-func (cg *CodeGenerator) Traverse() bool {
-	return false
 }
 
 // NewStore is a wrapper around the regular ir.Block.NewStore() that first checks whether the src requires a typecast.

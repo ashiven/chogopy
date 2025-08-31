@@ -4,7 +4,6 @@ import (
 	"chogopy/pkg/ast"
 	"log"
 
-	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
@@ -125,43 +124,4 @@ func (cg *CodeGenerator) convertPrintArgs(args []value.Value) []value.Value {
 		}
 	}
 	return printArgs
-}
-
-// defineBoolPrint converts an i1 to its string representation "True" or "False" */
-func (cg *CodeGenerator) defineBoolToStr() *ir.Func {
-	arg := ir.NewParam("", types.I1)
-	boolToStr := cg.Module.NewFunc("booltostr", types.I8Ptr, arg)
-
-	entry := boolToStr.NewBlock(cg.uniqueNames.get("entry"))
-	ifBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.then"))
-	elseBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.else"))
-	exitBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.exit"))
-
-	resPtr := entry.NewAlloca(types.I8Ptr)
-	resPtr.LocalName = cg.uniqueNames.get("booltostr_res_ptr")
-	entry.NewCondBr(arg, ifBlock, elseBlock)
-
-	trueConst := constant.NewCharArrayFromString("True\n\x00")
-	truePtr := ifBlock.NewAlloca(trueConst.Type())
-	truePtr.LocalName = cg.uniqueNames.get("true_ptr")
-	ifBlock.NewStore(trueConst, truePtr)
-	truePtrCast := ifBlock.NewBitCast(truePtr, types.I8Ptr)
-	truePtrCast.LocalName = cg.uniqueNames.get("true_ptr_cast")
-	ifBlock.NewStore(truePtrCast, resPtr)
-	ifBlock.NewBr(exitBlock)
-
-	falseConst := constant.NewCharArrayFromString("False\n\x00")
-	falsePtr := elseBlock.NewAlloca(falseConst.Type())
-	falsePtr.LocalName = cg.uniqueNames.get("false_ptr")
-	elseBlock.NewStore(falseConst, falsePtr)
-	falsePtrCast := elseBlock.NewBitCast(falsePtr, types.I8Ptr)
-	falsePtrCast.LocalName = cg.uniqueNames.get("false_ptr_cast")
-	elseBlock.NewStore(falsePtrCast, resPtr)
-	elseBlock.NewBr(exitBlock)
-
-	resLoad := exitBlock.NewLoad(types.I8Ptr, resPtr)
-	resLoad.LocalName = cg.uniqueNames.get("res_load")
-	exitBlock.NewRet(resLoad)
-
-	return boolToStr
 }

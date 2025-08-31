@@ -4,7 +4,6 @@ import (
 	"chogopy/pkg/ast"
 	"log"
 
-	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
@@ -83,37 +82,6 @@ func (cg *CodeGenerator) floorRem(lhs value.Value, rhs value.Value) value.Value 
 	floorRem := cg.currentBlock.NewSub(lhs, rhsMult)
 
 	return floorRem
-}
-
-func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
-	lhs := ir.NewParam("", types.I32)
-	rhs := ir.NewParam("", types.I32)
-	floorDiv := cg.Module.NewFunc("floordiv", types.I32, lhs, rhs)
-	funcBlock := floorDiv.NewBlock(cg.uniqueNames.get("entry"))
-
-	lhsFloat := funcBlock.NewSIToFP(lhs, types.Float)
-	lhsFloat.LocalName = cg.uniqueNames.get("div_lhs_fp")
-	rhsFloat := funcBlock.NewSIToFP(rhs, types.Float)
-	rhsFloat.LocalName = cg.uniqueNames.get("div_rhs_fp")
-	floatDiv := funcBlock.NewFDiv(lhsFloat, rhsFloat)
-	floatDiv.LocalName = cg.uniqueNames.get("div_res_fp")
-
-	truncDiv := funcBlock.NewFPToSI(floatDiv, types.I32)
-	truncDiv.LocalName = cg.uniqueNames.get("div_res_trunc")
-	truncDivFloat := funcBlock.NewSIToFP(truncDiv, types.Float)
-	truncDivFloat.LocalName = cg.uniqueNames.get("div_res_trunc_fp")
-
-	// floor(x) = trunc(x) - ((trunc(x) > x) as I32)
-	subtractOne := funcBlock.NewFCmp(enum.FPredOGT, truncDivFloat, floatDiv)
-	subtractOne.LocalName = cg.uniqueNames.get("trunc_gt_div_res")
-	subtractOneInt := funcBlock.NewZExt(subtractOne, types.I32)
-	subtractOneInt.LocalName = cg.uniqueNames.get("trunc_gt_div_res_int")
-	floorRes := funcBlock.NewSub(truncDiv, subtractOneInt)
-	floorRes.LocalName = cg.uniqueNames.get("floor_res")
-
-	funcBlock.NewRet(floorRes)
-
-	return floorDiv
 }
 
 func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
