@@ -3,6 +3,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 )
@@ -24,11 +25,9 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 		elemVal := cg.lastGenerated
 
 		elemIdx := constant.NewInt(types.I32, int64(elemIdx))
-		elemPtr := cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
-
-		// TODO: nested list check
+		var elemAddr *ir.InstGetElementPtr
 		// In case the content of the list is a pointer to another list (lists have a struct type)
-		// the first GEP index will select the right list struct and the second index will select the field to store into (list.content)
+		// the first GEP index will select the list struct and the second index will select the field to store into (list.content)
 		// Think about it like this:
 		//
 		// - You have a pointer to a struct list: list*
@@ -44,16 +43,18 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 		//													|
 		//										contentIdx
 		//
-		// - Now you GEP will first need to know which of these lists to address (elemIdx)
+		// - Now GEP will first need to know which of these lists to address (elemIdx)
 		// - Then GEP will want to know which field of the list to address (contentIdx)
 		//
-		if false {
+		if isPtrTo(listContentPtr, cg.types["list"]) {
 			contentIdx := constant.NewInt(types.I32, 0)
-			elemPtr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
+			elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
+		} else {
+			elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
 		}
 
-		elemPtr.LocalName = cg.uniqueNames.get("list_content_elem_addr")
-		cg.NewStore(elemVal, elemPtr)
+		elemAddr.LocalName = cg.uniqueNames.get("list_content_elem_addr")
+		cg.NewStore(elemVal, elemAddr)
 	}
 
 	/* list.size init */
