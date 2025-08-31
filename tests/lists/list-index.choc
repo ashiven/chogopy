@@ -9,3 +9,5 @@ print(a[1])
 print(a[2])
 
 # CHECK: 42
+# CHECK: 43
+# CHECK: 44

@@ -77,8 +77,7 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	cg.currentBlock = forExitBlock
 }
 
-func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) value.Value {
-	/* get address for list content */
+func (cg *CodeGenerator) getListContentPtr(list value.Value) value.Value {
 	zero := constant.NewInt(types.I32, 0)
 	listContentAddr := cg.currentBlock.NewGetElementPtr(
 		list.Type().(*types.PointerType).ElemType,
@@ -88,22 +87,31 @@ func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) valu
 	)
 	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
 
-	/* load list at list content address */
 	listContentType := cg.getContentType(list)
 	listContentPtr := cg.currentBlock.NewLoad(listContentType, listContentAddr)
 	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
 
-	/* extract element from the list */
-	listElemType := listContentType.(*types.PointerType).ElemType
-	var elemAddr value.Value
+	return listContentPtr
+}
+
+func (cg *CodeGenerator) getListElemPtr(list value.Value, elemIdx value.Value) value.Value {
+	listContentPtr := cg.getListContentPtr(list)
+	listElemType := listContentPtr.Type().(*types.PointerType).ElemType
+	var elemPtr value.Value
 	if isList(listContentPtr) {
 		contentIdx := constant.NewInt(types.I32, 0)
-		elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
+		elemPtr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
 	} else {
-		elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
+		elemPtr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
 	}
+	return elemPtr
+}
 
-	listElem := cg.currentBlock.NewLoad(listElemType, elemAddr)
+func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) value.Value {
+	elemPtr := cg.getListElemPtr(list, elemIdx)
+	listElemType := elemPtr.Type().(*types.PointerType).ElemType
+
+	listElem := cg.currentBlock.NewLoad(listElemType, elemPtr)
 	listElem.LocalName = cg.uniqueNames.get("list_elem")
 	return listElem
 }

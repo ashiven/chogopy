@@ -110,7 +110,7 @@ func (cg *CodeGenerator) getOrCreate(checkType types.Type) types.Type {
 			return existingType
 		}
 	}
-	typeName := cg.uniqueNames.get("list_type")
+	typeName := cg.uniqueNames.get("list")
 	cg.Module.NewTypeDef(typeName, checkType)
 	cg.types[typeName] = checkType
 	return checkType
