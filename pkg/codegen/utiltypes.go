@@ -3,7 +3,6 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 	"log"
-	"strings"
 
 	"github.com/kr/pretty"
 	"github.com/llir/llvm/ir/types"
@@ -20,51 +19,6 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 		return false
 	}
 	return val.Type().(*types.PointerType).ElemType.Equal(type_)
-}
-
-func isList(val value.Value) bool {
-	if _, ok := val.Type().(*types.PointerType); ok {
-		if isListType(val.Type().(*types.PointerType).ElemType) {
-			return true
-		}
-	}
-	return false
-}
-
-func isListType(type_ types.Type) bool {
-	return strings.Contains(type_.Name(), "list") && type_.Name() != "list" && type_.Name() != "list_content"
-}
-
-// isString returns true if the value is a
-// - char array: [n x i8]
-// - string: i8*
-// - contains a char array: [n x i8]*
-// - contains a string: i8**
-func isString(val value.Value) bool {
-	return isCharArr(val) ||
-		containsCharArr(val) ||
-		hasType(val, types.I8Ptr) ||
-		hasType(val, types.NewPointer(types.I8Ptr))
-}
-
-func isCharArr(val value.Value) bool {
-	if _, ok := val.Type().(*types.ArrayType); ok {
-		if val.Type().(*types.ArrayType).ElemType.Equal(types.I8) {
-			return true
-		}
-	}
-	return false
-}
-
-func containsCharArr(val value.Value) bool {
-	if _, ok := val.Type().(*types.PointerType); ok {
-		if _, ok := val.Type().(*types.PointerType).ElemType.(*types.ArrayType); ok {
-			if val.Type().(*types.PointerType).ElemType.(*types.ArrayType).ElemType.Equal(types.I8) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func structEqual(s1 types.Type, s2 types.Type) bool {
@@ -147,4 +101,14 @@ func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 
 	log.Fatalf("Expected AST type but got: %# v", pretty.Formatter(astType))
 	return nil
+}
+
+func isIdentOrIndex(astNode ast.Node) bool {
+	switch astNode.(type) {
+	case *ast.IdentExpr:
+		return true
+	case *ast.IndexExpr:
+		return true
+	}
+	return false
 }

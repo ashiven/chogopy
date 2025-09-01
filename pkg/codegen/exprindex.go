@@ -31,7 +31,7 @@ func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 	// Something like "test"[1] should not return the whole remaining string "est"
 	// but rather be clamped to size 1 so the return will be "e" instead.
 	if isString(val) {
-		cg.lastGenerated = cg.clampStrSize(currentAddr)
+		cg.lastGenerated = cg.clampString(currentAddr)
 		return
 	}
 

@@ -53,12 +53,12 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 	case ">=":
 		resVal = cg.currentBlock.NewICmp(enum.IPredSGE, lhsValue, rhsValue)
 	case "==":
-		if cg.stringEQ(lhsValue, rhsValue) {
+		if cg.stringEqual(lhsValue, rhsValue) {
 			return
 		}
 		resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsValue, rhsValue)
 	case "!=":
-		if cg.stringNE(lhsValue, rhsValue) {
+		if cg.stringNotEqual(lhsValue, rhsValue) {
 			return
 		}
 		resVal = cg.currentBlock.NewICmp(enum.IPredNE, lhsValue, rhsValue)

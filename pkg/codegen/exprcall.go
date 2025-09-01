@@ -39,14 +39,9 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 
 func (cg *CodeGenerator) getLen(arg value.Value) value.Value {
 	if isString(arg) {
-		strLen := cg.currentBlock.NewCall(cg.functions["strlen"], arg)
-		strLen.LocalName = cg.uniqueNames.get("str_len")
-		return strLen
-
+		return cg.getStringLen(arg)
 	} else if isList(arg) {
-		listLen := cg.currentBlock.NewCall(cg.functions["listlen"], arg)
-		listLen.LocalName = cg.uniqueNames.get("list_len")
-		return listLen
+		return cg.getListLen(arg)
 	}
 
 	log.Fatalln("Code Generation: len() expected an argument of type str or list")

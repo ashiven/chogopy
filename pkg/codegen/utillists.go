@@ -2,11 +2,31 @@ package codegen
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
+
+func isList(val value.Value) bool {
+	if _, ok := val.Type().(*types.PointerType); ok {
+		if isListType(val.Type().(*types.PointerType).ElemType) {
+			return true
+		}
+	}
+	return false
+}
+
+func isListType(type_ types.Type) bool {
+	return strings.Contains(type_.Name(), "list") && type_.Name() != "list" && type_.Name() != "list_content"
+}
+
+func (cg *CodeGenerator) getListLen(list value.Value) value.Value {
+	listLen := cg.currentBlock.NewCall(cg.functions["listlen"], list)
+	listLen.LocalName = cg.uniqueNames.get("list_len")
+	return listLen
+}
 
 func (cg *CodeGenerator) getListElemPtr(list value.Value, elemIdx value.Value) value.Value {
 	listTypeName := list.Type().(*types.PointerType).ElemType.Name()

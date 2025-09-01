@@ -1,7 +1,6 @@
 package codegen
 
 import (
-	"chogopy/pkg/ast"
 	"log"
 
 	"github.com/llir/llvm/ir"
@@ -9,16 +8,6 @@ import (
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
-
-func isIdentOrIndex(astNode ast.Node) bool {
-	switch astNode.(type) {
-	case *ast.IdentExpr:
-		return true
-	case *ast.IndexExpr:
-		return true
-	}
-	return false
-}
 
 // NewStore is a wrapper around the regular ir.Block.NewStore() that first checks whether the src requires a typecast.
 func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
@@ -97,5 +86,3 @@ func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
 		return val
 	}
 }
-
-/* List and String utils */
