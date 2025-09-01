@@ -87,11 +87,11 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 	concatLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
 	concatInit := constant.NewBool(true)
 
-	// TODO: have to allocate enough for the actual size of the concatenated list (currently only allocates for one element)
 	concatPtr := cg.currentBlock.NewAlloca(listType)
 	concatListElemType := getListElemTypeFromListType(listType)
 
-	concatContentPtr := cg.currentBlock.NewAlloca(concatListElemType)
+	// TODO: have to allocate enough for the actual size of the concatenated list (currently only allocates for one element)
+	concatContentPtr := cg.NewAllocN(concatListElemType, concatLen)
 	cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtr, lhsContentPtr, lhsLen)
 
 	// TODO: adjust for nested lists
@@ -116,10 +116,7 @@ func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) v
 
 	/* list.content alloc */
 	listElemType := getListElemTypeFromListType(listType)
-	listContentPtr := cg.currentBlock.NewAlloca(types.NewArray(uint64(len(listElems)), listElemType))
-	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
-	listContentPtrCast := cg.currentBlock.NewBitCast(listContentPtr, types.NewPointer(listElemType))
-	listContentPtrCast.LocalName = cg.uniqueNames.get("list_content_ptr_cast")
+	listContentPtr := cg.NewAllocN(listElemType, listLen)
 
 	/* list.content store */
 	for elemIdx, elem := range listElems {
@@ -138,6 +135,6 @@ func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) v
 	/* list store */
 	cg.setLen(listPtr, listLen)
 	cg.setInit(listPtr, listInit)
-	cg.setContent(listPtr, listContentPtrCast)
+	cg.setContent(listPtr, listContentPtr)
 	return listPtr
 }

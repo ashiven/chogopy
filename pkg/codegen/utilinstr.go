@@ -86,3 +86,10 @@ func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
 		return val
 	}
 }
+
+func (cg *CodeGenerator) NewAllocN(elemType types.Type, NElems value.Value) *ir.InstAlloca {
+	instAlloc := &ir.InstAlloca{ElemType: elemType, NElems: NElems}
+	instAlloc.Type()
+	cg.currentBlock.Insts = append(cg.currentBlock.Insts, instAlloc)
+	return instAlloc
+}
