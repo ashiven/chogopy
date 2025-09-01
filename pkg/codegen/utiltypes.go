@@ -10,8 +10,6 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
-/* Type check utils */
-
 func hasType(val value.Value, type_ types.Type) bool {
 	return val.Type().Equal(type_)
 }
@@ -69,12 +67,6 @@ func containsCharArr(val value.Value) bool {
 	return false
 }
 
-func (cg *CodeGenerator) toString(val value.Value) value.Value {
-	strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
-	strCast.LocalName = cg.uniqueNames.get("str_cast")
-	return strCast
-}
-
 func structEqual(s1 types.Type, s2 types.Type) bool {
 	s1Struct, s1IsStruct := s1.(*types.StructType)
 	s2Struct, s2IsStruct := s2.(*types.StructType)
@@ -92,30 +84,22 @@ func structEqual(s1 types.Type, s2 types.Type) bool {
 	return true
 }
 
-/* Type conversion utils */
-
-func (cg *CodeGenerator) getOrCreate(checkType types.Type) types.Type {
+func (cg *CodeGenerator) getListType(checkType types.Type) types.Type {
 	for _, existingType := range cg.types {
 		if structEqual(existingType, checkType) {
 			return existingType
 		}
 	}
-	typeName := cg.uniqueNames.get("list")
-	cg.Module.NewTypeDef(typeName, checkType)
-	cg.types[typeName] = checkType
-	return checkType
+
+	log.Fatalf("getListType: Expected list type but found: %# v\n", pretty.Formatter(checkType))
+	return nil
 }
 
 func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
-	_, isListAttr := attr.(ast.ListAttribute)
-	if isListAttr {
+	if _, ok := attr.(ast.ListAttribute); ok {
 		elemType := cg.attrToType(attr.(ast.ListAttribute).ElemType)
-		listType := types.NewStruct(
-			types.NewPointer(elemType),
-			types.I32,
-			types.I1,
-		)
-		return types.NewPointer(cg.getOrCreate(listType))
+		listType := types.NewStruct(types.NewPointer(elemType), types.I32, types.I1)
+		return types.NewPointer(cg.getListType(listType))
 	}
 
 	switch attr.(ast.BasicAttribute) {
@@ -138,15 +122,10 @@ func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 }
 
 func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
-	_, isListType := astType.(*ast.ListType)
-	if isListType {
+	if _, ok := astType.(*ast.ListType); ok {
 		elemType := cg.astTypeToType(astType.(*ast.ListType).ElemType)
-		listType := types.NewStruct(
-			types.NewPointer(elemType),
-			types.I32,
-			types.I1,
-		)
-		return types.NewPointer(cg.getOrCreate(listType))
+		listType := types.NewStruct(types.NewPointer(elemType), types.I32, types.I1)
+		return types.NewPointer(cg.getListType(listType))
 
 		// [int]  	-->  list{content: i32*, size: i32, init: i1}*
 		// [str]  	-->  list{content: i8**, size: i32, init: i1}*
@@ -166,6 +145,6 @@ func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 		return types.NewPointer(cg.types["object"])
 	}
 
-	log.Fatalf("Expected AST Type but got: %# v", pretty.Formatter(astType))
+	log.Fatalf("Expected AST type but got: %# v", pretty.Formatter(astType))
 	return nil
 }

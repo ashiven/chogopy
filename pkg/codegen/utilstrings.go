@@ -7,6 +7,12 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
+func (cg *CodeGenerator) toString(val value.Value) value.Value {
+	strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
+	strCast.LocalName = cg.uniqueNames.get("str_cast")
+	return strCast
+}
+
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
 	// 1) Allocate a destination buffer of size: char[BUFFER_SIZE] (needs extra space for stuff to be appended)
 	destBuffer := cg.currentBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
