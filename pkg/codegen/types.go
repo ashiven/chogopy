@@ -103,13 +103,28 @@ func (cg *CodeGenerator) toString(val value.Value) value.Value {
 	return strCast
 }
 
+func structEqual(s1 types.Type, s2 types.Type) bool {
+	s1Struct, s1IsStruct := s1.(*types.StructType)
+	s2Struct, s2IsStruct := s2.(*types.StructType)
+	if !s1IsStruct || !s2IsStruct {
+		return false
+	}
+	if len(s1Struct.Fields) != len(s2Struct.Fields) {
+		return false
+	}
+	for i := range s1Struct.Fields {
+		if !s1Struct.Fields[i].Equal(s2Struct.Fields[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 /* Type conversion utils */
 
-// TODO: Something isn't quite right here. list types that already
-// exist are somehow being recreated..
 func (cg *CodeGenerator) getOrCreate(checkType types.Type) types.Type {
 	for _, existingType := range cg.types {
-		if existingType.Equal(checkType) {
+		if structEqual(existingType, checkType) {
 			return existingType
 		}
 	}
