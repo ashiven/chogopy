@@ -42,10 +42,11 @@ type (
 type CodeGenerator struct {
 	Module      *ir.Module
 	uniqueNames UniqueNames
-	varContext  VarCtx
 
 	types     Types
 	functions Functions
+
+	varContext VarCtx
 
 	mainFunction *ir.Func
 	mainBlock    *ir.Block
@@ -58,15 +59,17 @@ type CodeGenerator struct {
 }
 
 func (cg *CodeGenerator) Generate(program *ast.Program) {
-	cg.Module = ir.NewModule()
-	cg.uniqueNames = UniqueNames{}
-	cg.varContext = VarCtx{}
+	typeEnvBuilder := TypeEnvBuilder{}
+	typeEnvBuilder.Build(program)
 
-	cg.types = Types{}
-	cg.registerTypes()
+	cg.Module = typeEnvBuilder.Module
+	cg.uniqueNames = typeEnvBuilder.uniqueNames
+	cg.types = typeEnvBuilder.types
 
 	cg.functions = Functions{}
 	cg.registerFuncs()
+
+	cg.varContext = VarCtx{}
 
 	cg.mainFunction = cg.Module.NewFunc("main", types.I32)
 	cg.mainBlock = cg.mainFunction.NewBlock(cg.uniqueNames.get("entry"))

@@ -10,28 +10,6 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
-func (cg *CodeGenerator) registerTypes() {
-	objType := cg.Module.NewTypeDef("object", &types.StructType{Opaque: true})
-	noneType := cg.Module.NewTypeDef("none", &types.StructType{Opaque: true})
-	emptyType := cg.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
-	listContent := cg.Module.NewTypeDef("list_content", &types.StructType{Opaque: true})
-	listType := cg.Module.NewTypeDef("list",
-		types.NewStruct(
-			types.NewPointer(listContent),
-			types.I32,
-			types.I1,
-		),
-	)
-	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})-
-
-	cg.types["object"] = objType
-	cg.types["none"] = noneType
-	cg.types["empty"] = emptyType
-	cg.types["list_content"] = listContent
-	cg.types["list"] = listType
-	// cg.types["FILE"] = fileType
-}
-
 /* Type check utils */
 
 func hasType(val value.Value, type_ types.Type) bool {
