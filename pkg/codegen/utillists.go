@@ -54,20 +54,31 @@ func (cg *CodeGenerator) getListElem(list value.Value, index value.Value) value.
 }
 
 // TODO: implement
-func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType types.Type) value.Value {
-	lhsLen := cg.getListLen(lhs)
-	rhsLen := cg.getListLen(rhs)
-
-	combinedLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
-	_ = combinedLen
+func (cg *CodeGenerator) loadListElems(list value.Value) []value.Value {
+	listLen := cg.getListLen(list)
+	_ = listLen
 
 	return nil
+}
+
+func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType types.Type) value.Value {
+	lhsElems := cg.loadListElems(lhs)
+	rhsElems := cg.loadListElems(rhs)
+
+	combinedElems := append(lhsElems, rhsElems...)
+	combinedList := cg.newList(combinedElems, listType)
+
+	return combinedList
 }
 
 func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) value.Value {
 	/* list alloc */
 	listPtr := cg.currentBlock.NewAlloca(listType)
 	listPtr.LocalName = cg.uniqueNames.get("list_ptr")
+
+	/* list.size and list.init */
+	listSize := constant.NewInt(types.I32, int64(len(listElems)))
+	listInit := constant.NewBool(true)
 
 	/* list.content alloc */
 	listElemType := getListElemTypeFromListType(listType)
@@ -76,26 +87,6 @@ func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) v
 
 	/* list.content store */
 	for elemIdx, elem := range listElems {
-		// In case the content of the list is a pointer to another list (lists have a struct type)
-		// the first GEP index will select the list struct and the second index will select the field to store into (list.content)
-		// Think about it like this:
-		//
-		// - You have a pointer to a struct list: list*
-		// - This points to a contiguous location in memory at which one or more list structs reside
-		//
-		// Memory(starting at list*):
-		//
-		// 							0:	list{content: i32*, size: i32}
-		// elemIdx ->		1:	list{content: i32*, size: i32}
-		// 							2:	list{content: i32*, size: i32}
-		// 							3:	list{content: i32*, size: i32}
-		//													^
-		//													|
-		//										contentIdx
-		//
-		// - Now GEP will first need to know which of these lists to address (elemIdx)
-		// - Then GEP will want to know which field of the list to address (contentIdx)
-
 		elemIdx := constant.NewInt(types.I32, int64(elemIdx))
 		var elemAddr *ir.InstGetElementPtr
 		if isList(listContentPtr) {
@@ -104,16 +95,9 @@ func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) v
 		} else {
 			elemAddr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
 		}
-
 		elemAddr.LocalName = cg.uniqueNames.get("list_content_elem_addr")
 		cg.NewStore(elem, elemAddr)
 	}
-
-	/* list.size */
-	listSize := constant.NewInt(types.I32, int64(len(listElems)))
-
-	/* list.init */
-	listInit := constant.NewBool(true)
 
 	/* list store */
 	zero := constant.NewInt(types.I32, 0)
