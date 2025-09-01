@@ -295,16 +295,30 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	listLenFunc := cg.Module.NewFunc(funcName, types.NewPointer(listElemType), list, index)
 	funcBlock := listLenFunc.NewBlock(cg.uniqueNames.get("entry"))
 
-	/* Error if list is uninitialized */
+	/* Error if list is uninitialized, index is negative, or index is out of bounds */
 	initTrueBlock := listLenFunc.NewBlock("init.true")
 	initFalseBlock := listLenFunc.NewBlock("init.false")
+	indexPosBlock := listLenFunc.NewBlock("index.positive")
+	indexNegBlock := listLenFunc.NewBlock("index.negative")
+	indexIBBlock := listLenFunc.NewBlock("index.inbounds")
+	indexOOBBlock := listLenFunc.NewBlock("index.outofbounds")
 
+	/* Check that list is not None */
 	listInit := funcBlock.NewCall(cg.functions["listinit"], list)
 	funcBlock.NewCondBr(listInit, initTrueBlock, initFalseBlock)
 
-	/* Get list length */
+	/* Check that index is greater equal zero */
 	zero := constant.NewInt(types.I32, 0)
-	listContentAddr := initTrueBlock.NewGetElementPtr(
+	indexPositive := initTrueBlock.NewICmp(enum.IPredSGE, index, zero)
+	initTrueBlock.NewCondBr(indexPositive, indexPosBlock, indexNegBlock)
+
+	/* Check that index is not greater than list len */
+	listLen := indexPosBlock.NewCall(cg.functions["listlen"], list)
+	indexInBounds := indexPosBlock.NewICmp(enum.IPredSLT, index, listLen)
+	indexPosBlock.NewCondBr(indexInBounds, indexIBBlock, indexOOBBlock)
+
+	/* Get list length */
+	listContentAddr := indexIBBlock.NewGetElementPtr(
 		list.Type().(*types.PointerType).ElemType,
 		list,
 		zero,
@@ -313,22 +327,30 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
 
 	listContentType := types.NewPointer(listElemType)
-	listContentPtr := initTrueBlock.NewLoad(listContentType, listContentAddr)
+	listContentPtr := indexIBBlock.NewLoad(listContentType, listContentAddr)
 	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
 
 	var elemPtr *ir.InstGetElementPtr
 	if isList(listContentPtr) {
 		contentIdx := constant.NewInt(types.I32, 0)
-		elemPtr = initTrueBlock.NewGetElementPtr(listElemType, listContentPtr, index, contentIdx)
+		elemPtr = indexIBBlock.NewGetElementPtr(listElemType, listContentPtr, index, contentIdx)
 	} else {
-		elemPtr = initTrueBlock.NewGetElementPtr(listElemType, listContentPtr, index)
+		elemPtr = indexIBBlock.NewGetElementPtr(listElemType, listContentPtr, index)
 	}
 	elemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
-	initTrueBlock.NewRet(elemPtr)
+	indexIBBlock.NewRet(elemPtr)
 
 	/* Raise runtime exception indexing uninitialized list */
 	cg.defineException(initFalseBlock, "TypeError: 'NoneType' object is not subscriptable\n\x00")
 	initFalseBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
+
+	/* Raise runtime exception indexing uninitialized list */
+	cg.defineException(indexNegBlock, "IndexError: list index out of range\n\x00")
+	indexNegBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
+
+	/* Raise runtime exception indexing uninitialized list */
+	cg.defineException(indexOOBBlock, "IndexError: list index out of range\n\x00")
+	indexOOBBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
 	return listLenFunc
 }

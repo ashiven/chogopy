@@ -26,6 +26,8 @@ func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 	}
 
 	// TODO: fix: see below
+	// this might also be the reason why list index string fails
+	//
 	// Something like "test"[1] should not return the whole remaining string "est"
 	// but rather be clamped to size 1 so the return will be "e" instead.
 	if isString(val) {
