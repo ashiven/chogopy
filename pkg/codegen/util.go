@@ -27,18 +27,6 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 		target.(*ir.InstBitCast).LocalName = cg.uniqueNames.get("store_cast")
 	}
 
-	srcLen := 1
-	if _, ok := cg.lengths[src]; ok {
-		srcLen = cg.lengths[src]
-	}
-
-	targetName := target.Ident()[1:] // get rid of the @ or % in front of llvm ident names
-
-	if varInfo, err := cg.getVar(targetName); err != nil {
-		varInfo.length = srcLen
-		cg.setVar(varInfo)
-	}
-
 	cg.currentBlock.NewStore(src, target)
 }
 
@@ -65,7 +53,6 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		charArrPtr.LocalName = cg.uniqueNames.get("char_arr_ptr")
 		cg.NewStore(charArrConst, charArrPtr)
 		strCast := cg.toString(charArrPtr)
-		cg.lengths[strCast] = len(literal)
 		return strCast
 
 	case nil:

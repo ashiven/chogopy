@@ -10,30 +10,22 @@ import (
 
 func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varName := varDef.TypedVar.(*ast.TypedVar).VarName
-	literalLength := cg.getLiteralLength(varDef)
 	literalConst := cg.getLiteralConst(varDef)
 
 	switch cg.currentFunction {
 	case cg.mainFunction:
 		globalVar := cg.Module.NewGlobalDef(varName, literalConst)
 		cg.setVar(
-			VarInfo{name: varName, elemType: globalVar.Typ.ElemType, value: globalVar, length: literalLength},
+			VarInfo{name: varName, elemType: globalVar.Typ.ElemType, value: globalVar},
 		)
 
 	default:
 		localVar := cg.currentBlock.NewAlloca(literalConst.Type())
 		cg.currentBlock.NewStore(literalConst, localVar)
 		cg.setVar(
-			VarInfo{name: varName, elemType: localVar.Typ.ElemType, value: localVar, length: literalLength},
+			VarInfo{name: varName, elemType: localVar.Typ.ElemType, value: localVar},
 		)
 	}
-}
-
-func (cg *CodeGenerator) getLiteralLength(varDef *ast.VarDef) int {
-	if varDef.Literal.(*ast.LiteralExpr).TypeHint == ast.String {
-		return len(varDef.Literal.(*ast.LiteralExpr).Value.(string)) + 1
-	}
-	return 1
 }
 
 func (cg *CodeGenerator) getLiteralConst(varDef *ast.VarDef) constant.Constant {

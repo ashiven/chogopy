@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
-	"log"
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
@@ -104,19 +103,6 @@ func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
 	return false
 }
 
-func (cg *CodeGenerator) getLength(val value.Value) int {
-	if _, ok := cg.lengths[val]; ok {
-		return cg.lengths[val]
-	}
-
-	varInfo, err := cg.getVar(val.Ident()[1:])
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-
-	return varInfo.length
-}
-
 // TODO: list concat
 func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs value.Value) bool {
 	if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
@@ -156,7 +142,7 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType 
 	concatListLength := 0
 
 	// TODO: we need a method to get the lengths of lists at runtime
-	for i := range cg.getLength(lhs) {
+	for i := range 0 {
 		index := constant.NewInt(types.I64, int64(i))
 		elemPtr := cg.currentBlock.NewGetElementPtr(lhs.Type().(*types.PointerType).ElemType, lhs, index)
 		elem := cg.currentBlock.NewLoad(lhs.Type().(*types.PointerType).ElemType, elemPtr)
@@ -164,7 +150,7 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType 
 		concatListLength++
 	}
 
-	for i := range cg.getLength(rhs) {
+	for i := range 0 {
 		index := constant.NewInt(types.I64, int64(i))
 		elemPtr := cg.currentBlock.NewGetElementPtr(rhs.Type().(*types.PointerType).ElemType, rhs, index)
 		elem := cg.currentBlock.NewLoad(rhs.Type().(*types.PointerType).ElemType, elemPtr)
@@ -172,7 +158,6 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType 
 		concatListLength++
 	}
 
-	cg.lengths[concatListPtr] = concatListLength
 	return concatListPtr
 }
 

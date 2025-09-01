@@ -79,6 +79,5 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 	listInitAddr.LocalName = cg.uniqueNames.get("list_init_addr")
 	cg.NewStore(listInit, listInitAddr)
 
-	cg.lengths[listPtr] = len(listExpr.Elements)
 	cg.lastGenerated = listPtr
 }

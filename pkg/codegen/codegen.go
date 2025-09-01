@@ -30,7 +30,6 @@ type VarInfo struct {
 	name     string
 	elemType types.Type
 	value    value.Value
-	length   int
 }
 
 type (
@@ -38,14 +37,12 @@ type (
 	VarCtx    map[*ir.Func]Variables
 	Variables map[string]VarInfo
 	Types     map[string]types.Type
-	Lengths   map[value.Value]int // keeps track of the length of string and list literals
 )
 
 type CodeGenerator struct {
 	Module      *ir.Module
 	uniqueNames UniqueNames
 	varContext  VarCtx
-	lengths     Lengths
 
 	types     Types
 	functions Functions
@@ -64,7 +61,6 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.Module = ir.NewModule()
 	cg.uniqueNames = UniqueNames{}
 	cg.varContext = VarCtx{}
-	cg.lengths = Lengths{}
 
 	cg.types = Types{}
 	cg.registerTypes()
