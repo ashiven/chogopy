@@ -75,6 +75,12 @@ func (tb *TypeEnvBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
 	tb.astTypeToType(funcDef.ReturnType)
 }
 
+// TODO: binaryExpr concatenation on lists may generate another type
+// for instance: [i32] + [str] -> [object]
+// but I wouldn't know how to even represent such a list of mixed types
+// here and so I should either make mixed lists illegal somehow or
+// change my entire internal list representation
+
 func (tb *TypeEnvBuilder) VisitListExpr(listExpr *ast.ListExpr) {
 	tb.attrToType(listExpr.TypeHint)
 	tb.attrToType(listExpr.TypeHint.(ast.ListAttribute).ElemType)

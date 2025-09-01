@@ -1,6 +1,8 @@
 package codegen
 
 import (
+	"fmt"
+
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
@@ -138,6 +140,15 @@ func (cg *CodeGenerator) registerCustom() {
 	cg.functions["newbool"] = cg.defineNewBool()
 	cg.functions["listinit"] = cg.defineListInit()
 	cg.functions["listlen"] = cg.defineListLen()
+
+	/* getlistelemptr for each list type */
+	for _, listType := range cg.types {
+		if isListType(listType) {
+			listElemType := listType.(*types.StructType).Fields[0].(*types.PointerType).ElemType
+			elemPtrName := fmt.Sprintf("%s_elemptr", listType.Name())
+			cg.functions[elemPtrName] = cg.defineListElemPtr(elemPtrName, types.NewPointer(listType), listElemType)
+		}
+	}
 }
 
 func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
@@ -230,6 +241,20 @@ func (cg *CodeGenerator) defineListInit() *ir.Func {
 	return listInitFunc
 }
 
+func (cg *CodeGenerator) defineException(block *ir.Block, exception string) {
+	returnCode := constant.NewInt(types.I32, 0)
+
+	errorConst := constant.NewCharArrayFromString(exception)
+	errorPtr := block.NewAlloca(errorConst.Type())
+	errorPtr.LocalName = cg.uniqueNames.get("error_ptr")
+	block.NewStore(errorConst, errorPtr)
+	errorStr := block.NewBitCast(errorPtr, types.I8Ptr)
+	errorStr.LocalName = cg.uniqueNames.get("error_str")
+
+	block.NewCall(cg.functions["printf"], errorStr)
+	block.NewCall(cg.functions["exit"], returnCode)
+}
+
 func (cg *CodeGenerator) defineListLen() *ir.Func {
 	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
 	listLenFunc := cg.Module.NewFunc("listlen", types.I32, list)
@@ -258,30 +283,16 @@ func (cg *CodeGenerator) defineListLen() *ir.Func {
 	initTrueBlock.NewRet(listLen)
 
 	/* Raise runtime exception len called on uninitialized list */
-	errorConst := constant.NewCharArrayFromString("TypeError: object of type 'NoneType' has no len()\n\x00")
-	errorPtr := initFalseBlock.NewAlloca(errorConst.Type())
-	errorPtr.LocalName = cg.uniqueNames.get("error_ptr")
-	initFalseBlock.NewStore(errorConst, errorPtr)
-	errorCast := initFalseBlock.NewBitCast(errorPtr, types.I8Ptr)
-	errorCast.LocalName = cg.uniqueNames.get("error_cast")
-
-	initFalseBlock.NewCall(cg.functions["printf"], errorCast)
-	initFalseBlock.NewCall(cg.functions["exit"], zero)
+	cg.defineException(initFalseBlock, "TypeError: object of type 'NoneType' has no len()\n\x00")
 	initFalseBlock.NewRet(zero)
 
 	return listLenFunc
 }
 
-// TODO: Sounds insane but since I can't get concrete types here
-// I should probably define this function after having traversed the ast and generated all the code
-// This would then give me all the used list types inside of cg.types so I can define this
-// function for every concrete list type used in a given program.
-// I would have to include the list type name in the function name so that a caller
-// can call this function based on the list type he is dealing with.
-func (cg *CodeGenerator) defineListElemPtr() *ir.Func {
-	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
+func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type, listElemType types.Type) *ir.Func {
+	list := ir.NewParam("", listType)
 	index := ir.NewParam("", types.I32)
-	listLenFunc := cg.Module.NewFunc("listelemptr", types.NewPointer(cg.types["list_content"]), list, index)
+	listLenFunc := cg.Module.NewFunc(funcName, types.NewPointer(listElemType), list, index)
 	funcBlock := listLenFunc.NewBlock(cg.uniqueNames.get("entry"))
 
 	/* Error if list is uninitialized */
@@ -301,31 +312,22 @@ func (cg *CodeGenerator) defineListElemPtr() *ir.Func {
 	)
 	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
 
-	listContentType := list.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[0]
+	listContentType := types.NewPointer(listElemType)
 	listContentPtr := initTrueBlock.NewLoad(listContentType, listContentAddr)
 	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
 
-	listElemType := listContentType.(*types.PointerType).ElemType
-	// var elemPtr value.Value
-	// if isList(listContentPtr) {
-	// 	contentIdx := constant.NewInt(types.I32, 0)
-	// 	elemPtr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
-	// } else {
-	// 	elemPtr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
-	// }
-	elemPtr := initTrueBlock.NewGetElementPtr(listElemType, listContentPtr, index)
+	var elemPtr *ir.InstGetElementPtr
+	if isList(listContentPtr) {
+		contentIdx := constant.NewInt(types.I32, 0)
+		elemPtr = initTrueBlock.NewGetElementPtr(listElemType, listContentPtr, index, contentIdx)
+	} else {
+		elemPtr = initTrueBlock.NewGetElementPtr(listElemType, listContentPtr, index)
+	}
+	elemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
 	initTrueBlock.NewRet(elemPtr)
 
 	/* Raise runtime exception indexing uninitialized list */
-	errorConst := constant.NewCharArrayFromString("TypeError: 'NoneType' object is not subscriptable\n\x00")
-	errorPtr := initFalseBlock.NewAlloca(errorConst.Type())
-	errorPtr.LocalName = cg.uniqueNames.get("error_ptr")
-	initFalseBlock.NewStore(errorConst, errorPtr)
-	errorCast := initFalseBlock.NewBitCast(errorPtr, types.I8Ptr)
-	errorCast.LocalName = cg.uniqueNames.get("error_cast")
-
-	initFalseBlock.NewCall(cg.functions["printf"], errorCast)
-	initFalseBlock.NewCall(cg.functions["exit"], zero)
+	cg.defineException(initFalseBlock, "TypeError: 'NoneType' object is not subscriptable\n\x00")
 	initFalseBlock.NewRet(zero)
 
 	return listLenFunc

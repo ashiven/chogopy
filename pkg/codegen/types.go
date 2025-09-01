@@ -26,12 +26,15 @@ func isPtrTo(val value.Value, type_ types.Type) bool {
 
 func isList(val value.Value) bool {
 	if _, ok := val.Type().(*types.PointerType); ok {
-		typeName := val.Type().(*types.PointerType).ElemType.String()
-		if strings.Contains(typeName, "list") {
+		if isListType(val.Type().(*types.PointerType).ElemType) {
 			return true
 		}
 	}
 	return false
+}
+
+func isListType(type_ types.Type) bool {
+	return strings.Contains(type_.Name(), "list") && type_.Name() != "list" && type_.Name() != "list_content"
 }
 
 func (cg *CodeGenerator) getContentType(list value.Value) types.Type {
