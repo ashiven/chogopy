@@ -317,7 +317,7 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	indexInBounds := indexPosBlock.NewICmp(enum.IPredSLT, index, listLen)
 	indexPosBlock.NewCondBr(indexInBounds, indexIBBlock, indexOOBBlock)
 
-	/* Get list length */
+	/* Get list element pointer at index */
 	listContentAddr := indexIBBlock.NewGetElementPtr(
 		list.Type().(*types.PointerType).ElemType,
 		list,

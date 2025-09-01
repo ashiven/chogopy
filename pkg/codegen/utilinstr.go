@@ -97,3 +97,5 @@ func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
 		return val
 	}
 }
+
+/* List and String utils */

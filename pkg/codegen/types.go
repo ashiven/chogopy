@@ -3,128 +3,115 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 	"log"
-	"strings"
 
 	"github.com/kr/pretty"
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/types"
-	"github.com/llir/llvm/ir/value"
 )
 
-/* Type check utils */
+// TypeEnvBuilder performs an AST traversal of the given program
+// right before the code generation stage in order to determine
+// and register all the different types that appear in the program.
+//
+// This is useful mainly because of the way in which the list type is implemented.
+// List types are dynamically created as they are encountered and can take many different forms.
+//
+// A program may use lists of type [i32] or it may use lists of type [[str]] or [[[i8]]].
+// We need to be able to provide certain methods for lists of all of these types and since I
+// haven't been able to find out how to create generic function signatures in llvm, I decided
+// that I will just have to create methods for every possible list type appearing in a given program.
+//
+// For instance, I am now able to create a function for retrieving the element at a list index for
+// lists of type [i32] and for lists of type [str] with the respective function signatures:
+//
+//	([i32], i32) -> i32
+//	([str], i32) -> str
+type TypeEnvBuilder struct {
+	Module *ir.Module
 
-func hasType(val value.Value, type_ types.Type) bool {
-	return val.Type().Equal(type_)
+	types Types
+
+	uniqueNames UniqueNames
+
+	ast.BaseVisitor
 }
 
-func isPtrTo(val value.Value, type_ types.Type) bool {
-	_, valIsPtr := val.Type().(*types.PointerType)
-	if !valIsPtr {
-		return false
+func (tb *TypeEnvBuilder) Build(program *ast.Program) {
+	tb.Module = ir.NewModule()
+	tb.types = Types{}
+	tb.uniqueNames = UniqueNames{}
+
+	objType := tb.Module.NewTypeDef("object", &types.StructType{Opaque: true})
+	noneType := tb.Module.NewTypeDef("none", &types.StructType{Opaque: true})
+	emptyType := tb.Module.NewTypeDef("empty", &types.StructType{Opaque: true})
+	listContent := tb.Module.NewTypeDef("list_content", &types.StructType{Opaque: true})
+	listType := tb.Module.NewTypeDef("list",
+		types.NewStruct(
+			types.NewPointer(listContent),
+			types.I32,
+			types.I1,
+		),
+	)
+	// fileType := cg.Module.NewTypeDef("FILE", &types.StructType{Opaque: true})-
+
+	tb.types["object"] = objType
+	tb.types["none"] = noneType
+	tb.types["empty"] = emptyType
+	tb.types["list_content"] = listContent
+	tb.types["list"] = listType
+	// cg.types["FILE"] = fileType
+
+	program.Visit(tb)
+}
+
+func (tb *TypeEnvBuilder) VisitVarDef(varDef *ast.VarDef) {
+	tb.astTypeToType(varDef.TypedVar.(*ast.TypedVar).VarType)
+}
+
+func (tb *TypeEnvBuilder) VisitFuncDef(funcDef *ast.FuncDef) {
+	for _, paramNode := range funcDef.Parameters {
+		tb.astTypeToType(paramNode.(*ast.TypedVar).VarType)
 	}
-	return val.Type().(*types.PointerType).ElemType.Equal(type_)
+	tb.astTypeToType(funcDef.ReturnType)
 }
 
-func isList(val value.Value) bool {
-	if _, ok := val.Type().(*types.PointerType); ok {
-		if isListType(val.Type().(*types.PointerType).ElemType) {
-			return true
-		}
-	}
-	return false
+// TODO: binaryExpr concatenation on lists may generate another type
+// for instance: [i32] + [str] -> [object]
+// but I wouldn't know how to even represent such a list of mixed types
+// here and so I should either make mixed lists illegal somehow or
+// change my entire internal list representation
+
+func (tb *TypeEnvBuilder) VisitListExpr(listExpr *ast.ListExpr) {
+	tb.attrToType(listExpr.TypeHint)
+	tb.attrToType(listExpr.TypeHint.(ast.ListAttribute).ElemType)
 }
 
-func isListType(type_ types.Type) bool {
-	return strings.Contains(type_.Name(), "list") && type_.Name() != "list" && type_.Name() != "list_content"
+func (tb *TypeEnvBuilder) VisitIfExpr(ifExpr *ast.IfExpr) {
+	tb.attrToType(ifExpr.TypeHint)
 }
 
-func (cg *CodeGenerator) getContentType(list value.Value) types.Type {
-	if isList(list) {
-		return list.Type().(*types.PointerType).ElemType.(*types.StructType).Fields[0]
-	}
-
-	log.Fatalln("getContentType: expected value of type list*")
-	return nil
-}
-
-// isString returns true if the value is a
-// - char array: [n x i8]
-// - string: i8*
-// - contains a char array: [n x i8]*
-// - contains a string: i8**
-func isString(val value.Value) bool {
-	return isCharArr(val) ||
-		containsCharArr(val) ||
-		hasType(val, types.I8Ptr) ||
-		hasType(val, types.NewPointer(types.I8Ptr))
-}
-
-func isCharArr(val value.Value) bool {
-	if _, ok := val.Type().(*types.ArrayType); ok {
-		if val.Type().(*types.ArrayType).ElemType.Equal(types.I8) {
-			return true
-		}
-	}
-	return false
-}
-
-func containsCharArr(val value.Value) bool {
-	if _, ok := val.Type().(*types.PointerType); ok {
-		if _, ok := val.Type().(*types.PointerType).ElemType.(*types.ArrayType); ok {
-			if val.Type().(*types.PointerType).ElemType.(*types.ArrayType).ElemType.Equal(types.I8) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (cg *CodeGenerator) toString(val value.Value) value.Value {
-	strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
-	strCast.LocalName = cg.uniqueNames.get("str_cast")
-	return strCast
-}
-
-func structEqual(s1 types.Type, s2 types.Type) bool {
-	s1Struct, s1IsStruct := s1.(*types.StructType)
-	s2Struct, s2IsStruct := s2.(*types.StructType)
-	if !s1IsStruct || !s2IsStruct {
-		return false
-	}
-	if len(s1Struct.Fields) != len(s2Struct.Fields) {
-		return false
-	}
-	for i := range s1Struct.Fields {
-		if !s1Struct.Fields[i].Equal(s2Struct.Fields[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-/* Type conversion utils */
-
-func (cg *CodeGenerator) getOrCreate(checkType types.Type) types.Type {
-	for _, existingType := range cg.types {
+func (tb *TypeEnvBuilder) getOrCreate(checkType types.Type) types.Type {
+	for _, existingType := range tb.types {
 		if structEqual(existingType, checkType) {
 			return existingType
 		}
 	}
-	typeName := cg.uniqueNames.get("list")
-	cg.Module.NewTypeDef(typeName, checkType)
-	cg.types[typeName] = checkType
+	typeName := tb.uniqueNames.get("list")
+	tb.Module.NewTypeDef(typeName, checkType)
+	tb.types[typeName] = checkType
 	return checkType
 }
 
-func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
+func (tb *TypeEnvBuilder) attrToType(attr ast.TypeAttr) types.Type {
 	_, isListAttr := attr.(ast.ListAttribute)
 	if isListAttr {
-		elemType := cg.attrToType(attr.(ast.ListAttribute).ElemType)
+		elemType := tb.attrToType(attr.(ast.ListAttribute).ElemType)
 		listType := types.NewStruct(
 			types.NewPointer(elemType),
 			types.I32,
 			types.I1,
 		)
-		return types.NewPointer(cg.getOrCreate(listType))
+		return types.NewPointer(tb.getOrCreate(listType))
 	}
 
 	switch attr.(ast.BasicAttribute) {
@@ -135,27 +122,27 @@ func (cg *CodeGenerator) attrToType(attr ast.TypeAttr) types.Type {
 	case ast.String:
 		return types.I8Ptr
 	case ast.None:
-		return types.NewPointer(cg.types["none"])
+		return types.NewPointer(tb.types["none"])
 	case ast.Empty:
-		return types.NewPointer(cg.types["empty"])
+		return types.NewPointer(tb.types["empty"])
 	case ast.Object:
-		return types.NewPointer(cg.types["object"])
+		return types.NewPointer(tb.types["object"])
 	}
 
 	log.Fatalf("Expected type attribute but got: %# v", pretty.Formatter(attr))
 	return nil
 }
 
-func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
+func (tb *TypeEnvBuilder) astTypeToType(astType ast.Node) types.Type {
 	_, isListType := astType.(*ast.ListType)
 	if isListType {
-		elemType := cg.astTypeToType(astType.(*ast.ListType).ElemType)
+		elemType := tb.astTypeToType(astType.(*ast.ListType).ElemType)
 		listType := types.NewStruct(
 			types.NewPointer(elemType),
 			types.I32,
 			types.I1,
 		)
-		return types.NewPointer(cg.getOrCreate(listType))
+		return types.NewPointer(tb.getOrCreate(listType))
 
 		// [int]  	-->  list{content: i32*, size: i32, init: i1}*
 		// [str]  	-->  list{content: i8**, size: i32, init: i1}*
@@ -170,9 +157,9 @@ func (cg *CodeGenerator) astTypeToType(astType ast.Node) types.Type {
 	case "bool":
 		return types.I1
 	case "<None>":
-		return types.NewPointer(cg.types["none"])
+		return types.NewPointer(tb.types["none"])
 	case "object":
-		return types.NewPointer(cg.types["object"])
+		return types.NewPointer(tb.types["object"])
 	}
 
 	log.Fatalf("Expected AST Type but got: %# v", pretty.Formatter(astType))

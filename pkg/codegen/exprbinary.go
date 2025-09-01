@@ -3,9 +3,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
-	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
-	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
 
@@ -116,67 +114,5 @@ func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs
 		return true
 	}
 
-	return false
-}
-
-func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
-	// 1) Allocate a destination buffer of size: char[BUFFER_SIZE] (needs extra space for stuff to be appended)
-	destBuffer := cg.currentBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
-	destBuffer.LocalName = cg.uniqueNames.get("concat_buffer_ptr")
-	destBufferCast := cg.toString(destBuffer)
-
-	// 2) Copy the string that should be appended to into that buffer
-	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], destBufferCast, lhs)
-	copyRes.LocalName = cg.uniqueNames.get("concat_copy_res")
-
-	// 3) Append the other string via strcat
-	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], destBufferCast, rhs)
-	concatRes.LocalName = cg.uniqueNames.get("concat_append_res")
-
-	return concatRes
-}
-
-func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, elemType types.Type) value.Value {
-	concatListPtr := cg.currentBlock.NewAlloca(elemType)
-	concatListPtr.LocalName = cg.uniqueNames.get("concat_list_ptr")
-	concatListLength := 0
-
-	// TODO: we need a method to get the lengths of lists at runtime
-	for i := range 0 {
-		index := constant.NewInt(types.I64, int64(i))
-		elemPtr := cg.currentBlock.NewGetElementPtr(lhs.Type().(*types.PointerType).ElemType, lhs, index)
-		elem := cg.currentBlock.NewLoad(lhs.Type().(*types.PointerType).ElemType, elemPtr)
-		cg.NewStore(elem, concatListPtr)
-		concatListLength++
-	}
-
-	for i := range 0 {
-		index := constant.NewInt(types.I64, int64(i))
-		elemPtr := cg.currentBlock.NewGetElementPtr(rhs.Type().(*types.PointerType).ElemType, rhs, index)
-		elem := cg.currentBlock.NewLoad(rhs.Type().(*types.PointerType).ElemType, elemPtr)
-		cg.NewStore(elem, concatListPtr)
-		concatListLength++
-	}
-
-	return concatListPtr
-}
-
-func (cg *CodeGenerator) stringEQ(lhs value.Value, rhs value.Value) bool {
-	if isString(lhs) && isString(rhs) {
-		cmpResInt := cg.currentBlock.NewCall(cg.functions["strcmp"], lhs, rhs)
-		cmpRes := cg.currentBlock.NewICmp(enum.IPredEQ, cmpResInt, constant.NewInt(types.I32, 0))
-		cg.lastGenerated = cmpRes
-		return true
-	}
-	return false
-}
-
-func (cg *CodeGenerator) stringNE(lhs value.Value, rhs value.Value) bool {
-	if isString(lhs) && isString(rhs) {
-		cmpResInt := cg.currentBlock.NewCall(cg.functions["strcmp"], lhs, rhs)
-		cmpRes := cg.currentBlock.NewICmp(enum.IPredEQ, cmpResInt, constant.NewInt(types.I32, 1))
-		cg.lastGenerated = cmpRes
-		return true
-	}
 	return false
 }

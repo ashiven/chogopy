@@ -2,7 +2,6 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
-	"fmt"
 	"log"
 
 	"github.com/llir/llvm/ir/constant"
@@ -76,48 +75,4 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 
 	/* Exit block */
 	cg.currentBlock = forExitBlock
-}
-
-func (cg *CodeGenerator) getListElemPtr(list value.Value, elemIdx value.Value) value.Value {
-	listTypeName := list.Type().(*types.PointerType).ElemType.Name()
-	getElemPtrFunc := fmt.Sprintf("%s_elemptr", listTypeName)
-	elemPtr := cg.currentBlock.NewCall(cg.functions[getElemPtrFunc], list, elemIdx)
-	elemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
-	return elemPtr
-}
-
-func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) value.Value {
-	elemPtr := cg.getListElemPtr(list, elemIdx)
-
-	listElemType := elemPtr.Type().(*types.PointerType).ElemType
-	listElem := cg.currentBlock.NewLoad(listElemType, elemPtr)
-	listElem.LocalName = cg.uniqueNames.get("list_elem")
-	return listElem
-}
-
-func (cg *CodeGenerator) getStringElem(strVal value.Value, elemIdx value.Value) value.Value {
-	elemAddress := cg.currentBlock.NewGetElementPtr(types.I8, strVal, elemIdx)
-	elemAddress.LocalName = cg.uniqueNames.get("str_elem_addr")
-	elemVal := cg.LoadVal(elemAddress)
-	elemVal = cg.clampStrSize(elemVal)
-	return elemVal
-}
-
-// clampStrSize will return a copy of the given string that has size 1
-// and only contains the first char of the given string.
-func (cg *CodeGenerator) clampStrSize(strVal value.Value) value.Value {
-	one := constant.NewInt(types.I32, 1)
-	term := constant.NewCharArrayFromString("\x00")
-
-	copyBuffer := cg.currentBlock.NewAlloca(types.NewArray(uint64(2), types.I8))
-	copyBuffer.LocalName = cg.uniqueNames.get("clamp_buf_ptr")
-	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], copyBuffer, strVal)
-	copyRes.LocalName = cg.uniqueNames.get("clamp_copy_res")
-
-	elemAddr := cg.currentBlock.NewGetElementPtr(types.I8, copyBuffer, one)
-	elemAddr.LocalName = cg.uniqueNames.get("clamp_addr")
-	cg.NewStore(term, elemAddr)
-
-	strCast := cg.toString(copyBuffer)
-	return strCast
 }
