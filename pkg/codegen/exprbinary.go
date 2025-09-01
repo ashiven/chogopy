@@ -104,9 +104,8 @@ func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
 // TODO: list concat
 func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs value.Value) bool {
 	if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
-		elemTypeAttr := binaryExpr.TypeHint.(ast.ListAttribute).ElemType
-		elemType := cg.attrToType(elemTypeAttr)
-		cg.lastGenerated = cg.concatLists(lhs, rhs, elemType)
+		listType := cg.attrToType(binaryExpr.TypeHint)
+		cg.lastGenerated = cg.concatLists(lhs, rhs, listType)
 		return true
 
 	} else if binaryExpr.TypeHint == ast.String {

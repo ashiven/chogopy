@@ -27,6 +27,11 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 	for _, elem := range listExpr.Elements {
 		elem.Visit(cg)
 		elemVal := cg.lastGenerated
+
+		if isIdentOrIndex(elem) {
+			elemVal = cg.LoadVal(elemVal)
+		}
+
 		listElems = append(listElems, elemVal)
 	}
 
