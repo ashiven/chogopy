@@ -144,7 +144,7 @@ func (cg *CodeGenerator) registerCustom() {
 	/* getlistelemptr for each list type */
 	for _, listType := range cg.types {
 		if isListType(listType) {
-			listElemType := listType.(*types.StructType).Fields[0].(*types.PointerType).ElemType
+			listElemType := getListElemTypeFromListType(listType)
 			elemPtrName := fmt.Sprintf("%s_elemptr", listType.Name())
 			cg.functions[elemPtrName] = cg.defineListElemPtr(elemPtrName, types.NewPointer(listType), listElemType)
 		}
