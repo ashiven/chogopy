@@ -7,6 +7,8 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
+var MaxBufferSize = uint64(10000)
+
 // isString returns true if the value is a
 // - char array: [n x i8]
 // - string: i8*

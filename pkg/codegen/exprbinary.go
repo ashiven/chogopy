@@ -4,6 +4,7 @@ import (
 	"chogopy/pkg/ast"
 
 	"github.com/llir/llvm/ir/enum"
+	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
 
@@ -104,7 +105,7 @@ func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
 // TODO: list concat
 func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs value.Value) bool {
 	if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
-		listType := cg.attrToType(binaryExpr.TypeHint)
+		listType := cg.attrToType(binaryExpr.TypeHint).(*types.PointerType).ElemType
 		cg.lastGenerated = cg.concatLists(lhs, rhs, listType)
 		return true
 

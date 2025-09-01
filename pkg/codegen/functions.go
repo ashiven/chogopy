@@ -56,6 +56,14 @@ func (cg *CodeGenerator) registerExternal() {
 		ir.NewParam("", types.I32),
 	)
 
+	memcpy := cg.Module.NewFunc(
+		"memcpy",
+		types.I8Ptr,
+		ir.NewParam("", types.I8Ptr),
+		ir.NewParam("", types.I8Ptr),
+		ir.NewParam("", types.I32),
+	)
+
 	//fgets := cg.Module.NewFunc(
 	//	"fgets",
 	//	types.I8Ptr,
@@ -77,6 +85,7 @@ func (cg *CodeGenerator) registerExternal() {
 	cg.functions["strcmp"] = strcmp
 	cg.functions["strlen"] = strlen
 	cg.functions["exit"] = exit
+	cg.functions["memcpy"] = memcpy
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 }

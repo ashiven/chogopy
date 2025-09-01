@@ -13,8 +13,6 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
-var MaxBufferSize = uint64(10000)
-
 type UniqueNames map[string]int
 
 func (un UniqueNames) get(name string) string {
