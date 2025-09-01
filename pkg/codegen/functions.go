@@ -328,7 +328,7 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 
 	/* Raise runtime exception indexing uninitialized list */
 	cg.defineException(initFalseBlock, "TypeError: 'NoneType' object is not subscriptable\n\x00")
-	initFalseBlock.NewRet(zero)
+	initFalseBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
 	return listLenFunc
 }
