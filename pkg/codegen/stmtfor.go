@@ -2,6 +2,7 @@ package codegen
 
 import (
 	"chogopy/pkg/ast"
+	"fmt"
 	"log"
 
 	"github.com/llir/llvm/ir/constant"
@@ -77,40 +78,18 @@ func (cg *CodeGenerator) VisitForStmt(forStmt *ast.ForStmt) {
 	cg.currentBlock = forExitBlock
 }
 
-func (cg *CodeGenerator) getListContentPtr(list value.Value) value.Value {
-	zero := constant.NewInt(types.I32, 0)
-	listContentAddr := cg.currentBlock.NewGetElementPtr(
-		list.Type().(*types.PointerType).ElemType,
-		list,
-		zero,
-		zero,
-	)
-	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
-
-	listContentType := cg.getContentType(list)
-	listContentPtr := cg.currentBlock.NewLoad(listContentType, listContentAddr)
-	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
-
-	return listContentPtr
-}
-
 func (cg *CodeGenerator) getListElemPtr(list value.Value, elemIdx value.Value) value.Value {
-	listContentPtr := cg.getListContentPtr(list)
-	listElemType := listContentPtr.Type().(*types.PointerType).ElemType
-	var elemPtr value.Value
-	if isList(listContentPtr) {
-		contentIdx := constant.NewInt(types.I32, 0)
-		elemPtr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx, contentIdx)
-	} else {
-		elemPtr = cg.currentBlock.NewGetElementPtr(listElemType, listContentPtr, elemIdx)
-	}
+	listTypeName := list.Type().(*types.PointerType).ElemType.Name()
+	getElemPtrFunc := fmt.Sprintf("%s_elemptr", listTypeName)
+	elemPtr := cg.currentBlock.NewCall(cg.functions[getElemPtrFunc], list, elemIdx)
+	elemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
 	return elemPtr
 }
 
 func (cg *CodeGenerator) getListElem(list value.Value, elemIdx value.Value) value.Value {
 	elemPtr := cg.getListElemPtr(list, elemIdx)
-	listElemType := elemPtr.Type().(*types.PointerType).ElemType
 
+	listElemType := elemPtr.Type().(*types.PointerType).ElemType
 	listElem := cg.currentBlock.NewLoad(listElemType, elemPtr)
 	listElem.LocalName = cg.uniqueNames.get("list_elem")
 	return listElem
