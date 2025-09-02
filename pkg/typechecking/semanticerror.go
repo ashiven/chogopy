@@ -20,7 +20,7 @@ const (
 	AssignTargetInvalid
 )
 
-func typeSemanticError(errorKind TypeSemanticErrorKind, t1 Type, t2 Type, defName string, funcArgs int, callArgs int) {
+func semanticError(errorKind TypeSemanticErrorKind, t1 Type, t2 Type, defName string, funcArgs int, callArgs int) {
 	switch errorKind {
 	case NotAssignmentCompatible:
 		fmt.Printf("Semantic Error: %s is not assignment compatible with %s\n", nameFromType(t1), nameFromType(t2))

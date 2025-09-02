@@ -1,0 +1,14 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+cond: bool = True
+cond2: bool = False
+cond3: [bool] = None
+
+cond3 = [True, True, False]
+
+while cond:
+    print("hello")
+    cond = cond2 = cond3[2]
+
+# CHECK:        hello

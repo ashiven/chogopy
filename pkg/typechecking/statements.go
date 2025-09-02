@@ -68,7 +68,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 			_, targetIsIdent := currentAssign.Target.(*ast.IdentExpr)
 			_, targetIsIndex := currentAssign.Target.(*ast.IndexExpr)
 			if !targetIsIdent && !targetIsIndex {
-				typeSemanticError(AssignTargetInvalid, nil, nil, "", 0, 0)
+				semanticError(AssignTargetInvalid, nil, nil, "", 0, 0)
 			}
 
 			currentAssign = assignStmt.Value.(*ast.AssignStmt)
@@ -86,7 +86,7 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 
 		_, lastNodeIsList := lastNodeType.(ListType)
 		if lastNodeIsList && lastNodeType.(ListType).elemType == noneType {
-			typeSemanticError(ExpectedNonNoneListType, nil, nil, "", 0, 0)
+			semanticError(ExpectedNonNoneListType, nil, nil, "", 0, 0)
 		}
 
 		for _, assignNode := range assignNodes[:len(assignNodes)-1] {
@@ -140,6 +140,6 @@ func (st *StaticTyping) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 
 	// Assigning to anything that doesn't represent an identifier / index expression is illegal
 	default:
-		typeSemanticError(AssignTargetInvalid, nil, nil, "", 0, 0)
+		semanticError(AssignTargetInvalid, nil, nil, "", 0, 0)
 	}
 }

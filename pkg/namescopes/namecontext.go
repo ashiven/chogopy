@@ -35,21 +35,21 @@ func (nc NameContext) globalScopeContains(name string) bool {
 
 func (nc NameContext) addVarName(name string) {
 	if nc.contains(name) {
-		nameSemanticError(IdentifierAlreadyDefined, name)
+		semanticError(IdentifierAlreadyDefined, name)
 	}
 	nc.names[name] = &NameContext{}
 }
 
 func (nc NameContext) addFuncName(name string, funcContext NameContext) {
 	if nc.contains(name) {
-		nameSemanticError(IdentifierAlreadyDefined, name)
+		semanticError(IdentifierAlreadyDefined, name)
 	}
 	nc.names[name] = &funcContext
 }
 
 func (nc NameContext) getContext(name string) *NameContext {
 	if !nc.contains(name) {
-		nameSemanticError(IdentifierUndefined, name)
+		semanticError(IdentifierUndefined, name)
 	}
 	return nc.names[name]
 }

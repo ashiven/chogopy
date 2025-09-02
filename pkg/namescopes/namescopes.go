@@ -41,7 +41,7 @@ func (ns *NameScopes) VisitIdentExpr(identExpr *ast.IdentExpr) {
 
 	if !ns.NameContext.contains(identName) &&
 		!ns.NameContext.parentScopeContains(identName) {
-		nameSemanticError(IdentifierUndefined, identName)
+		semanticError(IdentifierUndefined, identName)
 	}
 }
 
@@ -50,7 +50,7 @@ func (ns *NameScopes) VisitCallExpr(callExpr *ast.CallExpr) {
 
 	if !ns.NameContext.contains(funcName) &&
 		!ns.NameContext.parentScopeContains(funcName) {
-		nameSemanticError(IdentifierUndefined, funcName)
+		semanticError(IdentifierUndefined, funcName)
 	}
 }
 
@@ -69,7 +69,7 @@ func (ns *NameScopes) VisitForStmt(forStmt *ast.ForStmt) {
 	iterName := forStmt.IterName
 
 	if !ns.NameContext.contains(iterName) {
-		nameSemanticError(IdentifierUndefined, iterName)
+		semanticError(IdentifierUndefined, iterName)
 	}
 
 	forStmt.Iter.Visit(ns)
@@ -86,7 +86,7 @@ func (ns *NameScopes) VisitAssignStmt(assignStmt *ast.AssignStmt) {
 		identName := assignStmt.Target.(*ast.IdentExpr).Identifier
 
 		if !ns.NameContext.contains(identName) {
-			nameSemanticError(AssignTargetOutOfScope, identName)
+			semanticError(AssignTargetOutOfScope, identName)
 		}
 	}
 }
@@ -95,7 +95,7 @@ func (ns *NameScopes) VisitNonLocalDecl(nonLocalDecl *ast.NonLocalDecl) {
 	declName := nonLocalDecl.DeclName
 
 	if !ns.NameContext.parentScopeContains(declName) {
-		nameSemanticError(IdentifierNotInParentScope, declName)
+		semanticError(IdentifierNotInParentScope, declName)
 	}
 }
 
@@ -103,6 +103,6 @@ func (ns *NameScopes) VisitGlobalDecl(globalDecl *ast.GlobalDecl) {
 	declName := globalDecl.DeclName
 
 	if !ns.NameContext.globalScopeContains(declName) {
-		nameSemanticError(IdentifierNotInGlobalScope, declName)
+		semanticError(IdentifierNotInGlobalScope, declName)
 	}
 }

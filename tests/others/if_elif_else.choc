@@ -1,0 +1,14 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+def foo():
+  if False:
+    print(2)
+  elif True:
+    print(4)
+  else:
+    print(5)
+
+foo()
+
+# CHECK:      4

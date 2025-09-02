@@ -26,16 +26,16 @@ type LocalEnvironment map[string]DefType
 func (le LocalEnvironment) check(defName string, expectVarDef bool) DefType {
 	defType, defExists := le[defName]
 	if !defExists {
-		typeSemanticError(UnknownIdentifierUsed, nil, nil, defName, 0, 0)
+		semanticError(UnknownIdentifierUsed, nil, nil, defName, 0, 0)
 	}
 
 	_, isFuncInfo := defType.(FunctionInfo)
 	if isFuncInfo && expectVarDef {
-		typeSemanticError(ExpectedVariableIdentifier, nil, nil, defName, 0, 0)
+		semanticError(ExpectedVariableIdentifier, nil, nil, defName, 0, 0)
 	}
 
 	if !isFuncInfo && !expectVarDef {
-		typeSemanticError(ExpectedFunctionIdentifier, nil, nil, defName, 0, 0)
+		semanticError(ExpectedFunctionIdentifier, nil, nil, defName, 0, 0)
 	}
 
 	return defType

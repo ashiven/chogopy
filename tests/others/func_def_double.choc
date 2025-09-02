@@ -1,0 +1,21 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+g: str = "global"
+
+def foo(a: str):
+    print(a)
+    if True:
+      print(g)
+
+
+def bar(a: str):
+  global g
+  print(g)
+  foo(a)
+  return
+
+bar("aa")
+
+# CHECK:      global
+# CHECK-NEXT: aa
+# CHECK-NEXT: global

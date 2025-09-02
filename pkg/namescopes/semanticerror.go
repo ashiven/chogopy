@@ -15,7 +15,7 @@ const (
 	IdentifierNotInGlobalScope
 )
 
-func nameSemanticError(errorKind NameScopeSemanticErrorKind, name string) {
+func semanticError(errorKind NameScopeSemanticErrorKind, name string) {
 	switch errorKind {
 	case IdentifierAlreadyDefined:
 		fmt.Printf("Semantic Error: Identifier %s already defined in the current context.\n", name)

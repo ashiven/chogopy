@@ -106,6 +106,7 @@ func (p *Parser) parseElseBody() []ast.Node {
 		if p.check(lexer.INDENT) {
 			p.syntaxError(UnexpectedIndentation)
 		}
+		p.match(lexer.DEDENT)
 		elifElseBody := p.parseElseBody()
 
 		elif := &ast.IfStmt{Condition: condition, IfBody: elifIfBody, ElseBody: elifElseBody}

@@ -69,7 +69,7 @@ func (st *StaticTyping) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		nonObjectTypes := []Type{intType, boolType, strType}
 		if slices.Contains(nonObjectTypes, lhsType) ||
 			slices.Contains(nonObjectTypes, rhsType) {
-			typeSemanticError(IsBinaryExpectedTwoObjectTypes, nil, nil, "", 0, 0)
+			semanticError(IsBinaryExpectedTwoObjectTypes, nil, nil, "", 0, 0)
 		}
 		st.visitedType = boolType
 		binaryExpr.TypeHint = attrFromType(st.visitedType)
@@ -158,7 +158,7 @@ func (st *StaticTyping) VisitCallExpr(callExpr *ast.CallExpr) {
 	funcInfo := st.localEnv.check(funcName, false)
 
 	if len(callExpr.Arguments) != len(funcInfo.(FunctionInfo).paramNames) {
-		typeSemanticError(FunctionCallArgumentMismatch, nil, nil, "", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
+		semanticError(FunctionCallArgumentMismatch, nil, nil, "", len(funcInfo.(FunctionInfo).paramNames), len(callExpr.Arguments))
 	}
 
 	for argIdx, argument := range callExpr.Arguments {

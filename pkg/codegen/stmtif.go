@@ -1,6 +1,8 @@
 package codegen
 
-import "chogopy/pkg/ast"
+import (
+	"chogopy/pkg/ast"
+)
 
 func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
 	ifBlock := cg.currentFunction.NewBlock(cg.uniqueNames.get("if.then"))
@@ -26,6 +28,14 @@ func (cg *CodeGenerator) VisitIfStmt(ifStmt *ast.IfStmt) {
 
 	for _, elseBodyNode := range ifStmt.ElseBody {
 		elseBodyNode.Visit(cg)
+	}
+
+	/* This might happen with nested if statements where the else block
+	* of a statement will contain another if statement whose exit block will
+	* then be unterminated by this point.
+	* I believe the way to go about this is to connect that exit block to the parents exit block. */
+	if cg.currentBlock.Term == nil {
+		cg.currentBlock.NewBr(exitBlock)
 	}
 
 	/* Exit Block */
