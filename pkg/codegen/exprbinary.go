@@ -3,6 +3,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
+	"github.com/kr/pretty"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
@@ -64,9 +65,18 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		}
 		resVal = cg.currentBlock.NewICmp(enum.IPredNE, lhsValue, rhsValue)
 	case "is":
-		// TODO: this should compare the addresses of lhs and rhs but since we are loading their
-		// values above (cg.Load(lhs)...) we are actually comparing values here (incorrect)
-		resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsValue, rhsValue)
+		_, lhsIsPtr := lhsValue.Type().(*types.PointerType)
+		_, rhsIsPtr := rhsValue.Type().(*types.PointerType)
+
+		if lhsIsPtr && rhsIsPtr && !lhsValue.Type().Equal(rhsValue.Type()) {
+			pretty.Println(lhsValue.Type().String())
+			pretty.Println(rhsValue.Type().String())
+			lhsCast := cg.currentBlock.NewBitCast(lhsValue, rhsValue.Type())
+			resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsCast, rhsValue)
+
+		} else {
+			resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsValue, rhsValue)
+		}
 	}
 
 	cg.lastGenerated = resVal

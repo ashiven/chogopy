@@ -58,8 +58,8 @@ func (cg *CodeGenerator) registerExternal() {
 	memcpy := cg.Module.NewFunc(
 		"memcpy",
 		types.I8Ptr,
-		ir.NewParam("", types.I8Ptr),
-		ir.NewParam("", types.I8Ptr),
+		ir.NewParam("", types.I32Ptr),
+		ir.NewParam("", types.I32Ptr),
 		ir.NewParam("", types.I32),
 	)
 

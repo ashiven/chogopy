@@ -56,6 +56,6 @@ func (cg *CodeGenerator) printGeneric(arg value.Value) value.Value {
 	} else if isString(arg) {
 		return cg.currentBlock.NewCall(cg.functions["printstr"], arg)
 	}
-	log.Fatalln("Code Generation: print() expected an argument of type int, bool, or str")
+	log.Fatalln("Code Generation: print() expected an argument of type int, bool, or str but got:", arg.Type().String())
 	return nil
 }
