@@ -7,6 +7,7 @@ import (
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
+	"github.com/llir/llvm/ir/value"
 )
 
 func (cg *CodeGenerator) registerFuncs() {
@@ -64,6 +65,14 @@ func (cg *CodeGenerator) registerExternal() {
 		ir.NewParam("", types.I32),
 	)
 
+	sprintf := cg.Module.NewFunc(
+		"sprintf",
+		types.I32,
+		ir.NewParam("", types.I8Ptr),
+		ir.NewParam("", types.I8Ptr),
+	)
+	sprintf.Sig.Variadic = true
+
 	//fgets := cg.Module.NewFunc(
 	//	"fgets",
 	//	types.I8Ptr,
@@ -86,6 +95,7 @@ func (cg *CodeGenerator) registerExternal() {
 	cg.functions["strlen"] = strlen
 	cg.functions["exit"] = exit
 	cg.functions["memcpy"] = memcpy
+	cg.functions["sprintf"] = sprintf
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 }
@@ -158,6 +168,24 @@ func (cg *CodeGenerator) registerCustom() {
 			cg.functions[elemPtrName] = cg.defineListElemPtr(elemPtrName, types.NewPointer(listType), listElemType)
 		}
 	}
+}
+
+func (cg *CodeGenerator) stringHelper(block *ir.Block, str string) value.Value {
+	charArrConst := constant.NewCharArrayFromString(str)
+	charArrPtr := block.NewAlloca(charArrConst.Type())
+	charArrPtr.LocalName = cg.uniqueNames.get("char_arr_ptr")
+	block.NewStore(charArrConst, charArrPtr)
+	newString := block.NewBitCast(charArrPtr, types.I8Ptr)
+	newString.LocalName = cg.uniqueNames.get("string")
+	return newString
+}
+
+func (cg *CodeGenerator) exceptionHelper(block *ir.Block, exception string) {
+	returnCode := constant.NewInt(types.I32, 0)
+	errorStr := cg.stringHelper(block, exception)
+
+	block.NewCall(cg.functions["printf"], errorStr)
+	block.NewCall(cg.functions["exit"], returnCode)
 }
 
 func (cg *CodeGenerator) defineFloorDiv() *ir.Func {
@@ -250,20 +278,6 @@ func (cg *CodeGenerator) defineListInit() *ir.Func {
 	return listInitFunc
 }
 
-func (cg *CodeGenerator) defineException(block *ir.Block, exception string) {
-	returnCode := constant.NewInt(types.I32, 0)
-
-	errorConst := constant.NewCharArrayFromString(exception)
-	errorPtr := block.NewAlloca(errorConst.Type())
-	errorPtr.LocalName = cg.uniqueNames.get("error_ptr")
-	block.NewStore(errorConst, errorPtr)
-	errorStr := block.NewBitCast(errorPtr, types.I8Ptr)
-	errorStr.LocalName = cg.uniqueNames.get("error_str")
-
-	block.NewCall(cg.functions["printf"], errorStr)
-	block.NewCall(cg.functions["exit"], returnCode)
-}
-
 func (cg *CodeGenerator) defineListLen() *ir.Func {
 	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
 	listLenFunc := cg.Module.NewFunc("listlen", types.I32, list)
@@ -292,7 +306,7 @@ func (cg *CodeGenerator) defineListLen() *ir.Func {
 	initTrueBlock.NewRet(listLen)
 
 	/* Raise runtime exception len called on uninitialized list */
-	cg.defineException(initFalseBlock, "TypeError: object of type 'NoneType' has no len()\n\x00")
+	cg.exceptionHelper(initFalseBlock, "TypeError: object of type 'NoneType' has no len()\n\x00")
 	initFalseBlock.NewRet(zero)
 
 	return listLenFunc
@@ -369,15 +383,15 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	indexIBBlock.NewRet(elemPtr)
 
 	/* Raise runtime exception indexing uninitialized list */
-	cg.defineException(initFalseBlock, "TypeError: 'NoneType' object is not subscriptable\n\x00")
+	cg.exceptionHelper(initFalseBlock, "TypeError: 'NoneType' object is not subscriptable\n\x00")
 	initFalseBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
 	/* Raise runtime exception indexing uninitialized list */
-	cg.defineException(indexNegBlock, "IndexError: list index out of range\n\x00")
+	cg.exceptionHelper(indexNegBlock, "IndexError: list index out of range\n\x00")
 	indexNegBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
 	/* Raise runtime exception indexing uninitialized list */
-	cg.defineException(indexOOBBlock, "IndexError: list index out of range\n\x00")
+	cg.exceptionHelper(indexOOBBlock, "IndexError: list index out of range\n\x00")
 	indexOOBBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
 	return listLenFunc
@@ -388,15 +402,8 @@ func (cg *CodeGenerator) definePrintString() *ir.Func {
 	printString := cg.Module.NewFunc("printstr", types.I32, strArg)
 	funcBlock := printString.NewBlock(cg.uniqueNames.get("entry"))
 
-	formatConst := constant.NewCharArrayFromString("%s\n\x00")
-	formatPtr := funcBlock.NewAlloca(formatConst.Type())
-	formatPtr.LocalName = cg.uniqueNames.get("print_fmt_ptr")
-	funcBlock.NewStore(formatConst, formatPtr)
-	formatCast := funcBlock.NewBitCast(formatPtr, types.I8Ptr)
-	formatCast.LocalName = cg.uniqueNames.get("print_fmt_cast")
-
-	printRes := funcBlock.NewCall(cg.functions["printf"], formatCast, strArg)
-
+	formatStr := cg.stringHelper(funcBlock, "%s\n\x00")
+	printRes := funcBlock.NewCall(cg.functions["printf"], formatStr, strArg)
 	funcBlock.NewRet(printRes)
 
 	return printString
@@ -407,15 +414,8 @@ func (cg *CodeGenerator) definePrintInt() *ir.Func {
 	printInt := cg.Module.NewFunc("printint", types.I32, intArg)
 	funcBlock := printInt.NewBlock(cg.uniqueNames.get("entry"))
 
-	formatConst := constant.NewCharArrayFromString("%d\n\x00")
-	formatPtr := funcBlock.NewAlloca(formatConst.Type())
-	formatPtr.LocalName = cg.uniqueNames.get("print_fmt_ptr")
-	funcBlock.NewStore(formatConst, formatPtr)
-	formatCast := funcBlock.NewBitCast(formatPtr, types.I8Ptr)
-	formatCast.LocalName = cg.uniqueNames.get("print_fmt_cast")
-
-	printRes := funcBlock.NewCall(cg.functions["printf"], formatCast, intArg)
-
+	formatStr := cg.stringHelper(funcBlock, "%d\n\x00")
+	printRes := funcBlock.NewCall(cg.functions["printf"], formatStr, intArg)
 	funcBlock.NewRet(printRes)
 
 	return printInt
@@ -434,22 +434,12 @@ func (cg *CodeGenerator) defineBoolToStr() *ir.Func {
 	resPtr.LocalName = cg.uniqueNames.get("booltostr_res_ptr")
 	entry.NewCondBr(arg, ifBlock, elseBlock)
 
-	trueConst := constant.NewCharArrayFromString("True\n\x00")
-	truePtr := ifBlock.NewAlloca(trueConst.Type())
-	truePtr.LocalName = cg.uniqueNames.get("true_ptr")
-	ifBlock.NewStore(trueConst, truePtr)
-	truePtrCast := ifBlock.NewBitCast(truePtr, types.I8Ptr)
-	truePtrCast.LocalName = cg.uniqueNames.get("true_ptr_cast")
-	ifBlock.NewStore(truePtrCast, resPtr)
+	trueStr := cg.stringHelper(ifBlock, "True\n\x00")
+	ifBlock.NewStore(trueStr, resPtr)
 	ifBlock.NewBr(exitBlock)
 
-	falseConst := constant.NewCharArrayFromString("False\n\x00")
-	falsePtr := elseBlock.NewAlloca(falseConst.Type())
-	falsePtr.LocalName = cg.uniqueNames.get("false_ptr")
-	elseBlock.NewStore(falseConst, falsePtr)
-	falsePtrCast := elseBlock.NewBitCast(falsePtr, types.I8Ptr)
-	falsePtrCast.LocalName = cg.uniqueNames.get("false_ptr_cast")
-	elseBlock.NewStore(falsePtrCast, resPtr)
+	falseStr := cg.stringHelper(elseBlock, "False\n\x00")
+	elseBlock.NewStore(falseStr, resPtr)
 	elseBlock.NewBr(exitBlock)
 
 	resLoad := exitBlock.NewLoad(types.I8Ptr, resPtr)
@@ -471,3 +461,41 @@ func (cg *CodeGenerator) definePrintBool() *ir.Func {
 
 	return printBool
 }
+
+// NOTE: We can't use the below function because it uses alloca to
+// allocate memory for a new string (alloca allocates this memory on
+// the call stack of the function which gets freed after the function returns).
+// The return of the function is then a pointer to unallocated memory.
+/*
+func (cg *CodeGenerator) defineStringConcat() *ir.Func {
+	lhs := ir.NewParam("", types.I8Ptr)
+	rhs := ir.NewParam("", types.I8Ptr)
+	stringConcat := cg.Module.NewFunc("strconcat", types.I8Ptr, lhs, rhs)
+	funcBlock := stringConcat.NewBlock(cg.uniqueNames.get("entry"))
+
+	lhsLen := funcBlock.NewCall(cg.functions["strlen"], lhs)
+	lhsLen.LocalName = cg.uniqueNames.get("lhs_len")
+	rhsLen := funcBlock.NewCall(cg.functions["strlen"], rhs)
+	rhsLen.LocalName = cg.uniqueNames.get("rhs_len")
+	concatLen := funcBlock.NewAdd(lhsLen, rhsLen)
+	concatLen.LocalName = cg.uniqueNames.get("concat_len")
+	concatLen = funcBlock.NewAdd(concatLen, constant.NewInt(types.I32, 1))
+
+	concatStr := &ir.InstAlloca{ElemType: types.I8, NElems: concatLen}
+	concatStr.Type()
+	funcBlock.Insts = append(funcBlock.Insts, concatStr)
+	concatStr.LocalName = cg.uniqueNames.get("concat_str")
+
+	copyRes := funcBlock.NewCall(cg.functions["strcpy"], concatStr, lhs)
+	copyRes.LocalName = cg.uniqueNames.get("concat_copy_res")
+	concatRes := funcBlock.NewCall(cg.functions["strcat"], concatStr, rhs)
+	concatRes.LocalName = cg.uniqueNames.get("concat_append_res")
+
+	funcBlock.NewRet(concatRes)
+
+	// formatStr := cg.stringHelper(funcBlock, "%s%s\x00")
+	// funcBlock.NewCall(cg.functions["sprintf"], concatStr, formatStr, str1, str2)
+
+	return stringConcat
+}
+*/

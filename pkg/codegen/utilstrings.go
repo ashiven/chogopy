@@ -101,17 +101,23 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 }
 
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
-	// 1) Allocate a destination buffer of size: char[BUFFER_SIZE] (needs extra space for stuff to be appended)
-	destBuffer := cg.currentBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
-	destBuffer.LocalName = cg.uniqueNames.get("concat_buffer_ptr")
-	destBufferCast := cg.toString(destBuffer)
+	// 1) Allocate a destination buffer of size: char[lhsLen + rhsLen + 1] (one more for the zero byte)
+	lhsLen := cg.currentBlock.NewCall(cg.functions["strlen"], lhs)
+	lhsLen.LocalName = cg.uniqueNames.get("lhs_len")
+	rhsLen := cg.currentBlock.NewCall(cg.functions["strlen"], rhs)
+	rhsLen.LocalName = cg.uniqueNames.get("rhs_len")
+	concatLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
+	concatLen = cg.currentBlock.NewAdd(concatLen, constant.NewInt(types.I32, 1))
+	concatLen.LocalName = cg.uniqueNames.get("concat_len")
+	concatStr := cg.NewAllocN(types.I8, concatLen)
+	concatStr.LocalName = cg.uniqueNames.get("concat_str")
 
 	// 2) Copy the string that should be appended to into that buffer
-	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], destBufferCast, lhs)
+	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], concatStr, lhs)
 	copyRes.LocalName = cg.uniqueNames.get("concat_copy_res")
 
 	// 3) Append the other string via strcat
-	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], destBufferCast, rhs)
+	concatRes := cg.currentBlock.NewCall(cg.functions["strcat"], concatStr, rhs)
 	concatRes.LocalName = cg.uniqueNames.get("concat_append_res")
 
 	return concatRes

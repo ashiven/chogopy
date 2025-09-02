@@ -102,7 +102,6 @@ func (cg *CodeGenerator) shortCircuit(binaryExpr *ast.BinaryExpr) bool {
 	return false
 }
 
-// TODO: list concat
 func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs value.Value) bool {
 	if _, ok := binaryExpr.TypeHint.(ast.ListAttribute); ok {
 		listType := cg.attrToType(binaryExpr.TypeHint).(*types.PointerType).ElemType
