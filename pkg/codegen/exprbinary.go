@@ -3,7 +3,6 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
-	"github.com/kr/pretty"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
@@ -69,8 +68,6 @@ func (cg *CodeGenerator) VisitBinaryExpr(binaryExpr *ast.BinaryExpr) {
 		_, rhsIsPtr := rhsValue.Type().(*types.PointerType)
 
 		if lhsIsPtr && rhsIsPtr && !lhsValue.Type().Equal(rhsValue.Type()) {
-			pretty.Println(lhsValue.Type().String())
-			pretty.Println(rhsValue.Type().String())
 			lhsCast := cg.currentBlock.NewBitCast(lhsValue, rhsValue.Type())
 			resVal = cg.currentBlock.NewICmp(enum.IPredEQ, lhsCast, rhsValue)
 
