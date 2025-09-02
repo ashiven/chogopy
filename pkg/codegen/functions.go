@@ -1,8 +1,6 @@
 package codegen
 
 import (
-	"fmt"
-
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
@@ -158,15 +156,20 @@ func (cg *CodeGenerator) registerCustom() {
 	cg.functions["floordiv"] = cg.defineFloorDiv()
 	cg.functions["newint"] = cg.defineNewInt()
 	cg.functions["newbool"] = cg.defineNewBool()
-	cg.functions["listinit"] = cg.defineListInit()
-	cg.functions["listlen"] = cg.defineListLen()
 
-	/* getlistelemptr for each list type */
+	/* function defs for each list type */
 	for _, listType := range cg.types {
 		if isListType(listType) {
 			listElemType := getListElemTypeFromListType(listType)
-			elemPtrName := fmt.Sprintf("%s_elemptr", listType.Name())
-			cg.functions[elemPtrName] = cg.defineListElemPtr(elemPtrName, types.NewPointer(listType), listElemType)
+
+			initName := listType.Name() + "_init"
+			cg.functions[initName] = cg.defineListInit(initName, listType)
+
+			lenName := listType.Name() + "_len"
+			cg.functions[lenName] = cg.defineListLen(lenName, listType)
+
+			elemPtrName := listType.Name() + "_elemptr"
+			cg.functions[elemPtrName] = cg.defineListElemPtr(elemPtrName, listType, listElemType)
 		}
 	}
 }
@@ -256,19 +259,14 @@ func (cg *CodeGenerator) defineNewBool() *ir.Func {
 	return newBool
 }
 
-func (cg *CodeGenerator) defineListInit() *ir.Func {
-	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
-	listInitFunc := cg.Module.NewFunc("listinit", types.I1, list)
+func (cg *CodeGenerator) defineListInit(funcName string, listType types.Type) *ir.Func {
+	list := ir.NewParam("", types.NewPointer(listType))
+	listInitFunc := cg.Module.NewFunc(funcName, types.I1, list)
 	funcBlock := listInitFunc.NewBlock(cg.uniqueNames.get("entry"))
 
 	zero := constant.NewInt(types.I32, 0)
 	initFieldIdx := constant.NewInt(types.I32, 2)
-	listInitAddr := funcBlock.NewGetElementPtr(
-		list.Type().(*types.PointerType).ElemType,
-		list,
-		zero,
-		initFieldIdx,
-	)
+	listInitAddr := funcBlock.NewGetElementPtr(listType, list, zero, initFieldIdx)
 	listInitAddr.LocalName = cg.uniqueNames.get("list_init_addr")
 
 	listInit := funcBlock.NewLoad(types.I1, listInitAddr)
@@ -279,27 +277,23 @@ func (cg *CodeGenerator) defineListInit() *ir.Func {
 	return listInitFunc
 }
 
-func (cg *CodeGenerator) defineListLen() *ir.Func {
-	list := ir.NewParam("", types.NewPointer(cg.types["list"]))
-	listLenFunc := cg.Module.NewFunc("listlen", types.I32, list)
+func (cg *CodeGenerator) defineListLen(funcName string, listType types.Type) *ir.Func {
+	list := ir.NewParam("", types.NewPointer(listType))
+	listLenFunc := cg.Module.NewFunc(funcName, types.I32, list)
 	funcBlock := listLenFunc.NewBlock(cg.uniqueNames.get("entry"))
 
 	/* Error if list is uninitialized */
 	initTrueBlock := listLenFunc.NewBlock("init.true")
 	initFalseBlock := listLenFunc.NewBlock("init.false")
 
-	listInit := funcBlock.NewCall(cg.functions["listinit"], list)
+	initFuncName := listType.Name() + "_init"
+	listInit := funcBlock.NewCall(cg.functions[initFuncName], list)
 	funcBlock.NewCondBr(listInit, initTrueBlock, initFalseBlock)
 
 	/* Get list length */
 	zero := constant.NewInt(types.I32, 0)
 	lenFieldIdx := constant.NewInt(types.I32, 1)
-	listLenAddr := initTrueBlock.NewGetElementPtr(
-		list.Type().(*types.PointerType).ElemType,
-		list,
-		zero,
-		lenFieldIdx,
-	)
+	listLenAddr := initTrueBlock.NewGetElementPtr(listType, list, zero, lenFieldIdx)
 	listLenAddr.LocalName = cg.uniqueNames.get("list_len_addr")
 
 	listLen := initTrueBlock.NewLoad(types.I32, listLenAddr)
@@ -314,7 +308,7 @@ func (cg *CodeGenerator) defineListLen() *ir.Func {
 }
 
 func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type, listElemType types.Type) *ir.Func {
-	list := ir.NewParam("", listType)
+	list := ir.NewParam("", types.NewPointer(listType))
 	index := ir.NewParam("", types.I32)
 	listLenFunc := cg.Module.NewFunc(funcName, types.NewPointer(listElemType), list, index)
 	funcBlock := listLenFunc.NewBlock(cg.uniqueNames.get("entry"))
@@ -328,7 +322,8 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	indexOOBBlock := listLenFunc.NewBlock("index.outofbounds")
 
 	/* Check that list is not None */
-	listInit := funcBlock.NewCall(cg.functions["listinit"], list)
+	initFuncName := listType.Name() + "_init"
+	listInit := funcBlock.NewCall(cg.functions[initFuncName], list)
 	funcBlock.NewCondBr(listInit, initTrueBlock, initFalseBlock)
 
 	/* Check that index is greater equal zero */
@@ -337,17 +332,13 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	initTrueBlock.NewCondBr(indexPositive, indexPosBlock, indexNegBlock)
 
 	/* Check that index is not greater than list len */
-	listLen := indexPosBlock.NewCall(cg.functions["listlen"], list)
+	lenFuncName := listType.Name() + "_len"
+	listLen := indexPosBlock.NewCall(cg.functions[lenFuncName], list)
 	indexInBounds := indexPosBlock.NewICmp(enum.IPredSLT, index, listLen)
 	indexPosBlock.NewCondBr(indexInBounds, indexIBBlock, indexOOBBlock)
 
 	/* Get list element pointer at index */
-	listContentAddr := indexIBBlock.NewGetElementPtr(
-		list.Type().(*types.PointerType).ElemType,
-		list,
-		zero,
-		zero,
-	)
+	listContentAddr := indexIBBlock.NewGetElementPtr(listType, list, zero, zero)
 	listContentAddr.LocalName = cg.uniqueNames.get("list_content_addr")
 
 	listContentType := types.NewPointer(listElemType)

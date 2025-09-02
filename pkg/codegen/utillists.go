@@ -1,7 +1,6 @@
 package codegen
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/llir/llvm/ir/constant"
@@ -31,15 +30,14 @@ func getListElemTypeFromListType(listType types.Type) types.Type {
 }
 
 func (cg *CodeGenerator) getListLen(list value.Value) value.Value {
-	listCast := cg.currentBlock.NewBitCast(list, types.NewPointer(cg.types["list"]))
-	listLen := cg.currentBlock.NewCall(cg.functions["listlen"], listCast)
+	lenFuncName := list.Type().(*types.PointerType).ElemType.Name() + "_len"
+	listLen := cg.currentBlock.NewCall(cg.functions[lenFuncName], list)
 	listLen.LocalName = cg.uniqueNames.get("list_len")
 	return listLen
 }
 
 func (cg *CodeGenerator) getListElemPtr(list value.Value, index value.Value) value.Value {
-	listTypeName := list.Type().(*types.PointerType).ElemType.Name()
-	getElemPtrFunc := fmt.Sprintf("%s_elemptr", listTypeName)
+	getElemPtrFunc := list.Type().(*types.PointerType).ElemType.Name() + "_elemptr"
 	listElemPtr := cg.currentBlock.NewCall(cg.functions[getElemPtrFunc], list, index)
 	listElemPtr.LocalName = cg.uniqueNames.get("list_elem_ptr")
 	return listElemPtr
@@ -81,15 +79,15 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 	four := constant.NewInt(types.I32, 4)
 
 	lhsContentPtr := cg.getListElemPtr(lhs, zero)
-	lhsCast := cg.currentBlock.NewBitCast(lhs, types.NewPointer(cg.types["list"]))
-	lhsLen := cg.currentBlock.NewCall(cg.functions["listlen"], lhsCast)
+	lhsLenFunc := lhs.Type().(*types.PointerType).ElemType.Name() + "_len"
+	lhsLen := cg.currentBlock.NewCall(cg.functions[lhsLenFunc], lhs)
 	// TODO: We are multiplying the list lengths by four because memcpy expects a length in bytes (i8) rather than words (i32).
 	// However, if we are concatenating nested lists, we may need to adjust these lengths differently.
 	lhsLenByte := cg.currentBlock.NewMul(lhsLen, four)
 
 	rhsContentPtr := cg.getListElemPtr(rhs, zero)
-	rhsCast := cg.currentBlock.NewBitCast(rhs, types.NewPointer(cg.types["list"]))
-	rhsLen := cg.currentBlock.NewCall(cg.functions["listlen"], rhsCast)
+	rhsLenFunc := rhs.Type().(*types.PointerType).ElemType.Name() + "_len"
+	rhsLen := cg.currentBlock.NewCall(cg.functions[rhsLenFunc], rhs)
 	rhsLenByte := cg.currentBlock.NewMul(rhsLen, four)
 
 	concatPtr := cg.currentBlock.NewAlloca(listType)
