@@ -74,7 +74,7 @@ func (cg *CodeGenerator) stringEqual(lhs value.Value, rhs value.Value) bool {
 func (cg *CodeGenerator) stringNotEqual(lhs value.Value, rhs value.Value) bool {
 	if isString(lhs) && isString(rhs) {
 		cmpResInt := cg.currentBlock.NewCall(cg.functions["strcmp"], lhs, rhs)
-		cmpRes := cg.currentBlock.NewICmp(enum.IPredEQ, cmpResInt, constant.NewInt(types.I32, 1))
+		cmpRes := cg.currentBlock.NewICmp(enum.IPredNE, cmpResInt, constant.NewInt(types.I32, 0))
 		cg.lastGenerated = cmpRes
 		return true
 	}
