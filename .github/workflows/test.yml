@@ -24,7 +24,7 @@ jobs:
           go-version: "1.24.6"
 
       - name: Install dependencies
-        run: sudo apt install -y llvm make filecheck
+        run: sudo apt install -y llvm make
 
       - name: Install LLVM toolchain
         run: |
