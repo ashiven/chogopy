@@ -31,7 +31,8 @@ func getListElemTypeFromListType(listType types.Type) types.Type {
 }
 
 func (cg *CodeGenerator) getListLen(list value.Value) value.Value {
-	listLen := cg.currentBlock.NewCall(cg.functions["listlen"], list)
+	listCast := cg.currentBlock.NewBitCast(list, types.NewPointer(cg.types["list"]))
+	listLen := cg.currentBlock.NewCall(cg.functions["listlen"], listCast)
 	listLen.LocalName = cg.uniqueNames.get("list_len")
 	return listLen
 }
@@ -80,13 +81,15 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 	four := constant.NewInt(types.I32, 4)
 
 	lhsContentPtr := cg.getListElemPtr(lhs, zero)
-	lhsLen := cg.currentBlock.NewCall(cg.functions["listlen"], lhs)
+	lhsCast := cg.currentBlock.NewBitCast(lhs, types.NewPointer(cg.types["list"]))
+	lhsLen := cg.currentBlock.NewCall(cg.functions["listlen"], lhsCast)
 	// TODO: We are multiplying the list lengths by four because memcpy expects a length in bytes (i8) rather than words (i32).
 	// However, if we are concatenating nested lists, we may need to adjust these lengths differently.
 	lhsLenByte := cg.currentBlock.NewMul(lhsLen, four)
 
 	rhsContentPtr := cg.getListElemPtr(rhs, zero)
-	rhsLen := cg.currentBlock.NewCall(cg.functions["listlen"], rhs)
+	rhsCast := cg.currentBlock.NewBitCast(rhs, types.NewPointer(cg.types["list"]))
+	rhsLen := cg.currentBlock.NewCall(cg.functions["listlen"], rhsCast)
 	rhsLenByte := cg.currentBlock.NewMul(rhsLen, four)
 
 	concatPtr := cg.currentBlock.NewAlloca(listType)

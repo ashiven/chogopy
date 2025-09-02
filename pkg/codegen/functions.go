@@ -288,7 +288,8 @@ func (cg *CodeGenerator) defineListLen() *ir.Func {
 	initTrueBlock := listLenFunc.NewBlock("init.true")
 	initFalseBlock := listLenFunc.NewBlock("init.false")
 
-	listInit := funcBlock.NewCall(cg.functions["listinit"], list)
+	listCast := funcBlock.NewBitCast(list, types.NewPointer(cg.types["list"]))
+	listInit := funcBlock.NewCall(cg.functions["listinit"], listCast)
 	funcBlock.NewCondBr(listInit, initTrueBlock, initFalseBlock)
 
 	/* Get list length */
@@ -328,7 +329,8 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	indexOOBBlock := listLenFunc.NewBlock("index.outofbounds")
 
 	/* Check that list is not None */
-	listInit := funcBlock.NewCall(cg.functions["listinit"], list)
+	listCast := funcBlock.NewBitCast(list, types.NewPointer(cg.types["list"]))
+	listInit := funcBlock.NewCall(cg.functions["listinit"], listCast)
 	funcBlock.NewCondBr(listInit, initTrueBlock, initFalseBlock)
 
 	/* Check that index is greater equal zero */
@@ -337,7 +339,7 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	initTrueBlock.NewCondBr(indexPositive, indexPosBlock, indexNegBlock)
 
 	/* Check that index is not greater than list len */
-	listLen := indexPosBlock.NewCall(cg.functions["listlen"], list)
+	listLen := indexPosBlock.NewCall(cg.functions["listlen"], listCast)
 	indexInBounds := indexPosBlock.NewICmp(enum.IPredSLT, index, listLen)
 	indexPosBlock.NewCondBr(indexInBounds, indexIBBlock, indexOOBBlock)
 
