@@ -3,6 +3,7 @@ package codegen
 import (
 	"chogopy/pkg/ast"
 
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -27,6 +28,7 @@ func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 		currentAddr = cg.getListElemPtr(val, index)
 	} else {
 		currentAddr = cg.currentBlock.NewGetElementPtr(val.Type().(*types.PointerType).ElemType, val, index)
+		currentAddr.(*ir.InstGetElementPtr).LocalName = cg.uniqueNames.get("index_addr")
 	}
 
 	// NOTE: The below does not work if our language allows strings assignments like "test"[2] = "c".

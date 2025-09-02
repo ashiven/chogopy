@@ -87,7 +87,9 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 	one := constant.NewInt(types.I32, 1)
 	term := constant.NewCharArrayFromString("\x00")
 
-	copyBuffer := cg.currentBlock.NewAlloca(types.NewArray(uint64(2), types.I8))
+	strLen := cg.currentBlock.NewCall(cg.functions["strlen"], strVal)
+	strLen.LocalName = cg.uniqueNames.get("str_len")
+	copyBuffer := cg.NewAllocN(types.I8, strLen)
 	copyBuffer.LocalName = cg.uniqueNames.get("clamp_buf_ptr")
 	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], copyBuffer, strVal)
 	copyRes.LocalName = cg.uniqueNames.get("clamp_copy_res")
@@ -96,8 +98,7 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 	elemAddr.LocalName = cg.uniqueNames.get("clamp_addr")
 	cg.NewStore(term, elemAddr)
 
-	strCast := cg.toString(copyBuffer)
-	return strCast
+	return copyBuffer
 }
 
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
