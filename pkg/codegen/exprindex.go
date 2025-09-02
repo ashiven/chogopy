@@ -18,6 +18,10 @@ func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 	indexExpr.Index.Visit(cg)
 	index := cg.lastGenerated
 
+	if isIdentOrIndex(indexExpr.Index) {
+		index = cg.LoadVal(index)
+	}
+
 	var currentAddr value.Value
 	if isList(val) {
 		currentAddr = cg.getListElemPtr(val, index)
@@ -25,9 +29,7 @@ func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 		currentAddr = cg.currentBlock.NewGetElementPtr(val.Type().(*types.PointerType).ElemType, val, index)
 	}
 
-	// TODO: fix: see below
-	// this might also be the reason why list index string fails
-	//
+	// NOTE: The below does not work if our language allows strings assignments like "test"[2] = "c".
 	// Something like "test"[1] should not return the whole remaining string "est"
 	// but rather be clamped to size 1 so the return will be "e" instead.
 	if isString(val) {
@@ -44,10 +46,3 @@ func (cg *CodeGenerator) VisitIndexExpr(indexExpr *ast.IndexExpr) {
 	// a value at it or loading a value from it.
 	cg.lastGenerated = currentAddr
 }
-
-// TODO: implement to be used by caller
-// func (cg *CodeGenerator) loadIndexExpr(val value.Value) {
-// 	if isString(val) {
-// 	} else if isList(val) {
-// 	}
-// }

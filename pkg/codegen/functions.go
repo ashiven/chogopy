@@ -73,6 +73,13 @@ func (cg *CodeGenerator) registerExternal() {
 	)
 	sprintf.Sig.Variadic = true
 
+	printf := cg.Module.NewFunc(
+		"printf",
+		types.I32,
+		ir.NewParam("", types.I8Ptr),
+	)
+	printf.Sig.Variadic = true
+
 	//fgets := cg.Module.NewFunc(
 	//	"fgets",
 	//	types.I8Ptr,
@@ -96,31 +103,25 @@ func (cg *CodeGenerator) registerExternal() {
 	cg.functions["exit"] = exit
 	cg.functions["memcpy"] = memcpy
 	cg.functions["sprintf"] = sprintf
+	cg.functions["printf"] = printf
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 }
 
 func (cg *CodeGenerator) registerBuiltin() {
-	// printf is really external but since
-	// we are just reusing it for builtin print
-	// without modification I'll just leave it here
-	printf_ := cg.Module.NewFunc(
-		"printf",
+	print_ := cg.Module.NewFunc(
+		"print",
 		types.I32,
 		ir.NewParam("", types.I8Ptr),
 	)
-	printf_.Sig.Variadic = true
 
-	// this is basically just a dummy function that doesn't
-	// do anything because if there is an actual call to len()
-	// it will be redirected to strlen or listlen based on argument type
 	len_ := cg.Module.NewFunc(
 		"len",
 		types.I32,
 		ir.NewParam("", types.I8Ptr),
 	)
 
-	cg.functions["printf"] = printf_
+	cg.functions["print"] = print_
 	cg.functions["input"] = cg.defineInput()
 	cg.functions["len"] = len_
 }

@@ -127,6 +127,7 @@ func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) v
 	/* list.content alloc */
 	listElemType := getListElemTypeFromListType(listType)
 	listContentPtr := cg.NewAllocN(listElemType, listLen)
+	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
 
 	/* list.content store */
 	for elemIdx, elem := range listElems {
