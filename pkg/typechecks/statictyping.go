@@ -1,6 +1,6 @@
-// Package typechecking provides methods for ensuring
+// Package typechecks provides methods for ensuring
 // that a parsed program fulfills type constraints
-package typechecking
+package typechecks
 
 import (
 	"chogopy/pkg/ast"

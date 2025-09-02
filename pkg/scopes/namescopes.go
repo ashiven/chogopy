@@ -1,6 +1,6 @@
-// Package namescopes defines methods for analyzing the correct usage
-// of scoped variables
-package namescopes
+// Package scopes defines methods for analyzing
+// the correct usage of scoped variables
+package scopes
 
 import (
 	"chogopy/pkg/ast"

@@ -1,4 +1,4 @@
-package typechecking
+package typechecks
 
 import (
 	"chogopy/pkg/ast"

@@ -1,4 +1,4 @@
-package namescopes
+package scopes
 
 import (
 	"chogopy/pkg/ast"

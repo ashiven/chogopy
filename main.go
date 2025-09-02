@@ -3,9 +3,9 @@ package main
 import (
 	"chogopy/pkg/codegen"
 	"chogopy/pkg/lexer"
-	"chogopy/pkg/namescopes"
 	"chogopy/pkg/parser"
-	"chogopy/pkg/typechecking"
+	"chogopy/pkg/scopes"
+	"chogopy/pkg/typechecks"
 	"fmt"
 	"log"
 	"os"
@@ -43,28 +43,25 @@ func main() {
 		case "-p":
 			program := myParser.ParseProgram()
 			pretty.Println(program)
-		case "-v":
-			program := myParser.ParseProgram()
-			assignTargets := namescopes.AssignTargets{}
-			assignTargets.Analyze(&program)
-		case "-e":
-			program := myParser.ParseProgram()
-			environmentBuilder := typechecking.EnvironmentBuilder{}
-			environmentBuilder.Build(&program)
-			pretty.Println(environmentBuilder.LocalEnv)
 		case "-t":
 			program := myParser.ParseProgram()
-			staticTyping := typechecking.StaticTyping{}
+			staticTyping := typechecks.StaticTyping{}
 			staticTyping.Analyze(&program)
 			pretty.Println(program)
 		case "-n":
 			program := myParser.ParseProgram()
-			nameScopes := namescopes.NameScopes{}
-			nameScopes.Analyze(&program)
-			pretty.Println(nameScopes.NameContext)
+			assignTargets := scopes.AssignTargets{}
+			assignTargets.Analyze(&program)
+			scopes := scopes.NameScopes{}
+			scopes.Analyze(&program)
+			pretty.Println(scopes.NameContext)
 		case "-c":
 			program := myParser.ParseProgram()
-			staticTyping := typechecking.StaticTyping{}
+			assignTargets := scopes.AssignTargets{}
+			assignTargets.Analyze(&program)
+			nameScopes := scopes.NameScopes{}
+			nameScopes.Analyze(&program)
+			staticTyping := typechecks.StaticTyping{}
 			staticTyping.Analyze(&program)
 			codeGenerator := codegen.CodeGenerator{}
 			codeGenerator.Generate(&program)
