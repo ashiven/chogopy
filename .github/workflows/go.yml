@@ -12,7 +12,7 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
 
@@ -20,7 +20,14 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.24.6'
-
+        
+    - name: Install LLVM toolchain
+      run: |
+        echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+        sudo apt-get update
+        sudo apt-get install clang-18 llvm-18-dev lld-18 libclang-18-dev
+        
     - name: Build
       run: go build -v ./...
 
