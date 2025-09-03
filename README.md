@@ -28,10 +28,19 @@ It includes multiple analysis passes that perform type checking, variable scope 
 git clone https://github.com/ashiven/chogopy.git
 ```
 
-2. Compile the compiler.
+2. Install LLVM according to [this guide](https://tinygo.org/docs/guides/build/bring-your-own-llvm/). (for LLVM 18 on Ubuntu 22.04) 
 
 ```bash
-go build -o cgp
+echo 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main' | sudo tee /etc/apt/sources.list.d/llvm.list
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install clang-18 llvm-18-dev lld-18 libclang-18-dev
+``` 
+
+3. Compile the compiler. (specifying the installed LLVM version)
+
+```bash
+go build -tags=llvm18 -o cgp
 ```
 
 ## Usage
