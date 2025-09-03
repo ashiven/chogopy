@@ -9,6 +9,7 @@ import (
 	"chogopy/pkg/typechecks"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/kr/pretty"
 	"tinygo.org/x/go-llvm"
@@ -16,11 +17,15 @@ import (
 
 func main() {
 	filename := ""
+
 	if len(os.Args) > 2 {
 		filename = os.Args[2]
 	} else {
 		log.Fatal("Please provide a filename and a mode")
 	}
+
+	llFileName := replaceFileEnding(filename, "ll")
+	objectFileName := replaceFileEnding(filename, "o")
 
 	byteStream, err := os.ReadFile(filename)
 	if err != nil {
@@ -68,7 +73,7 @@ func main() {
 			pretty.Println(codeGenerator.Module.String())
 
 			err := os.WriteFile(
-				filename+".ll",
+				llFileName,
 				[]byte(codeGenerator.Module.String()),
 				0644,
 			)
@@ -87,24 +92,25 @@ func main() {
 			codeGenerator.Generate(&program)
 
 			err := os.WriteFile(
-				filename+".ll",
+				llFileName,
 				[]byte(codeGenerator.Module.String()),
 				0644,
 			)
 			if err != nil {
-				panic(err)
+				log.Fatalln("Failed to create llvm IR file: ", err)
 			}
 
 			backend.Init()
 			llvmContext := backend.NewllvmContext()
 			defer llvmContext.Dispose()
 
-			module := llvmContext.ParseIRFromFile(filename + ".ll")
-			os.Remove(filename + ".ll")
+			module := llvmContext.ParseIRFromFile(llFileName)
+			os.Remove(llFileName)
 
-			llvmContext.OptimizeModule(module)
+			// TODO: Somehow optimizing the module breaks things so I will leave it commented out for now.
+			// llvmContext.OptimizeModule(module)
 
-			objectFile, err := os.Create(filename + ".o")
+			objectFile, err := os.Create(objectFileName)
 			if err != nil {
 				log.Fatalln("Failed to create object file: ", err)
 			}
@@ -113,6 +119,14 @@ func main() {
 			if err != nil {
 				log.Fatalln("Failed to write object file: ", err)
 			}
+
+			// TODO: System call to gcc to link the object file: gcc -o output filename.o
 		}
 	}
+}
+
+func replaceFileEnding(filename string, newEnding string) string {
+	dotSplit := strings.Split(filename, ".")
+	dotSplit[len(dotSplit)-1] = newEnding
+	return strings.Join(dotSplit, ".")
 }
