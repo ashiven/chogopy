@@ -1,16 +1,17 @@
 package main
 
 import (
+	"chogopy/pkg/backend"
 	"chogopy/pkg/codegen"
 	"chogopy/pkg/lexer"
 	"chogopy/pkg/parser"
 	"chogopy/pkg/scopes"
 	"chogopy/pkg/typechecks"
-	"fmt"
 	"log"
 	"os"
 
 	"github.com/kr/pretty"
+	"tinygo.org/x/go-llvm"
 )
 
 func main() {
@@ -68,12 +69,49 @@ func main() {
 			pretty.Println(codeGenerator.Module.String())
 
 			err := os.WriteFile(
-				fmt.Sprintf("%s.ll", filename),
+				filename+".ll",
 				[]byte(codeGenerator.Module.String()),
 				0644,
 			)
 			if err != nil {
 				panic(err)
+			}
+		case "-o":
+			program := myParser.ParseProgram()
+			assignTargets := scopes.AssignTargets{}
+			assignTargets.Analyze(&program)
+			nameScopes := scopes.NameScopes{}
+			nameScopes.Analyze(&program)
+			staticTyping := typechecks.StaticTyping{}
+			staticTyping.Analyze(&program)
+			codeGenerator := codegen.CodeGenerator{}
+			codeGenerator.Generate(&program)
+			pretty.Println(codeGenerator.Module.String())
+
+			err := os.WriteFile(
+				filename+".ll",
+				[]byte(codeGenerator.Module.String()),
+				0644,
+			)
+			if err != nil {
+				panic(err)
+			}
+
+			llvmContext := backend.NewllvmContext()
+			defer llvmContext.Dispose()
+
+			module := llvmContext.ParseIRFromFile(filename + ".ll")
+
+			llvmContext.OptimizeModule(module)
+
+			outputFile, err := os.Create(filename + ".exe")
+			if err != nil {
+				log.Fatalln("Failed to create file for writing compiled code")
+			}
+
+			_, err = llvmContext.CompileModule(module, llvm.CodeGenFileType(llvm.AssemblyFile), outputFile)
+			if err != nil {
+				log.Fatalln("Failed to write compiled code")
 			}
 		}
 	}
