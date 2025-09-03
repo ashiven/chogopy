@@ -27,7 +27,6 @@ func main() {
 		pretty.Println(err.Error())
 	}
 	stream := string(byteStream)
-	pretty.Println(stream)
 
 	myLexer := lexer.NewLexer(stream)
 	myParser := parser.NewParser(&myLexer)
@@ -86,7 +85,6 @@ func main() {
 			staticTyping.Analyze(&program)
 			codeGenerator := codegen.CodeGenerator{}
 			codeGenerator.Generate(&program)
-			pretty.Println(codeGenerator.Module.String())
 
 			err := os.WriteFile(
 				filename+".ll",
@@ -97,21 +95,23 @@ func main() {
 				panic(err)
 			}
 
+			backend.Init()
 			llvmContext := backend.NewllvmContext()
 			defer llvmContext.Dispose()
 
 			module := llvmContext.ParseIRFromFile(filename + ".ll")
+			os.Remove(filename + ".ll")
 
 			llvmContext.OptimizeModule(module)
 
-			outputFile, err := os.Create(filename + ".exe")
+			objectFile, err := os.Create(filename + ".o")
 			if err != nil {
-				log.Fatalln("Failed to create file for writing compiled code")
+				log.Fatalln("Failed to create object file: ", err)
 			}
 
-			_, err = llvmContext.CompileModule(module, llvm.CodeGenFileType(llvm.AssemblyFile), outputFile)
+			_, err = llvmContext.CompileModule(module, llvm.CodeGenFileType(llvm.ObjectFile), objectFile)
 			if err != nil {
-				log.Fatalln("Failed to write compiled code")
+				log.Fatalln("Failed to write object file: ", err)
 			}
 		}
 	}

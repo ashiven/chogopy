@@ -1,5 +1,6 @@
 cgp*
 *.ll
+*.o
 Output
 .lit_test_times.txt
 tests-partial

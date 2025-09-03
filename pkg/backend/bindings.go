@@ -14,15 +14,13 @@ import (
 	"tinygo.org/x/go-llvm"
 )
 
-/*
-func init() {
+func Init() {
 	llvm.InitializeAllTargetInfos()
 	llvm.InitializeAllTargets()
 	llvm.InitializeAllTargetMCs()
 	llvm.InitializeAllAsmParsers()
 	llvm.InitializeAllAsmPrinters()
 }
-*/
 
 type llvmTarget struct {
 	targetMachine llvm.TargetMachine
@@ -32,7 +30,7 @@ type llvmTarget struct {
 func newllvmTarget() llvmTarget {
 	target, err := llvm.GetTargetFromTriple(llvm.DefaultTargetTriple())
 	if err != nil {
-		log.Fatalln("newllvmTarget: failed to get target from default target triple")
+		log.Fatalln("newllvmTarget: failed to get target from default target triple: ", err)
 	}
 
 	targetMachine := target.CreateTargetMachine(
