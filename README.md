@@ -28,10 +28,19 @@ It includes multiple analysis passes that perform type checking, variable scope 
 git clone https://github.com/ashiven/chogopy.git
 ```
 
-2. Compile the compiler.
+2. Install LLVM according to [this guide](https://tinygo.org/docs/guides/build/bring-your-own-llvm/).
 
 ```bash
-go build -o cgp
+echo 'deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main' | sudo tee /etc/apt/sources.list.d/llvm.list
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install clang-18 llvm-18-dev lld-18 libclang-18-dev
+``` 
+
+3. Compile the compiler.
+
+```bash
+go build -tags=llvm18 -o cgp
 ```
 
 ## Usage
@@ -43,6 +52,7 @@ stages that the compiler should go through by using the following command line f
 - `-t` to parse the given source code and perform static type checking on it.
 - `-n` to parse the given source code and perform name scope analysis on it.
 - `-c` to generate LLVM IR from the given source code.
+- `-o` to generate an object file from the given source code.
 
 An exemplary command would look as follows:
 
