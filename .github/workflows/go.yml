@@ -1,38 +1,34 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
 name: Go
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-
   build:
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.24.6'
-    
-    - name: Install LLVM
-      run: sudo apt install -y llvm
-        
-    - name: Install LLVM toolchain
-      run: |
-        echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-        sudo apt-get update
-        sudo apt-get install clang-18 llvm-18-dev lld-18 libclang-18-dev
-        
-    - name: Build
-      run: go build -tags=llvm18 -v ./...
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.24.6"
 
-    - name: Test
-      run: go test -tags=llvm18 -v ./...
+      - name: Install LLVM
+        run: sudo apt install -y llvm
+
+      - name: Install LLVM toolchain
+        run: |
+          echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo apt-get update
+          sudo apt-get install clang-18 llvm-18-dev lld-18 libclang-18-dev
+
+      - name: Build
+        run: go build -tags=llvm18 -v ./...
+
+      - name: Test
+        run: go test -tags=llvm18 -v ./...
