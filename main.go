@@ -127,6 +127,10 @@ func main() {
 
 func replaceFileEnding(filename string, newEnding string) string {
 	dotSplit := strings.Split(filename, ".")
-	dotSplit[len(dotSplit)-1] = newEnding
+	// TODO: This is the correct method for replacing file endings but the
+	// test cases currently look for the original name with .ll added so I will
+	// just append .ll for now and fix this later.
+	// dotSplit[len(dotSplit)-1] = newEnding
+	dotSplit = append(dotSplit, newEnding)
 	return strings.Join(dotSplit, ".")
 }

@@ -5,13 +5,44 @@ import (
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
-	"github.com/llir/llvm/ir/value"
 )
 
 func (cg *CodeGenerator) registerFuncs() {
+	cg.addStringConstants()
 	cg.registerExternal()
 	cg.registerBuiltin()
 	cg.registerCustom()
+}
+
+func (cg *CodeGenerator) addStringConstants() {
+	cg.strings["str_format"] = cg.globalStringDef("str_format", "%s\x00")
+	cg.strings["str_format_newline"] = cg.globalStringDef("str_format_newline", "%s\n\x00")
+	cg.strings["digit_format"] = cg.globalStringDef("digit_format", "%d\x00")
+	cg.strings["digit_format_newline"] = cg.globalStringDef("digit_format_newline", "%d\n\x00")
+
+	cg.strings["true_newline"] = cg.globalStringDef("true_newline", "True\n\x00")
+	cg.strings["false_newline"] = cg.globalStringDef("false_newline", "False\n\x00")
+
+	cg.strings["error_len_none"] = cg.globalStringDef("error_len_none", "TypeError: object of type 'NoneType' has no len()\n\x00")
+	cg.strings["error_index_none"] = cg.globalStringDef("error_index_none", "TypeError: 'NoneType' object is not subscriptable\n\x00")
+	cg.strings["error_index_neg"] = cg.globalStringDef("error_index_neg", "IndexError: list index out of range\n\x00")
+	cg.strings["error_index_oob"] = cg.globalStringDef("error_index_oob", "IndexError: list index out of range\n\x00")
+}
+
+func (cg *CodeGenerator) globalStringDef(defName string, strLiteral string) *ir.Global {
+	strConst := constant.NewCharArrayFromString(strLiteral)
+	return cg.Module.NewGlobalDef(defName, strConst)
+}
+
+func (cg *CodeGenerator) useStringDef(block *ir.Block, defName string) *ir.InstLoad {
+	zero := constant.NewInt(types.I32, 0)
+	strConst := constant.NewGetElementPtr(types.I8, cg.strings[defName], zero)
+	strVar := block.NewAlloca(types.I8Ptr)
+	strVar.LocalName = cg.uniqueNames.get("str_ptr")
+	block.NewStore(strConst, strVar)
+	globalStr := block.NewLoad(types.I8Ptr, strVar)
+	globalStr.LocalName = cg.uniqueNames.get("global_str")
+	return globalStr
 }
 
 func (cg *CodeGenerator) registerExternal() {
@@ -128,19 +159,14 @@ func (cg *CodeGenerator) defineInput() *ir.Func {
 	input := cg.Module.NewFunc("input", types.I8Ptr)
 	funcBlock := input.NewBlock(cg.uniqueNames.get("entry"))
 
-	strFormatConst := constant.NewCharArrayFromString("%s\x00")
-	strFormatPtr := funcBlock.NewAlloca(strFormatConst.Type())
-	strFormatPtr.LocalName = cg.uniqueNames.get("str_format_ptr")
-	funcBlock.NewStore(strFormatConst, strFormatPtr)
-	strFormatCast := funcBlock.NewBitCast(strFormatPtr, types.I8Ptr)
-	strFormatCast.LocalName = cg.uniqueNames.get("str_format_ptr_cast")
+	strFormatPtr := cg.useStringDef(funcBlock, "str_format")
 
 	inputPtr := funcBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
 	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
 	inputCast := funcBlock.NewBitCast(inputPtr, types.I8Ptr)
 	inputCast.LocalName = cg.uniqueNames.get("input_ptr_cast")
 
-	scanRes := funcBlock.NewCall(cg.functions["scanf"], strFormatCast, inputCast)
+	scanRes := funcBlock.NewCall(cg.functions["scanf"], strFormatPtr, inputCast)
 	scanRes.LocalName = cg.uniqueNames.get("scan_res")
 
 	funcBlock.NewRet(inputCast)
@@ -151,7 +177,6 @@ func (cg *CodeGenerator) defineInput() *ir.Func {
 func (cg *CodeGenerator) registerCustom() {
 	cg.functions["printstr"] = cg.definePrintString()
 	cg.functions["printint"] = cg.definePrintInt()
-	cg.functions["booltostr"] = cg.defineBoolToStr()
 	cg.functions["printbool"] = cg.definePrintBool()
 	cg.functions["floordiv"] = cg.defineFloorDiv()
 	cg.functions["newint"] = cg.defineNewInt()
@@ -174,19 +199,9 @@ func (cg *CodeGenerator) registerCustom() {
 	}
 }
 
-func (cg *CodeGenerator) stringHelper(block *ir.Block, str string) value.Value {
-	charArrConst := constant.NewCharArrayFromString(str)
-	charArrPtr := block.NewAlloca(charArrConst.Type())
-	charArrPtr.LocalName = cg.uniqueNames.get("char_arr_ptr")
-	block.NewStore(charArrConst, charArrPtr)
-	newString := block.NewBitCast(charArrPtr, types.I8Ptr)
-	newString.LocalName = cg.uniqueNames.get("string")
-	return newString
-}
-
 func (cg *CodeGenerator) exceptionHelper(block *ir.Block, exception string) {
 	returnCode := constant.NewInt(types.I32, 0)
-	errorStr := cg.stringHelper(block, exception)
+	errorStr := cg.useStringDef(block, exception)
 
 	block.NewCall(cg.functions["printf"], errorStr)
 	block.NewCall(cg.functions["exit"], returnCode)
@@ -301,7 +316,7 @@ func (cg *CodeGenerator) defineListLen(funcName string, listType types.Type) *ir
 	initTrueBlock.NewRet(listLen)
 
 	/* Raise runtime exception len called on uninitialized list */
-	cg.exceptionHelper(initFalseBlock, "TypeError: object of type 'NoneType' has no len()\n\x00")
+	cg.exceptionHelper(initFalseBlock, "error_len_none")
 	initFalseBlock.NewRet(zero)
 
 	return listLenFunc
@@ -375,15 +390,15 @@ func (cg *CodeGenerator) defineListElemPtr(funcName string, listType types.Type,
 	indexIBBlock.NewRet(elemPtr)
 
 	/* Raise runtime exception indexing uninitialized list */
-	cg.exceptionHelper(initFalseBlock, "TypeError: 'NoneType' object is not subscriptable\n\x00")
+	cg.exceptionHelper(initFalseBlock, "error_index_none")
 	initFalseBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
-	/* Raise runtime exception indexing uninitialized list */
-	cg.exceptionHelper(indexNegBlock, "IndexError: list index out of range\n\x00")
+	/* Raise runtime exception negative index */
+	cg.exceptionHelper(indexNegBlock, "error_index_neg")
 	indexNegBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
-	/* Raise runtime exception indexing uninitialized list */
-	cg.exceptionHelper(indexOOBBlock, "IndexError: list index out of range\n\x00")
+	/* Raise runtime exception index out of bounds */
+	cg.exceptionHelper(indexOOBBlock, "error_index_oob")
 	indexOOBBlock.NewRet(constant.NewNull(types.NewPointer(listElemType)))
 
 	return listLenFunc
@@ -394,7 +409,7 @@ func (cg *CodeGenerator) definePrintString() *ir.Func {
 	printString := cg.Module.NewFunc("printstr", types.I32, strArg)
 	funcBlock := printString.NewBlock(cg.uniqueNames.get("entry"))
 
-	formatStr := cg.stringHelper(funcBlock, "%s\n\x00")
+	formatStr := cg.useStringDef(funcBlock, "str_format_newline")
 	printRes := funcBlock.NewCall(cg.functions["printf"], formatStr, strArg)
 	funcBlock.NewRet(printRes)
 
@@ -406,52 +421,32 @@ func (cg *CodeGenerator) definePrintInt() *ir.Func {
 	printInt := cg.Module.NewFunc("printint", types.I32, intArg)
 	funcBlock := printInt.NewBlock(cg.uniqueNames.get("entry"))
 
-	formatStr := cg.stringHelper(funcBlock, "%d\n\x00")
+	formatStr := cg.useStringDef(funcBlock, "digit_format_newline")
 	printRes := funcBlock.NewCall(cg.functions["printf"], formatStr, intArg)
 	funcBlock.NewRet(printRes)
 
 	return printInt
 }
 
-func (cg *CodeGenerator) defineBoolToStr() *ir.Func {
+func (cg *CodeGenerator) definePrintBool() *ir.Func {
 	arg := ir.NewParam("", types.I1)
-	boolToStr := cg.Module.NewFunc("booltostr", types.I8Ptr, arg)
+	boolToStr := cg.Module.NewFunc("booltostr", types.I32, arg)
 
 	entry := boolToStr.NewBlock(cg.uniqueNames.get("entry"))
 	ifBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.then"))
 	elseBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.else"))
-	exitBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.exit"))
 
-	resPtr := entry.NewAlloca(types.I8Ptr)
-	resPtr.LocalName = cg.uniqueNames.get("booltostr_res_ptr")
 	entry.NewCondBr(arg, ifBlock, elseBlock)
 
-	trueStr := cg.stringHelper(ifBlock, "True\n\x00")
-	ifBlock.NewStore(trueStr, resPtr)
-	ifBlock.NewBr(exitBlock)
+	trueStr := cg.useStringDef(ifBlock, "true_newline")
+	truePrint := ifBlock.NewCall(cg.functions["printf"], trueStr)
+	ifBlock.NewRet(truePrint)
 
-	falseStr := cg.stringHelper(elseBlock, "False\n\x00")
-	elseBlock.NewStore(falseStr, resPtr)
-	elseBlock.NewBr(exitBlock)
-
-	resLoad := exitBlock.NewLoad(types.I8Ptr, resPtr)
-	resLoad.LocalName = cg.uniqueNames.get("res_load")
-	exitBlock.NewRet(resLoad)
+	falseStr := cg.useStringDef(elseBlock, "false_newline")
+	falsePrint := elseBlock.NewCall(cg.functions["printf"], falseStr)
+	elseBlock.NewRet(falsePrint)
 
 	return boolToStr
-}
-
-func (cg *CodeGenerator) definePrintBool() *ir.Func {
-	boolArg := ir.NewParam("", types.I1)
-	printBool := cg.Module.NewFunc("printbool", types.I32, boolArg)
-	funcBlock := printBool.NewBlock(cg.uniqueNames.get("entry"))
-
-	boolStr := funcBlock.NewCall(cg.functions["booltostr"], boolArg)
-	printRes := funcBlock.NewCall(cg.functions["printf"], boolStr)
-
-	funcBlock.NewRet(printRes)
-
-	return printBool
 }
 
 // NOTE: We can't use the below function because it uses alloca to

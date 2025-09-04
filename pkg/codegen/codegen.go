@@ -31,6 +31,7 @@ type VarInfo struct {
 }
 
 type (
+	Strings   map[string]*ir.Global
 	Functions map[string]*ir.Func
 	VarCtx    map[*ir.Func]Variables
 	Variables map[string]VarInfo
@@ -42,6 +43,7 @@ type CodeGenerator struct {
 	uniqueNames UniqueNames
 
 	types     Types
+	strings   Strings
 	functions Functions
 
 	varContext VarCtx
@@ -64,6 +66,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.uniqueNames = typeEnvBuilder.uniqueNames
 	cg.types = typeEnvBuilder.types
 
+	cg.strings = Strings{}
 	cg.functions = Functions{}
 	cg.registerFuncs()
 
