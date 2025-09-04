@@ -34,19 +34,17 @@ func (cg *CodeGenerator) globalStringDef(defName string, strLiteral string) *ir.
 	return cg.Module.NewGlobalDef(defName, strConst)
 }
 
-func (cg *CodeGenerator) useStringDef(block *ir.Block, defName string) *ir.InstBitCast {
+func (cg *CodeGenerator) useStringDef(block *ir.Block, defName string) *ir.InstLoad {
 	zero := constant.NewInt(types.I32, 0)
-	charArrConst := constant.NewGetElementPtr(cg.strings[defName].Typ.ElemType, cg.strings[defName], zero)
+	strConst := constant.NewGetElementPtr(cg.strings[defName].Typ.ElemType, cg.strings[defName], zero, zero)
 
-	charArrPtr := block.NewAlloca(cg.strings[defName].Type())
-	charArrPtr.LocalName = cg.uniqueNames.get("char_arr_ptr")
-	block.NewStore(charArrConst, charArrPtr)
+	strPtr := block.NewAlloca(types.I8Ptr)
+	strPtr.LocalName = cg.uniqueNames.get("str_ptr")
+	block.NewStore(strConst, strPtr)
 
-	globalCharArr := block.NewLoad(cg.strings[defName].Type(), charArrPtr)
-	globalCharArr.LocalName = cg.uniqueNames.get("global_char_arr")
-
-	globalStr := block.NewBitCast(globalCharArr, types.I8Ptr)
+	globalStr := block.NewLoad(types.I8Ptr, strPtr)
 	globalStr.LocalName = cg.uniqueNames.get("global_str")
+
 	return globalStr
 }
 
