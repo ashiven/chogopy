@@ -9,6 +9,7 @@ import (
 	"chogopy/pkg/typechecks"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/kr/pretty"
@@ -72,8 +73,10 @@ func main() {
 			codeGenerator.Generate(&program)
 			pretty.Println(codeGenerator.Module.String())
 
+			// TODO: To keep the test cases working I am only appending .ll to the filename
+			// here but will have to change that in the future and modify the test cases accordingly.
 			err := os.WriteFile(
-				llFileName,
+				filename+".ll",
 				[]byte(codeGenerator.Module.String()),
 				0644,
 			)
@@ -108,6 +111,7 @@ func main() {
 			os.Remove(llFileName)
 
 			// TODO: Somehow optimizing the module breaks things so I will leave it commented out for now.
+			// I believe it might be related to functions that incorrectly handle strings via local allocation.
 			// llvmContext.OptimizeModule(module)
 
 			objectFile, err := os.Create(objectFileName)
@@ -120,17 +124,23 @@ func main() {
 				log.Fatalln("Failed to write object file: ", err)
 			}
 
-			// TODO: System call to gcc to link the object file: gcc -o output filename.o
+			linkerCmd := exec.Command("gcc", "-o "+replaceFileEnding(filename, ""), objectFileName)
+			_, err = linkerCmd.CombinedOutput()
+			if err != nil {
+				log.Fatalln("Failed to link object file: ", err)
+			}
 		}
 	}
 }
 
 func replaceFileEnding(filename string, newEnding string) string {
 	dotSplit := strings.Split(filename, ".")
-	// TODO: This is the correct method for replacing file endings but the
-	// test cases currently look for the original name with .ll added so I will
-	// just append .ll for now and fix this later.
-	// dotSplit[len(dotSplit)-1] = newEnding
-	dotSplit = append(dotSplit, newEnding)
+
+	if newEnding == "" {
+		dotSplit = dotSplit[:len(dotSplit)-1]
+	} else {
+		dotSplit[len(dotSplit)-1] = newEnding
+	}
+
 	return strings.Join(dotSplit, ".")
 }
