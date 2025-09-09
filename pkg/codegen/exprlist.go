@@ -8,6 +8,12 @@ import (
 )
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
+	listPtr := cg.newConstantList(listExpr)
+
+	cg.lastGenerated = listPtr
+}
+
+func (cg *CodeGenerator) newConstantList(listExpr *ast.ListExpr) constant.Constant {
 	listLenU64 := uint64(len(listExpr.Elements))
 
 	// attrToType will return something like:
@@ -24,18 +30,41 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 	listLen := constant.NewInt(types.I32, int64(listLenU64))
 	listInit := constant.NewBool(true)
 
+	listElems := cg.getListElems(listExpr)
+
+	zero := constant.NewInt(types.I32, 0)
+
+	listContent := constant.NewArray(types.NewArray(listLenU64, listElemType), listElems...)
+	listContentDef := cg.Module.NewGlobalDef(cg.uniqueNames.get("list_content"), listContent)
+
+	listContentPtr := constant.NewGetElementPtr(listContentDef.Typ.ElemType, listContentDef, zero, zero)
+
+	listDef := cg.Module.NewGlobalDef(
+		cg.uniqueNames.get("list_literal"),
+		constant.NewStruct(listType, listContentPtr, listLen, listInit),
+	)
+	listPtr := constant.NewGetElementPtr(listType, listDef, zero)
+
+	return listPtr
+}
+
+func (cg *CodeGenerator) getListElems(listExpr *ast.ListExpr) []constant.Constant {
 	// NOTE: We are assuming that all list literals will contain nothing but
 	// literal expressions like: [1,2,3] or ["a","b","c"] as opposed to: [var1,var2,var3] or [v[0],v[1],v[3]]
 	// This is because we will allocate list literals statically at compile time (using global definitions)
 	// instead of dynamically at runtime on the stack or the heap.
+	// This limits the expressiveness of this already limited language even more but I am currently
+	// unsure how to go about returning either a copy of the call stack which the caller may be able to
+	// use to create a copy of the list or how to allocate memory on the heap that will be
+	// freed again without the programmer explicitly having to call a freeing function.
 	listElems := []constant.Constant{}
+
 	for _, elem := range listExpr.Elements {
 		// According to our assumption above, an elem can either be another list literal or a literal expression
 		switch elem := elem.(type) {
 		case *ast.ListExpr:
-			// TODO: nested list literals like: [[1], [1,2], [3]]
-			elemType := cg.attrToType(elem.TypeHint)
-			_ = elemType
+			listConstant := cg.newConstantList(elem)
+			listElems = append(listElems, listConstant)
 
 		case *ast.LiteralExpr:
 			elemType := cg.attrToType(elem.TypeHint)
@@ -56,18 +85,5 @@ func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 		}
 	}
 
-	zero := constant.NewInt(types.I32, 0)
-
-	listContent := constant.NewArray(types.NewArray(listLenU64, listElemType), listElems...)
-	listContentDef := cg.Module.NewGlobalDef(cg.uniqueNames.get("list_content"), listContent)
-
-	listContentPtr := constant.NewGetElementPtr(listContentDef.Typ.ElemType, listContentDef, zero, zero)
-
-	listDef := cg.Module.NewGlobalDef(
-		cg.uniqueNames.get("list_literal"),
-		constant.NewStruct(listType, listContentPtr, listLen, listInit),
-	)
-	listPtr := constant.NewGetElementPtr(listType, listDef, zero)
-
-	cg.lastGenerated = listPtr
+	return listElems
 }
