@@ -5,8 +5,10 @@ l: [int] = None
 t: [int] = None
 
 def foo() -> [int]:
-  a: [int] = [1]
-  b: [int] = [2]
+  a: [int] = None
+  b: [int] = None
+  a = [1]
+  b = [2]
   return a + b
 
 l = foo()
