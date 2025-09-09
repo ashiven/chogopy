@@ -117,12 +117,12 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 	return concatPtr
 }
 
-// NewList dynamically allocates and returns a pointer to a list literal
+// newList dynamically allocates and returns a pointer to a list literal
 // on the call stack of the currently executing function.
 // This is problematic if the list literal were to be used outside of the
 // current function, for instance, if the function returned a pointer to this list.
 // This pointer would then point to unallocated memory (the call stack is freed after function return)
-func (cg *CodeGenerator) NewList(listElems []value.Value, listType types.Type) value.Value {
+func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) value.Value {
 	/* list.size and list.init */
 	listLen := constant.NewInt(types.I32, int64(len(listElems)))
 	listInit := constant.NewBool(true)
