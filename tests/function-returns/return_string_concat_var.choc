@@ -1,0 +1,15 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+a: str = ""
+
+def foo() -> str:
+  b: str = "he"
+  c: str = "llo"
+  return b + c
+
+a = foo()
+
+print(a)
+
+# CHECK: hello

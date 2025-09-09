@@ -1,0 +1,16 @@
+# RUN: lli %s.ll | filecheck %s
+# RUN: python %s | filecheck %s
+
+l: [int] = None
+t: [int] = None
+
+def foo() -> [int]:
+  a: [int] = [1]
+  return a[0]
+
+l = foo()
+t = foo()
+
+print(l[0])
+
+# CHECK: 1
