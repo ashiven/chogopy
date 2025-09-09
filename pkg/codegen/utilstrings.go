@@ -41,12 +41,6 @@ func containsCharArr(val value.Value) bool {
 	return false
 }
 
-func (cg *CodeGenerator) toString(val value.Value) value.Value {
-	strCast := cg.currentBlock.NewBitCast(val, types.I8Ptr)
-	strCast.LocalName = cg.uniqueNames.get("str_cast")
-	return strCast
-}
-
 func (cg *CodeGenerator) getStringLen(strVal value.Value) value.Value {
 	strLen := cg.currentBlock.NewCall(cg.functions["strlen"], strVal)
 	strLen.LocalName = cg.uniqueNames.get("str_len")
@@ -101,6 +95,7 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 	return copyBuffer
 }
 
+// TODO: use global allocation
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
 	// 1) Allocate a destination buffer of size: char[lhsLen + rhsLen + 1] (one more for the zero byte)
 	lhsLen := cg.currentBlock.NewCall(cg.functions["strlen"], lhs)

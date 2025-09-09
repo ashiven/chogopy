@@ -21,7 +21,7 @@ func (cg *CodeGenerator) NewStore(src value.Value, target value.Value) {
 
 // NewLiteral takes any literal of type int, bool, string, or nil and creates a new allocation and store for that value.
 // It returns an SSA value containing the value of the given literal with the following types:
-// int: i32   str: [n x i8]*   bool: i1   nil: %none*
+// int: i32   str: i8*   bool: i1   nil: %none*
 func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 	switch literal := literal.(type) {
 	case int:
@@ -37,12 +37,24 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		return boolLiteral
 
 	case string:
+		// NOTE: The contents of a string need to put into a global definition or allocated on the heap.
+		// The reason for this is that alloc allocates memory on the stack
+		// of the currently executing function which will be freed after the function
+		// returns. Therefore, if the function were to return a pointer to such
+		// stack allocated memory, the pointer would point to unallocated memory.
+		// Hence, we can't return strings (i8*) from functions if their contents
+		// are not on the heap or in a global def.
 		charArrConst := constant.NewCharArrayFromString(literal + "\x00")
-		charArrPtr := cg.currentBlock.NewAlloca(charArrConst.Type())
-		charArrPtr.LocalName = cg.uniqueNames.get("char_arr_ptr")
-		cg.NewStore(charArrConst, charArrPtr)
-		strCast := cg.toString(charArrPtr)
-		return strCast
+		charArrGlobal := cg.Module.NewGlobalDef(cg.uniqueNames.get("str"), charArrConst)
+
+		zero := constant.NewInt(types.I32, 0)
+		strConst := constant.NewGetElementPtr(charArrGlobal.Typ.ElemType, charArrGlobal, zero, zero)
+		strPtr := cg.currentBlock.NewAlloca(types.I8Ptr)
+
+		cg.NewStore(strConst, strPtr)
+		strLoad := cg.currentBlock.NewLoad(types.I8Ptr, strPtr)
+
+		return strLoad
 
 	case nil:
 		noneConst := constant.NewNull(types.NewPointer(cg.types["none"]))

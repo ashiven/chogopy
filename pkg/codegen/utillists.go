@@ -74,6 +74,7 @@ func (cg *CodeGenerator) setListContent(list value.Value, content value.Value) {
 	cg.NewStore(content, listContentAddr)
 }
 
+// TODO: use global allocation
 func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType types.Type) value.Value {
 	zero := constant.NewInt(types.I32, 0)
 	four := constant.NewInt(types.I32, 4)
@@ -116,6 +117,7 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 	return concatPtr
 }
 
+// TODO: use global allocation
 func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) value.Value {
 	/* list alloc */
 	listPtr := cg.currentBlock.NewAlloca(listType)
