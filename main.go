@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/kr/pretty"
@@ -17,18 +18,18 @@ import (
 )
 
 func main() {
-	filename := ""
+	filePath := ""
 
-	if len(os.Args) > 2 {
-		filename = os.Args[2]
+	if len(os.Args) > 1 {
+		filePath = os.Args[len(os.Args)-1]
 	} else {
-		log.Fatal("Please provide a filename and a mode")
+		log.Fatal("Please provide a file path.")
 	}
 
-	llFileName := replaceFileEnding(filename, "ll")
-	objectFileName := replaceFileEnding(filename, "o")
+	llFilePath := replaceFileEnding(filePath, "ll")
+	objectFilePath := replaceFileEnding(filePath, "o")
 
-	byteStream, err := os.ReadFile(filename)
+	byteStream, err := os.ReadFile(filePath)
 	if err != nil {
 		pretty.Println(err.Error())
 	}
@@ -53,14 +54,12 @@ func main() {
 			program := myParser.ParseProgram()
 			staticTyping := typechecks.StaticTyping{}
 			staticTyping.Analyze(&program)
-			pretty.Println(program)
 		case "-n":
 			program := myParser.ParseProgram()
 			assignTargets := scopes.AssignTargets{}
 			assignTargets.Analyze(&program)
 			scopes := scopes.NameScopes{}
 			scopes.Analyze(&program)
-			pretty.Println(scopes.NameContext)
 		case "-c":
 			program := myParser.ParseProgram()
 			assignTargets := scopes.AssignTargets{}
@@ -71,70 +70,76 @@ func main() {
 			staticTyping.Analyze(&program)
 			codeGenerator := codegen.CodeGenerator{}
 			codeGenerator.Generate(&program)
-			pretty.Println(codeGenerator.Module.String())
 
-			// TODO: To keep the test cases working I am only appending .ll to the filename
+			// TODO: To keep the test cases working I am only appending .ll to the filePath
 			// here but will have to change that in the future and modify the test cases accordingly.
 			err := os.WriteFile(
-				filename+".ll",
+				filePath+".ll",
 				[]byte(codeGenerator.Module.String()),
 				0644,
 			)
 			if err != nil {
 				panic(err)
 			}
-		case "-o":
-			program := myParser.ParseProgram()
-			assignTargets := scopes.AssignTargets{}
-			assignTargets.Analyze(&program)
-			nameScopes := scopes.NameScopes{}
-			nameScopes.Analyze(&program)
-			staticTyping := typechecks.StaticTyping{}
-			staticTyping.Analyze(&program)
-			codeGenerator := codegen.CodeGenerator{}
-			codeGenerator.Generate(&program)
-
-			err := os.WriteFile(
-				llFileName,
-				[]byte(codeGenerator.Module.String()),
-				0644,
-			)
-			if err != nil {
-				log.Fatalln("Failed to create llvm IR file: ", err)
-			}
-
-			backend.Init()
-			llvmContext := backend.NewllvmContext()
-			defer llvmContext.Dispose()
-
-			module := llvmContext.ParseIRFromFile(llFileName)
-			os.Remove(llFileName)
-
-			// TODO: Somehow optimizing the module breaks things so I will leave it commented out for now.
-			// I believe it might be related to functions that incorrectly handle strings via local allocation.
-			// llvmContext.OptimizeModule(module)
-
-			objectFile, err := os.Create(objectFileName)
-			if err != nil {
-				log.Fatalln("Failed to create object file: ", err)
-			}
-
-			_, err = llvmContext.CompileModule(module, llvm.CodeGenFileType(llvm.ObjectFile), objectFile)
-			if err != nil {
-				log.Fatalln("Failed to write object file: ", err)
-			}
-
-			linkerCmd := exec.Command("gcc", "-o "+replaceFileEnding(filename, ""), objectFileName)
-			_, err = linkerCmd.CombinedOutput()
-			if err != nil {
-				log.Fatalln("Failed to link object file: ", err)
-			}
 		}
+	} else {
+		program := myParser.ParseProgram()
+		assignTargets := scopes.AssignTargets{}
+		assignTargets.Analyze(&program)
+		nameScopes := scopes.NameScopes{}
+		nameScopes.Analyze(&program)
+		staticTyping := typechecks.StaticTyping{}
+		staticTyping.Analyze(&program)
+		codeGenerator := codegen.CodeGenerator{}
+		codeGenerator.Generate(&program)
+
+		err := os.WriteFile(
+			llFilePath,
+			[]byte(codeGenerator.Module.String()),
+			0644,
+		)
+		if err != nil {
+			log.Fatalln("Failed to create llvm IR file: ", err)
+		}
+
+		backend.Init()
+		llvmContext := backend.NewllvmContext()
+		defer llvmContext.Dispose()
+
+		module := llvmContext.ParseIRFromFile(llFilePath)
+		os.Remove(llFilePath)
+
+		// TODO: This breaks some of the modules which are not entirely correct yet
+		// (For instance, modules in which functions allocate strings or lists on their call stack
+		// and then return pointers to the now unallocated memory. This still happens when input() or
+		// list/string concatenation is used and the resulting value is returned and then used by the caller.)
+		llvmContext.OptimizeModule(module)
+
+		objectFile, err := os.Create(objectFilePath)
+		if err != nil {
+			log.Fatalln("Failed to create object file: ", err)
+		}
+
+		_, err = llvmContext.CompileModule(module, llvm.CodeGenFileType(llvm.ObjectFile), objectFile)
+		if err != nil {
+			log.Fatalln("Failed to compile module: ", err)
+		}
+
+		fileName := filepath.Base(filePath)
+		outputFile := replaceFileEnding(fileName, "")
+
+		linkerCmd := exec.Command("gcc", "-v", "-Wall", "-Wextra", "-Wwrite-strings", "-g3", "-o"+outputFile, objectFilePath)
+		_, err = linkerCmd.CombinedOutput()
+		if err != nil {
+			log.Fatalln("Failed to link object file: ", err)
+		}
+
+		os.Remove(objectFilePath)
 	}
 }
 
-func replaceFileEnding(filename string, newEnding string) string {
-	dotSplit := strings.Split(filename, ".")
+func replaceFileEnding(filePath string, newEnding string) string {
+	dotSplit := strings.Split(filePath, ".")
 
 	if newEnding == "" {
 		dotSplit = dotSplit[:len(dotSplit)-1]
