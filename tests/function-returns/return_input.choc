@@ -1,0 +1,19 @@
+# RUN: echo "hello" | lli %s.ll | filecheck %s
+# RUN: echo "hello" | python %s | filecheck %s
+
+a: str = ""
+b: str = ""
+
+def foo() -> str:
+  c: str = ""
+  c = input()
+  return c
+
+a = foo()
+b = "world"
+
+print(a)
+print(b)
+
+# CHECK: hello
+# CHECK: world

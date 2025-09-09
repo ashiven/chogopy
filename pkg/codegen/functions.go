@@ -158,13 +158,13 @@ func (cg *CodeGenerator) registerBuiltin() {
 	cg.functions["len"] = len_
 }
 
-// TODO: The memory this function allocates for the input string is allocated on the functions
+// TODO: The memory this function allocates for the input string is allocated on the functions'
 // local stack frame, which will be freed after the function returns.
 // Therefore, we are returning a pointer to unallocated memory.
 // We should instead create a global string constant or use malloc to allocate memory on the heap.
-// The same applies to any non-predefined functions defined by the user. If they somehow return a string
-// from their function, the way we are currently generating the code, that string will be a pointer to
-// unallocated memory. (allocated on the functions stack frame)
+// The same applies to any non-predefined functions defined by the user. If they somehow return a string,
+// the way we are currently generating the code, that string will be a pointer to
+// unallocated memory. (allocated on the functions' call frame)
 func (cg *CodeGenerator) defineInput() *ir.Func {
 	input := cg.Module.NewFunc("input", types.I8Ptr)
 	funcBlock := input.NewBlock(cg.uniqueNames.get("entry"))
