@@ -62,7 +62,7 @@ An exemplary command would look as follows:
 
 ## Contributing
 
-Please feel free to submit a [pull request](https://github.com/ashiven/housekeepy/pulls) or open an [issue](https://github.com/ashiven/housekeepy/issues).
+Please feel free to submit a [pull request](https://github.com/ashiven/chogopy/pulls) or open an [issue](https://github.com/ashiven/chogopy/issues).
 
 1. Fork the repository
 2. Create a new branch: `git checkout -b feature-name`.
@@ -76,5 +76,5 @@ This project is licensed under the [MIT License](./LICENSE).
 
 ---
 
-> GitHub [@ashiven](https://github.com/Ashiven) &nbsp;&middot;&nbsp;
+> GitHub [@ashiven](https://github.com/ashiven) &nbsp;&middot;&nbsp;
 > Twitter [ashiven\_](https://twitter.com/ashiven_)
