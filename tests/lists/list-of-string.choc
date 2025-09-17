@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./list-of-string | filecheck %s
 # RUN: python %s | filecheck %s
 
 digits: [str] = None

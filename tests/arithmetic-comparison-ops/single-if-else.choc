@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./single-if-else | filecheck %s
 # RUN: python %s | filecheck %s
 
 print(52 if True else 12)

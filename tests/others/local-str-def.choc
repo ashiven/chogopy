@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./local-str-def | filecheck %s
 # RUN: python %s | filecheck %s
 
 def foo():

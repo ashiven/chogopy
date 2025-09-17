@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./single-op-unary-minus | filecheck %s
 # RUN: python %s | filecheck %s
 
 

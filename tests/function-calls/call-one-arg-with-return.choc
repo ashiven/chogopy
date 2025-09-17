@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./call-one-arg-with-return | filecheck %s
 # RUN: python %s | filecheck %s
 
 def foo(x: int) -> int:

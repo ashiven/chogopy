@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN ./for-list | filecheck %s
 # RUN: python %s | filecheck %s
 
 i: int = 0

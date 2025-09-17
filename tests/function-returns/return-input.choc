@@ -1,4 +1,4 @@
-# RUN: echo "hello" | lli %s.ll | filecheck %s
+# RUN: echo "hello" | ./return-input | filecheck %s
 # RUN: echo "hello" | python %s | filecheck %s
 
 a: str = ""

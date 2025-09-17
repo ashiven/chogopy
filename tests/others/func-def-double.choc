@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./func-def-double | filecheck %s
 # RUN: python %s | filecheck %s
 g: str = "global"
 

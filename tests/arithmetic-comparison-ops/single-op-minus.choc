@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./single-op-minus | filecheck %s
 # RUN: python %s | filecheck %s
 
 print(1)

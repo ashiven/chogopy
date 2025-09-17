@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./return-list-concat-var | filecheck %s
 # RUN: python %s | filecheck %s
 
 # NOTE: Broken in executable

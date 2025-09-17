@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./fib | filecheck %s
 # RUN: python %s | filecheck %s
 
 def fib(n: int) -> int:

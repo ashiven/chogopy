@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./while-multiple-times | filecheck %s
 # RUN: python %s | filecheck %s
 
 x: int = 0

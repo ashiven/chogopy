@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./single-if-false | filecheck %s
 # RUN: python %s | filecheck %s
 
 if False:

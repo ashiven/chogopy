@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./return-string-index | filecheck %s
 # RUN: python %s | filecheck %s
 
 # NOTE: Broken in executable

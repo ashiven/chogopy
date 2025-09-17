@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./for-none | filecheck %s
 
 i: int = 0
 l: [int] = None

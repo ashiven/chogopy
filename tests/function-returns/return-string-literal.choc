@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./return-string-literal | filecheck %s
 # RUN: python %s | filecheck %s
 
 a: str = ""

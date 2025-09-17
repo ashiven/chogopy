@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./var-def-in-func | filecheck %s
 # RUN: python %s | filecheck %s
 
 def foo() -> int:
