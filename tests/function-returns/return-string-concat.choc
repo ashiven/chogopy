@@ -1,14 +1,14 @@
 # RUN: lli %s.ll | filecheck %s
 # RUN: python %s | filecheck %s
 
+# NOTE: Broken in executable
 a: str = ""
 
 def foo() -> str:
-  b: str = "he"
-  return b[1]
+  return "he" + "llo"
 
 a = foo()
 
 print(a)
 
-# CHECK: e
+# CHECK: hello

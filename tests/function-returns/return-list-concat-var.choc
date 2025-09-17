@@ -1,11 +1,16 @@
 # RUN: lli %s.ll | filecheck %s
 # RUN: python %s | filecheck %s
 
+# NOTE: Broken in executable
 l: [int] = None
 t: [int] = None
 
 def foo() -> [int]:
-  return [1] + [2]
+  a: [int] = None
+  b: [int] = None
+  a = [1]
+  b = [2]
+  return a + b
 
 l = foo()
 t = foo()
