@@ -47,16 +47,22 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		charArrConst := constant.NewCharArrayFromString(literal + "\x00")
 		charArrGlobal := cg.Module.NewGlobalDef(cg.uniqueNames.get("str"), charArrConst)
 
+		// Store static string into stack-allocated string ptr
 		zero := constant.NewInt(types.I32, 0)
 		strConst := constant.NewGetElementPtr(charArrGlobal.Typ.ElemType, charArrGlobal, zero, zero)
-		strPtr := cg.currentBlock.NewAlloca(types.I8Ptr)
-		strPtr.LocalName = cg.uniqueNames.get("str_ptr")
+		strPtrStack := cg.currentBlock.NewAlloca(types.I8Ptr)
+		strPtrStack.LocalName = cg.uniqueNames.get("str_ptr_stack")
+		cg.NewStore(strConst, strPtrStack)
+		strStack := cg.currentBlock.NewLoad(types.I8Ptr, strPtrStack)
+		strStack.LocalName = cg.uniqueNames.get("str_stack")
 
-		cg.NewStore(strConst, strPtr)
-		strLoad := cg.currentBlock.NewLoad(types.I8Ptr, strPtr)
-		strLoad.LocalName = cg.uniqueNames.get("str_literal")
+		// Copy string into heap-allocated string ptr
+		strHeap := cg.currentBlock.NewCall(cg.functions["malloc"], constant.NewInt(types.I32, int64(len(literal)+1)))
+		strHeap.LocalName = cg.uniqueNames.get("str_heap")
+		strCopy := cg.currentBlock.NewCall(cg.functions["sprintf"], strHeap, cg.strings["str_format"], strStack)
+		strCopy.LocalName = cg.uniqueNames.get("strcpy_res")
 
-		return strLoad
+		return strHeap
 
 	case nil:
 		noneConst := constant.NewNull(types.NewPointer(cg.types["none"]))

@@ -98,7 +98,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	}
 
 	// Add a free() for each call to malloc() at the end of the main function
-	// cg.freeHeap()
+	cg.freeHeap()
 
 	cg.currentBlock.NewRet(constant.NewInt(types.I32, 0))
 }

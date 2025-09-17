@@ -74,7 +74,7 @@ func (cg *CodeGenerator) setListContent(list value.Value, content value.Value) {
 	cg.NewStore(content, listContentAddr)
 }
 
-// TODO: use global allocation
+// TODO: use heap allocation
 func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType types.Type) value.Value {
 	zero := constant.NewInt(types.I32, 0)
 	four := constant.NewInt(types.I32, 4)
@@ -96,18 +96,20 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 	concatInit := constant.NewBool(true)
 
 	concatListElemType := getListElemTypeFromListType(listType)
-	concatContentPtr := cg.NewAllocN(concatListElemType, concatLen)
+	concatContentPtr := cg.currentBlock.NewCall(cg.functions["malloc"], concatLen)
+	concatContentPtr.LocalName = cg.uniqueNames.get("concat_content_ptr")
+	cg.heapAllocs = append(cg.heapAllocs, concatContentPtr)
 	cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtr, lhsContentPtr, lhsLenByte)
 
 	if isList(concatContentPtr) {
 		/* Content is another list */
 		contentIdx := constant.NewInt(types.I32, 0)
-		concatContentPtrShifted := cg.currentBlock.NewGetElementPtr(concatContentPtr.ElemType, concatContentPtr, lhsLen, contentIdx)
+		concatContentPtrShifted := cg.currentBlock.NewGetElementPtr(concatListElemType, concatContentPtr, lhsLen, contentIdx)
 		cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtrShifted, rhsContentPtr, rhsLenByte)
 
 	} else {
 		/* Regular list content */
-		concatContentPtrShifted := cg.currentBlock.NewGetElementPtr(concatContentPtr.ElemType, concatContentPtr, lhsLen)
+		concatContentPtrShifted := cg.currentBlock.NewGetElementPtr(concatListElemType, concatContentPtr, lhsLen)
 		cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtrShifted, rhsContentPtr, rhsLenByte)
 	}
 
