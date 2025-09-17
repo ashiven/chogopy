@@ -7,6 +7,8 @@ import (
 	"github.com/llir/llvm/ir/types"
 )
 
+var MaxBufferSize = int64(1000)
+
 func (cg *CodeGenerator) registerFuncs() {
 	cg.addStringConstants()
 	cg.registerExternal()
@@ -185,15 +187,13 @@ func (cg *CodeGenerator) defineInput() *ir.Func {
 
 	strFormatPtr := cg.useStringDef(funcBlock, "str_format")
 
-	inputPtr := funcBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
-	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
-	inputCast := funcBlock.NewBitCast(inputPtr, types.I8Ptr)
-	inputCast.LocalName = cg.uniqueNames.get("input_ptr_cast")
+	inputStr := funcBlock.NewCall(cg.functions["malloc"], constant.NewInt(types.I32, MaxBufferSize))
+	inputStr.LocalName = cg.uniqueNames.get("input_ptr")
 
-	scanRes := funcBlock.NewCall(cg.functions["scanf"], strFormatPtr, inputCast)
+	scanRes := funcBlock.NewCall(cg.functions["scanf"], strFormatPtr, inputStr)
 	scanRes.LocalName = cg.uniqueNames.get("scan_res")
 
-	funcBlock.NewRet(inputCast)
+	funcBlock.NewRet(inputStr)
 
 	return input
 }
