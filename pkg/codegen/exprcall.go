@@ -1,8 +1,9 @@
 package codegen
 
 import (
-	"chogopy/pkg/ast"
 	"log"
+
+	"chogopy/pkg/ast"
 
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
@@ -33,6 +34,10 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	callee := cg.functions[callExpr.FuncName]
 	callRes := cg.currentBlock.NewCall(callee, args...)
 	callRes.LocalName = cg.uniqueNames.get("call_res")
+
+	if callRes.Type().Equal(types.I8Ptr) {
+		cg.heapAllocs = append(cg.heapAllocs, callRes)
+	}
 
 	cg.lastGenerated = callRes
 }

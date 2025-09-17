@@ -122,3 +122,21 @@ func (cg *CodeGenerator) concat(binaryExpr *ast.BinaryExpr, lhs value.Value, rhs
 
 	return false
 }
+
+// func (cg CodeGenerator) getStrLiteral(node ast.Node) string {
+// 	if isIdentOrIndex(node) {
+// 		varInfo, _ := cg.getVar(node.(*ast.IdentExpr).Identifier)
+// 		initConst := varInfo.init.(*constant.ExprGetElementPtr)
+// 		charArr := initConst.Src.(*ir.Global).Init.(*constant.CharArray).X
+// 		strLiteral := string(charArr[:len(charArr)-1]) // Remove '/0' from the char array
+// 		return strLiteral
+//
+// 	} else {
+// 		return node.(*ast.LiteralExpr).Value.(string)
+// 	}
+// }
+
+// 		lhsString := cg.getStrLiteral(binaryExpr.Lhs)
+// 		rhsString := cg.getStrLiteral(binaryExpr.Rhs)
+//
+// 		cg.lastGenerated = cg.concatStrings(lhsString, rhsString)

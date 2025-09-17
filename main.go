@@ -75,7 +75,7 @@ func main() {
 			// TODO: To keep the test cases working I am only appending .ll to the filePath
 			// here but will have to change that in the future and modify the test cases accordingly.
 			err := os.WriteFile(
-				filePath+".ll",
+				replaceFileEnding(filePath, "ll"),
 				[]byte(codeGenerator.Module.String()),
 				0o644,
 			)

@@ -1,8 +1,9 @@
 package codegen
 
 import (
-	"chogopy/pkg/ast"
 	"strings"
+
+	"chogopy/pkg/ast"
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
@@ -16,14 +17,14 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	case cg.mainFunction:
 		globalVar := cg.Module.NewGlobalDef(varName, literalConst)
 		cg.setVar(
-			VarInfo{name: varName, elemType: globalVar.Typ.ElemType, value: globalVar},
+			VarInfo{name: varName, elemType: globalVar.Typ.ElemType, value: globalVar, init: literalConst},
 		)
 
 	default:
 		localVar := cg.currentBlock.NewAlloca(literalConst.Type())
 		cg.currentBlock.NewStore(literalConst, localVar)
 		cg.setVar(
-			VarInfo{name: varName, elemType: localVar.Typ.ElemType, value: localVar},
+			VarInfo{name: varName, elemType: localVar.Typ.ElemType, value: localVar, init: literalConst},
 		)
 	}
 }

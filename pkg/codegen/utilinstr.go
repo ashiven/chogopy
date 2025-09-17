@@ -50,9 +50,11 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		zero := constant.NewInt(types.I32, 0)
 		strConst := constant.NewGetElementPtr(charArrGlobal.Typ.ElemType, charArrGlobal, zero, zero)
 		strPtr := cg.currentBlock.NewAlloca(types.I8Ptr)
+		strPtr.LocalName = cg.uniqueNames.get("str_ptr")
 
 		cg.NewStore(strConst, strPtr)
 		strLoad := cg.currentBlock.NewLoad(types.I8Ptr, strPtr)
+		strLoad.LocalName = cg.uniqueNames.get("str_literal")
 
 		return strLoad
 

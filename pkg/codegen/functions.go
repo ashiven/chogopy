@@ -112,6 +112,18 @@ func (cg *CodeGenerator) registerExternal() {
 	)
 	printf.Sig.Variadic = true
 
+	malloc := cg.Module.NewFunc(
+		"malloc",
+		types.I8Ptr,
+		ir.NewParam("", types.I32),
+	)
+
+	free := cg.Module.NewFunc(
+		"free",
+		types.Void,
+		ir.NewParam("", types.I8Ptr),
+	)
+
 	//fgets := cg.Module.NewFunc(
 	//	"fgets",
 	//	types.I8Ptr,
@@ -136,6 +148,8 @@ func (cg *CodeGenerator) registerExternal() {
 	cg.functions["memcpy"] = memcpy
 	cg.functions["sprintf"] = sprintf
 	cg.functions["printf"] = printf
+	cg.functions["malloc"] = malloc
+	cg.functions["free"] = free
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 }
