@@ -10,9 +10,6 @@ import (
 
 func (cg *CodeGenerator) VisitListExpr(listExpr *ast.ListExpr) {
 	listPtr := cg.newDynamicList(listExpr)
-
-	// TODO: copy list to heap and return that instead
-
 	cg.lastGenerated = listPtr
 }
 

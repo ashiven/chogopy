@@ -95,14 +95,8 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 	rhsLenByte := cg.currentBlock.NewMul(rhsLen, four)
 	rhsLenByte.LocalName = cg.uniqueNames.get("rhs_len_byte")
 
-	// Trick to get the size of a list struct for malloc
-	listTypeSize := cg.currentBlock.NewGetElementPtr(listType, constant.NewNull(types.NewPointer(listType)), constant.NewInt(types.I32, 1))
-	listTypeSize.LocalName = cg.uniqueNames.get("list_size_ptr")
-	listSizeInt := cg.currentBlock.NewPtrToInt(listTypeSize, types.I32)
-	listSizeInt.LocalName = cg.uniqueNames.get("list_size_int")
-
 	// Heap-allocation for the list struct
-	concatPtr := cg.currentBlock.NewCall(cg.functions["malloc"], listSizeInt)
+	concatPtr := cg.currentBlock.NewCall(cg.functions["malloc"], cg.sizeof(listType, 1))
 	concatPtr.LocalName = cg.uniqueNames.get("concat_ptr")
 	concatPtrCast := cg.currentBlock.NewBitCast(concatPtr, types.NewPointer(listType))
 	concatPtrCast.LocalName = cg.uniqueNames.get("concat_ptr_cast")
@@ -157,12 +151,11 @@ func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType 
 func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) value.Value {
 	/* list.size and list.init */
 	listLen := constant.NewInt(types.I32, int64(len(listElems)))
-	listLenByte := constant.NewInt(types.I32, int64(len(listElems)*4))
 	listInit := constant.NewBool(true)
 
 	/* list.content alloc */
 	listElemType := getListElemTypeFromListType(listType)
-	listContentPtr := cg.currentBlock.NewCall(cg.functions["malloc"], listLenByte)
+	listContentPtr := cg.currentBlock.NewCall(cg.functions["malloc"], cg.sizeof(listElemType, int64(len(listElems))))
 	listContentPtr.LocalName = cg.uniqueNames.get("list_content_ptr")
 	listContentPtrCast := cg.currentBlock.NewBitCast(listContentPtr, types.NewPointer(listElemType))
 	listContentPtrCast.LocalName = cg.uniqueNames.get("list_content_ptr_cast")
@@ -187,14 +180,8 @@ func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) v
 		}
 	}
 
-	/* trick to get the size of a list struct for malloc */
-	listTypeSize := cg.currentBlock.NewGetElementPtr(listType, constant.NewNull(types.NewPointer(listType)), constant.NewInt(types.I32, 1))
-	listTypeSize.LocalName = cg.uniqueNames.get("list_size_ptr")
-	listSizeInt := cg.currentBlock.NewPtrToInt(listTypeSize, types.I32)
-	listSizeInt.LocalName = cg.uniqueNames.get("list_size_int")
-
 	/* list alloc */
-	listPtr := cg.currentBlock.NewCall(cg.functions["malloc"], listSizeInt)
+	listPtr := cg.currentBlock.NewCall(cg.functions["malloc"], cg.sizeof(listType, 1))
 	listPtr.LocalName = cg.uniqueNames.get("list_ptr")
 	listPtrCast := cg.currentBlock.NewBitCast(listPtr, types.NewPointer(listType))
 	listPtrCast.LocalName = cg.uniqueNames.get("list_ptr_cast")
@@ -205,4 +192,14 @@ func (cg *CodeGenerator) newList(listElems []value.Value, listType types.Type) v
 	cg.setListInit(listPtrCast, listInit)
 	cg.setListContent(listPtrCast, listContentPtrCast)
 	return listPtrCast
+}
+
+func (cg *CodeGenerator) sizeof(type_ types.Type, multiplier int64) value.Value {
+	typeSize := cg.currentBlock.NewGetElementPtr(type_, constant.NewNull(types.NewPointer(type_)), constant.NewInt(types.I32, 1))
+	typeSize.LocalName = cg.uniqueNames.get("type_size_ptr")
+	typeSizeInt := cg.currentBlock.NewPtrToInt(typeSize, types.I32)
+	typeSizeInt.LocalName = cg.uniqueNames.get("type_size_int")
+	typeSizeMult := cg.currentBlock.NewMul(typeSizeInt, constant.NewInt(types.I32, multiplier))
+	typeSizeMult.LocalName = cg.uniqueNames.get("type_size_mul")
+	return typeSizeMult
 }
