@@ -13,6 +13,7 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varName := varDef.TypedVar.(*ast.TypedVar).VarName
 	literalConst := cg.getLiteralConst(varDef)
 
+	// TODO: double free for function returning global pointer to static?
 	switch cg.currentFunction {
 	case cg.mainFunction:
 		globalVar := cg.Module.NewGlobalDef(varName, literalConst)

@@ -38,7 +38,7 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	callRes := cg.currentBlock.NewCall(callee, args...)
 	callRes.LocalName = cg.uniqueNames.get("call_res")
 
-	if callRes.Type().Equal(types.I8Ptr) {
+	if _, ok := callRes.Type().(*types.PointerType); ok {
 		cg.heapAllocs = append(cg.heapAllocs, callRes)
 	}
 
