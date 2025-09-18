@@ -41,23 +41,16 @@ res: int = 0
 
 temp0 = str_to_int(input())
 
-# NOTE: The code below requires dynamic list literals
-# which we currently don't support (see codegen/exprlist.go)
-#
-# for temp0 in [temp0, temp0 + 1, temp0 - 4]:
-#   temp1 = temp0 + 4
-#   temp2 = temp1 * 5
-#   temp3 = temp2 // 2
-#   temp4 = temp3 % 7
-#   temp5 = temp4 * 2
-#   temp6 = temp5 - 2
-#   res = temp6 * 15
-# 
-#   print(res)
+for temp0 in [temp0, temp0 + 1, temp0 - 4]:
+  temp1 = temp0 + 4
+  temp2 = temp1 * 5
+  temp3 = temp2 // 2
+  temp4 = temp3 % 7
+  temp5 = temp4 * 2
+  temp6 = temp5 - 2
+  res = temp6 * 15
 
-print(150)
-print(0)
-print(60)
+  print(res)
 
 # CHECK: 150
 # CHECK: 0
