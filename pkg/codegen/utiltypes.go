@@ -1,10 +1,12 @@
 package codegen
 
 import (
-	"chogopy/pkg/ast"
 	"log"
 
+	"chogopy/pkg/ast"
+
 	"github.com/kr/pretty"
+	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -36,6 +38,16 @@ func structEqual(s1 types.Type, s2 types.Type) bool {
 		}
 	}
 	return true
+}
+
+func (cg *CodeGenerator) sizeof(type_ types.Type, multiplier value.Value) value.Value {
+	typeSize := cg.currentBlock.NewGetElementPtr(type_, constant.NewNull(types.NewPointer(type_)), constant.NewInt(types.I32, 1))
+	typeSize.LocalName = cg.uniqueNames.get("type_size_ptr")
+	typeSizeInt := cg.currentBlock.NewPtrToInt(typeSize, types.I32)
+	typeSizeInt.LocalName = cg.uniqueNames.get("type_size_int")
+	typeSizeMult := cg.currentBlock.NewMul(typeSizeInt, multiplier)
+	typeSizeMult.LocalName = cg.uniqueNames.get("type_size_mul")
+	return typeSizeMult
 }
 
 func (cg *CodeGenerator) getListType(checkType types.Type) types.Type {

@@ -37,13 +37,6 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		return boolLiteral
 
 	case string:
-		// NOTE: The contents of a string need to put into a global definition or allocated on the heap.
-		// The reason for this is that alloc allocates memory on the stack
-		// of the currently executing function which will be freed after the function
-		// returns. Therefore, if the function were to return a pointer to such
-		// stack allocated memory, the pointer would point to unallocated memory.
-		// Hence, we can't return strings (i8*) from functions if their contents
-		// are not on the heap or in a global def.
 		charArrConst := constant.NewCharArrayFromString(literal + "\x00")
 		charArrGlobal := cg.Module.NewGlobalDef(cg.uniqueNames.get("str"), charArrConst)
 
@@ -93,10 +86,6 @@ func (cg *CodeGenerator) LoadVal(val value.Value) value.Value {
 	case hasType(val, types.I8Ptr):
 		return val
 
-	// NOTE: We have to tread carefully here because list literals will also have a
-	// pointer type but are still literals and not variables to be loaded.
-	// Therefore, the caller should always check first to ensure that he is calling this
-	// method for a value that really represents a variable to load from. (i.e. using isIdentOrIndex() )
 	case valIsPtr:
 		valueLoad := cg.currentBlock.NewLoad(val.Type().(*types.PointerType).ElemType, val)
 		valueLoad.LocalName = cg.uniqueNames.get("val")
@@ -112,4 +101,14 @@ func (cg *CodeGenerator) NewAllocN(elemType types.Type, NElems value.Value) *ir.
 	instAlloc.Type()
 	cg.currentBlock.Insts = append(cg.currentBlock.Insts, instAlloc)
 	return instAlloc
+}
+
+func (cg *CodeGenerator) NewMalloc(elemType types.Type, NElems value.Value) value.Value {
+	elemPtr := cg.currentBlock.NewCall(cg.functions["malloc"], cg.sizeof(elemType, NElems))
+	elemPtr.LocalName = cg.uniqueNames.get("heap_ptr")
+	elemPtrCast := cg.currentBlock.NewBitCast(elemPtr, types.NewPointer(elemType))
+	elemPtrCast.LocalName = cg.uniqueNames.get("heap_ptr_cast")
+	cg.heapAllocs = append(cg.heapAllocs, elemPtrCast)
+
+	return elemPtrCast
 }
