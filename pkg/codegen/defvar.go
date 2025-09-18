@@ -34,9 +34,8 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 
 			// Copy string into heap-allocated string ptr
 			strLiteral := varDef.Literal.(*ast.LiteralExpr).Value.(string)
-			strHeap := cg.currentBlock.NewCall(cg.functions["malloc"], constant.NewInt(types.I32, int64(len(strLiteral)+1)))
-			strHeap.LocalName = cg.uniqueNames.get("str_heap")
-			cg.heapAllocs = append(cg.heapAllocs, strHeap)
+			strHeap := cg.NewMalloc(types.I8, constant.NewInt(types.I32, int64(len(strLiteral)+1)))
+
 			strCopy := cg.currentBlock.NewCall(cg.functions["sprintf"], strHeap, cg.strings["str_format"], strStack)
 			strCopy.LocalName = cg.uniqueNames.get("strcpy_res")
 			cg.currentBlock.NewStore(strHeap, localVar)

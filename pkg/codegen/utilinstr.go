@@ -50,8 +50,7 @@ func (cg *CodeGenerator) NewLiteral(literal any) value.Value {
 		strStack.LocalName = cg.uniqueNames.get("str_stack")
 
 		// Copy string into heap-allocated string ptr
-		strHeap := cg.currentBlock.NewCall(cg.functions["malloc"], constant.NewInt(types.I32, int64(len(literal)+1)))
-		strHeap.LocalName = cg.uniqueNames.get("str_heap")
+		strHeap := cg.NewMalloc(types.I8, constant.NewInt(types.I32, int64(len(literal)+1)))
 		strCopy := cg.currentBlock.NewCall(cg.functions["sprintf"], strHeap, cg.strings["str_format"], strStack)
 		strCopy.LocalName = cg.uniqueNames.get("strcpy_res")
 

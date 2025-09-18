@@ -81,9 +81,9 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 
 	strLen := cg.currentBlock.NewCall(cg.functions["strlen"], strVal)
 	strLen.LocalName = cg.uniqueNames.get("str_len")
-	copyBuffer := cg.currentBlock.NewCall(cg.functions["malloc"], strLen)
-	copyBuffer.LocalName = cg.uniqueNames.get("clamp_buf_ptr")
-	cg.heapAllocs = append(cg.heapAllocs, copyBuffer)
+
+	copyBuffer := cg.NewMalloc(types.I8, strLen)
+
 	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], copyBuffer, strVal)
 	copyRes.LocalName = cg.uniqueNames.get("clamp_copy_res")
 
@@ -104,9 +104,7 @@ func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.V
 	concatLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
 	concatLen = cg.currentBlock.NewAdd(concatLen, constant.NewInt(types.I32, 1))
 	concatLen.LocalName = cg.uniqueNames.get("concat_len")
-	concatStr := cg.currentBlock.NewCall(cg.functions["malloc"], concatLen)
-	concatStr.LocalName = cg.uniqueNames.get("concat_str")
-	cg.heapAllocs = append(cg.heapAllocs, concatStr)
+	concatStr := cg.NewMalloc(types.I8, concatLen)
 
 	// 2) Copy the string that should be appended to into that buffer
 	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], concatStr, lhs)
