@@ -1,4 +1,4 @@
-# RUN: echo "43" | lli %s.ll | filecheck %s
+# RUN: echo "43" | ./associativity-folding | filecheck %s
 # RUN: echo "43" | python %s | filecheck %s
 
 def char_to_int(c: str) -> int:

@@ -1,8 +1,9 @@
 cgp*
-*.ll
-*.o
+
+venv
+
+tests
+!tests/*.choc
+
 Output
 .lit_test_times.txt
-tests-partial
-*.ignore
-venv

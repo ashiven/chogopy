@@ -3,9 +3,11 @@
 package codegen
 
 import (
-	"chogopy/pkg/ast"
 	"fmt"
 	"strconv"
+	"strings"
+
+	"chogopy/pkg/ast"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -28,6 +30,7 @@ type VarInfo struct {
 	name     string
 	elemType types.Type
 	value    value.Value
+	init     constant.Constant
 }
 
 type (
@@ -47,6 +50,7 @@ type CodeGenerator struct {
 	functions Functions
 
 	varContext VarCtx
+	heapAllocs []value.Value
 
 	mainFunction *ir.Func
 	mainBlock    *ir.Block
@@ -71,6 +75,7 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	cg.registerFuncs()
 
 	cg.varContext = VarCtx{}
+	cg.heapAllocs = []value.Value{}
 
 	cg.mainFunction = cg.Module.NewFunc("main", types.I32)
 	cg.mainBlock = cg.mainFunction.NewBlock(cg.uniqueNames.get("entry"))
@@ -91,6 +96,9 @@ func (cg *CodeGenerator) Generate(program *ast.Program) {
 	for _, statement := range program.Statements {
 		statement.Visit(cg)
 	}
+
+	// Add a free() for each call to malloc() at the end of the main function
+	cg.freeHeap()
 
 	cg.currentBlock.NewRet(constant.NewInt(types.I32, 0))
 }
@@ -145,5 +153,24 @@ func (cg *CodeGenerator) setVar(varInfo VarInfo) {
 	} else {
 		localVars := cg.varCtx(false)
 		localVars[varInfo.name] = varInfo
+	}
+}
+
+func (cg *CodeGenerator) freeHeap() {
+	for _, ptr := range cg.heapAllocs {
+		// First, we need to check whether the pointer SSA value is even defined in the current scope.
+		// This is relevant when a pointer is heap-allocated and then returned from a function,
+		// which results in the pointer SSA value being shadowed by the function return SSA value.
+		inScope := false
+		for _, inst := range cg.currentBlock.Insts {
+			if strings.Contains(inst.LLString(), ptr.Ident()) {
+				inScope = true
+				break
+			}
+		}
+
+		if inScope {
+			cg.currentBlock.NewCall(cg.functions["free"], ptr)
+		}
 	}
 }

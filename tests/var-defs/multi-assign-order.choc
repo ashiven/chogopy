@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./multi-assign-order | filecheck %s
 # RUN: python %s | filecheck %s
 
 # The order of execution of the assignments is important here.

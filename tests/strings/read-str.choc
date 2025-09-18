@@ -1,4 +1,4 @@
-# RUN: echo "Hello-World" | lli %s.ll | filecheck %s
+# RUN: echo "Hello-World" | ./read-str | filecheck %s
 # RUN: echo "Hello-World" | python %s | filecheck %s
 
 a : str = ""

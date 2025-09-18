@@ -1,4 +1,4 @@
-# RUN: echo "2022" | lli %s.ll | filecheck %s
+# RUN: echo "2022" | ./str-to-int | filecheck %s
 # RUN: echo "2022" | python %s | filecheck %s
 
 def char_to_int(c: str) -> int:

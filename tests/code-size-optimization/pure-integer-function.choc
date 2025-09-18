@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./pure-integer-function | filecheck %s
 # RUN: python %s | filecheck %s
 
 x: int = 10

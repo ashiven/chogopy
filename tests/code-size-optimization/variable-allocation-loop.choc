@@ -1,4 +1,4 @@
-# RUN: echo "32" | lli %s.ll | filecheck %s
+# RUN: echo "32" | ./variable-allocation-loop | filecheck %s
 # RUN: echo "32" | python %s | filecheck %s
 
 def char_to_int(c: str) -> int:

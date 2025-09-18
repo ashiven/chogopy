@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./combine-lists | filecheck %s
 # RUN: python %s | filecheck %s
 
 a : [int] = None

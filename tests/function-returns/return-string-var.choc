@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./return-string-var | filecheck %s
 # RUN: python %s | filecheck %s
 
 a: str = ""

@@ -7,8 +7,6 @@ import (
 	"github.com/llir/llvm/ir/value"
 )
 
-var MaxBufferSize = uint64(10000)
-
 // isString returns true if the value is a
 // - char array: [n x i8]
 // - string: i8*
@@ -83,8 +81,9 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 
 	strLen := cg.currentBlock.NewCall(cg.functions["strlen"], strVal)
 	strLen.LocalName = cg.uniqueNames.get("str_len")
-	copyBuffer := cg.NewAllocN(types.I8, strLen)
+	copyBuffer := cg.currentBlock.NewCall(cg.functions["malloc"], strLen)
 	copyBuffer.LocalName = cg.uniqueNames.get("clamp_buf_ptr")
+	cg.heapAllocs = append(cg.heapAllocs, copyBuffer)
 	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], copyBuffer, strVal)
 	copyRes.LocalName = cg.uniqueNames.get("clamp_copy_res")
 
@@ -95,7 +94,7 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 	return copyBuffer
 }
 
-// TODO: use global allocation
+// TODO: move this into its own function to avoid code repetition
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
 	// 1) Allocate a destination buffer of size: char[lhsLen + rhsLen + 1] (one more for the zero byte)
 	lhsLen := cg.currentBlock.NewCall(cg.functions["strlen"], lhs)
@@ -105,8 +104,9 @@ func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.V
 	concatLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
 	concatLen = cg.currentBlock.NewAdd(concatLen, constant.NewInt(types.I32, 1))
 	concatLen.LocalName = cg.uniqueNames.get("concat_len")
-	concatStr := cg.NewAllocN(types.I8, concatLen)
+	concatStr := cg.currentBlock.NewCall(cg.functions["malloc"], concatLen)
 	concatStr.LocalName = cg.uniqueNames.get("concat_str")
+	cg.heapAllocs = append(cg.heapAllocs, concatStr)
 
 	// 2) Copy the string that should be appended to into that buffer
 	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], concatStr, lhs)
@@ -118,3 +118,8 @@ func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.V
 
 	return concatRes
 }
+
+// func (cg *CodeGenerator) concatStrings(lhs string, rhs string) value.Value {
+// 	concatStr := cg.NewLiteral(lhs + rhs)
+// 	return concatStr
+// }

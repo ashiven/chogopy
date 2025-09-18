@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./rewrite-int-def | filecheck %s
 # RUN: python %s | filecheck %s
 
 i: int = 2

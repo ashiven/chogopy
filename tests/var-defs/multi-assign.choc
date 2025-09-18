@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./multi-assign | filecheck %s
 # RUN: python %s | filecheck %s
 
 i: int = 0

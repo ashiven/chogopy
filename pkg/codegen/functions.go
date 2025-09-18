@@ -7,6 +7,8 @@ import (
 	"github.com/llir/llvm/ir/types"
 )
 
+var MaxBufferSize = int64(1000)
+
 func (cg *CodeGenerator) registerFuncs() {
 	cg.addStringConstants()
 	cg.registerExternal()
@@ -112,6 +114,18 @@ func (cg *CodeGenerator) registerExternal() {
 	)
 	printf.Sig.Variadic = true
 
+	malloc := cg.Module.NewFunc(
+		"malloc",
+		types.I8Ptr,
+		ir.NewParam("", types.I32),
+	)
+
+	free := cg.Module.NewFunc(
+		"free",
+		types.Void,
+		ir.NewParam("", types.I8Ptr),
+	)
+
 	//fgets := cg.Module.NewFunc(
 	//	"fgets",
 	//	types.I8Ptr,
@@ -136,6 +150,8 @@ func (cg *CodeGenerator) registerExternal() {
 	cg.functions["memcpy"] = memcpy
 	cg.functions["sprintf"] = sprintf
 	cg.functions["printf"] = printf
+	cg.functions["malloc"] = malloc
+	cg.functions["free"] = free
 	// cg.functions["fgets"] = fgets
 	// cg.functions["fdopen"] = fdopen
 }
@@ -171,15 +187,13 @@ func (cg *CodeGenerator) defineInput() *ir.Func {
 
 	strFormatPtr := cg.useStringDef(funcBlock, "str_format")
 
-	inputPtr := funcBlock.NewAlloca(types.NewArray(MaxBufferSize, types.I8))
-	inputPtr.LocalName = cg.uniqueNames.get("input_ptr")
-	inputCast := funcBlock.NewBitCast(inputPtr, types.I8Ptr)
-	inputCast.LocalName = cg.uniqueNames.get("input_ptr_cast")
+	inputStr := funcBlock.NewCall(cg.functions["malloc"], constant.NewInt(types.I32, MaxBufferSize))
+	inputStr.LocalName = cg.uniqueNames.get("input_ptr")
 
-	scanRes := funcBlock.NewCall(cg.functions["scanf"], strFormatPtr, inputCast)
+	scanRes := funcBlock.NewCall(cg.functions["scanf"], strFormatPtr, inputStr)
 	scanRes.LocalName = cg.uniqueNames.get("scan_res")
 
-	funcBlock.NewRet(inputCast)
+	funcBlock.NewRet(inputStr)
 
 	return input
 }
@@ -440,11 +454,11 @@ func (cg *CodeGenerator) definePrintInt() *ir.Func {
 
 func (cg *CodeGenerator) definePrintBool() *ir.Func {
 	arg := ir.NewParam("", types.I1)
-	boolToStr := cg.Module.NewFunc("booltostr", types.I32, arg)
+	printBool := cg.Module.NewFunc("printbool", types.I32, arg)
 
-	entry := boolToStr.NewBlock(cg.uniqueNames.get("entry"))
-	ifBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.then"))
-	elseBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.else"))
+	entry := printBool.NewBlock(cg.uniqueNames.get("entry"))
+	ifBlock := printBool.NewBlock(cg.uniqueNames.get("printbool.then"))
+	elseBlock := printBool.NewBlock(cg.uniqueNames.get("printbool.else"))
 
 	entry.NewCondBr(arg, ifBlock, elseBlock)
 
@@ -456,7 +470,7 @@ func (cg *CodeGenerator) definePrintBool() *ir.Func {
 	falsePrint := elseBlock.NewCall(cg.functions["printf"], falseStr)
 	elseBlock.NewRet(falsePrint)
 
-	return boolToStr
+	return printBool
 }
 
 // NOTE: We can't use the below function because it uses alloca to

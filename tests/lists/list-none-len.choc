@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./list-none-len | filecheck %s
 
 a : [int] = None
 

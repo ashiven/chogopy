@@ -1,8 +1,9 @@
 package codegen
 
 import (
-	"chogopy/pkg/ast"
 	"strings"
+
+	"chogopy/pkg/ast"
 
 	"github.com/llir/llvm/ir/constant"
 	"github.com/llir/llvm/ir/types"
@@ -12,18 +13,37 @@ func (cg *CodeGenerator) VisitVarDef(varDef *ast.VarDef) {
 	varName := varDef.TypedVar.(*ast.TypedVar).VarName
 	literalConst := cg.getLiteralConst(varDef)
 
+	// TODO: double free for function returning global pointer to static?
 	switch cg.currentFunction {
 	case cg.mainFunction:
 		globalVar := cg.Module.NewGlobalDef(varName, literalConst)
 		cg.setVar(
-			VarInfo{name: varName, elemType: globalVar.Typ.ElemType, value: globalVar},
+			VarInfo{name: varName, elemType: globalVar.Typ.ElemType, value: globalVar, init: literalConst},
 		)
 
 	default:
 		localVar := cg.currentBlock.NewAlloca(literalConst.Type())
+		localVar.LocalName = cg.uniqueNames.get("local_var")
 		cg.currentBlock.NewStore(literalConst, localVar)
+
+		// Move string literal to heap
+		if literalConst.Type().Equal(types.I8Ptr) {
+			// Store static string into stack-allocated string ptr
+			strStack := cg.currentBlock.NewLoad(types.I8Ptr, localVar)
+			strStack.LocalName = cg.uniqueNames.get("str_stack")
+
+			// Copy string into heap-allocated string ptr
+			strLiteral := varDef.Literal.(*ast.LiteralExpr).Value.(string)
+			strHeap := cg.currentBlock.NewCall(cg.functions["malloc"], constant.NewInt(types.I32, int64(len(strLiteral)+1)))
+			strHeap.LocalName = cg.uniqueNames.get("str_heap")
+			cg.heapAllocs = append(cg.heapAllocs, strHeap)
+			strCopy := cg.currentBlock.NewCall(cg.functions["sprintf"], strHeap, cg.strings["str_format"], strStack)
+			strCopy.LocalName = cg.uniqueNames.get("strcpy_res")
+			cg.currentBlock.NewStore(strHeap, localVar)
+		}
+
 		cg.setVar(
-			VarInfo{name: varName, elemType: localVar.Typ.ElemType, value: localVar},
+			VarInfo{name: varName, elemType: localVar.Typ.ElemType, value: localVar, init: literalConst},
 		)
 	}
 }

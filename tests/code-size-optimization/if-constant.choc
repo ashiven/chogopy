@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./if-constant | filecheck %s
 # RUN: python %s | filecheck %s
 
 if True:

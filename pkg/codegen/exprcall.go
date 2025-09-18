@@ -1,9 +1,11 @@
 package codegen
 
 import (
-	"chogopy/pkg/ast"
 	"log"
 
+	"chogopy/pkg/ast"
+
+	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -22,10 +24,12 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	switch callExpr.FuncName {
 	case "len":
 		lenRes := cg.getLen(args[0])
+		lenRes.(*ir.InstCall).LocalName = cg.uniqueNames.get("call_res")
 		cg.lastGenerated = lenRes
 		return
 	case "print":
 		printRes := cg.printGeneric(args[0])
+		printRes.(*ir.InstCall).LocalName = cg.uniqueNames.get("call_res")
 		cg.lastGenerated = printRes
 		return
 	}
@@ -33,6 +37,10 @@ func (cg *CodeGenerator) VisitCallExpr(callExpr *ast.CallExpr) {
 	callee := cg.functions[callExpr.FuncName]
 	callRes := cg.currentBlock.NewCall(callee, args...)
 	callRes.LocalName = cg.uniqueNames.get("call_res")
+
+	if _, ok := callRes.Type().(*types.PointerType); ok {
+		cg.heapAllocs = append(cg.heapAllocs, callRes)
+	}
 
 	cg.lastGenerated = callRes
 }

@@ -1,17 +1,18 @@
 package main
 
 import (
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
 	"chogopy/pkg/backend"
 	"chogopy/pkg/codegen"
 	"chogopy/pkg/lexer"
 	"chogopy/pkg/parser"
 	"chogopy/pkg/scopes"
 	"chogopy/pkg/typechecks"
-	"log"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 
 	"github.com/kr/pretty"
 	"tinygo.org/x/go-llvm"
@@ -74,9 +75,9 @@ func main() {
 			// TODO: To keep the test cases working I am only appending .ll to the filePath
 			// here but will have to change that in the future and modify the test cases accordingly.
 			err := os.WriteFile(
-				filePath+".ll",
+				replaceFileEnding(filePath, "ll"),
 				[]byte(codeGenerator.Module.String()),
-				0644,
+				0o644,
 			)
 			if err != nil {
 				panic(err)
@@ -96,7 +97,7 @@ func main() {
 		err := os.WriteFile(
 			llFilePath,
 			[]byte(codeGenerator.Module.String()),
-			0644,
+			0o644,
 		)
 		if err != nil {
 			log.Fatalln("Failed to create llvm IR file: ", err)
@@ -133,6 +134,11 @@ func main() {
 		if err != nil {
 			log.Fatalln("Failed to link object file: ", err)
 		}
+
+		// TODO: The below should be specifiable with an argument.
+		// Move the output file into the same directory as the source code
+		outputPath := filepath.Join(filepath.Dir(filePath), outputFile)
+		os.Rename(outputFile, outputPath)
 
 		os.Remove(objectFilePath)
 	}

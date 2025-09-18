@@ -1,4 +1,4 @@
-# RUN: lli %s.ll | filecheck %s
+# RUN: ./ifexpr | filecheck %s
 # RUN: python %s | filecheck %s
 
 print(True if True else False)
