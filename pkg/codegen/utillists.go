@@ -74,49 +74,77 @@ func (cg *CodeGenerator) setListContent(list value.Value, content value.Value) {
 	cg.NewStore(content, listContentAddr)
 }
 
-// TODO: use heap allocation
+// TODO: move this into its own function to avoid code repetition
 func (cg *CodeGenerator) concatLists(lhs value.Value, rhs value.Value, listType types.Type) value.Value {
 	zero := constant.NewInt(types.I32, 0)
 	four := constant.NewInt(types.I32, 4)
 
+	// Compute lhs list content pointer and length (word-to-byte-adjusted)
 	lhsContentPtr := cg.getListElemPtr(lhs, zero)
 	lhsLenFunc := lhs.Type().(*types.PointerType).ElemType.Name() + "_len"
 	lhsLen := cg.currentBlock.NewCall(cg.functions[lhsLenFunc], lhs)
-	// TODO: We are multiplying the list lengths by four because memcpy expects a length in bytes (i8) rather than words (i32).
-	// However, if we are concatenating nested lists, we may need to adjust these lengths differently.
+	lhsLen.LocalName = cg.uniqueNames.get("lhs_len_word")
 	lhsLenByte := cg.currentBlock.NewMul(lhsLen, four)
+	lhsLenByte.LocalName = cg.uniqueNames.get("lhs_len_byte")
 
+	// Compute rhs list content pointer and length (word-to-byte-adjusted)
 	rhsContentPtr := cg.getListElemPtr(rhs, zero)
 	rhsLenFunc := rhs.Type().(*types.PointerType).ElemType.Name() + "_len"
 	rhsLen := cg.currentBlock.NewCall(cg.functions[rhsLenFunc], rhs)
+	rhsLen.LocalName = cg.uniqueNames.get("rhs_len_word")
 	rhsLenByte := cg.currentBlock.NewMul(rhsLen, four)
+	rhsLenByte.LocalName = cg.uniqueNames.get("rhs_len_byte")
 
-	concatPtr := cg.currentBlock.NewAlloca(listType)
+	// Trick to get the size of a list struct for malloc
+	listTypeSize := cg.currentBlock.NewGetElementPtr(listType, constant.NewNull(types.NewPointer(listType)), constant.NewInt(types.I32, 1))
+	listTypeSize.LocalName = cg.uniqueNames.get("list_size_ptr")
+	listSizeInt := cg.currentBlock.NewPtrToInt(listTypeSize, types.I32)
+	listSizeInt.LocalName = cg.uniqueNames.get("list_size_int")
+
+	// Heap-allocation for the list struct
+	concatPtr := cg.currentBlock.NewCall(cg.functions["malloc"], listSizeInt)
+	concatPtr.LocalName = cg.uniqueNames.get("concat_ptr")
+	concatPtrCast := cg.currentBlock.NewBitCast(concatPtr, types.NewPointer(listType))
+	concatPtrCast.LocalName = cg.uniqueNames.get("concat_ptr_cast")
+	cg.heapAllocs = append(cg.heapAllocs, concatPtrCast)
+
+	// Initial values for list init and length
 	concatLen := cg.currentBlock.NewAdd(lhsLen, rhsLen)
+	concatLen.LocalName = cg.uniqueNames.get("concat_len_word")
+	concatLenByte := cg.currentBlock.NewAdd(lhsLenByte, rhsLenByte)
+	concatLenByte.LocalName = cg.uniqueNames.get("concat_len_byte")
 	concatInit := constant.NewBool(true)
 
+	// Heap-allocation for the list content
 	concatListElemType := getListElemTypeFromListType(listType)
-	concatContentPtr := cg.currentBlock.NewCall(cg.functions["malloc"], concatLen)
+	concatContentPtr := cg.currentBlock.NewCall(cg.functions["malloc"], concatLenByte)
 	concatContentPtr.LocalName = cg.uniqueNames.get("concat_content_ptr")
 	cg.heapAllocs = append(cg.heapAllocs, concatContentPtr)
-	cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtr, lhsContentPtr, lhsLenByte)
+
+	// Copy lhs into concat content and then rhs into shifted concat content ptr
+	lhsCpyRes := cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtr, lhsContentPtr, lhsLenByte)
+	lhsCpyRes.LocalName = cg.uniqueNames.get("lhs_cpy_res")
 
 	if isList(concatContentPtr) {
 		/* Content is another list */
 		contentIdx := constant.NewInt(types.I32, 0)
 		concatContentPtrShifted := cg.currentBlock.NewGetElementPtr(concatListElemType, concatContentPtr, lhsLen, contentIdx)
-		cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtrShifted, rhsContentPtr, rhsLenByte)
+		concatContentPtrShifted.LocalName = cg.uniqueNames.get("concat_content_ptr_shifted")
+		rhsCpyRes := cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtrShifted, rhsContentPtr, rhsLenByte)
+		rhsCpyRes.LocalName = cg.uniqueNames.get("rhs_cpy_res")
 
 	} else {
 		/* Regular list content */
 		concatContentPtrShifted := cg.currentBlock.NewGetElementPtr(concatListElemType, concatContentPtr, lhsLen)
-		cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtrShifted, rhsContentPtr, rhsLenByte)
+		concatContentPtrShifted.LocalName = cg.uniqueNames.get("concat_content_ptr_shifted")
+		rhsCpyRes := cg.currentBlock.NewCall(cg.functions["memcpy"], concatContentPtrShifted, rhsContentPtr, rhsLenByte)
+		rhsCpyRes.LocalName = cg.uniqueNames.get("rhs_cpy_res")
 	}
 
-	cg.setListLen(concatPtr, concatLen)
-	cg.setListInit(concatPtr, concatInit)
-	cg.setListContent(concatPtr, concatContentPtr)
-	return concatPtr
+	cg.setListLen(concatPtrCast, concatLen)
+	cg.setListInit(concatPtrCast, concatInit)
+	cg.setListContent(concatPtrCast, concatContentPtr)
+	return concatPtrCast
 }
 
 // newList dynamically allocates and returns a pointer to a list literal

@@ -454,11 +454,11 @@ func (cg *CodeGenerator) definePrintInt() *ir.Func {
 
 func (cg *CodeGenerator) definePrintBool() *ir.Func {
 	arg := ir.NewParam("", types.I1)
-	boolToStr := cg.Module.NewFunc("booltostr", types.I32, arg)
+	printBool := cg.Module.NewFunc("printbool", types.I32, arg)
 
-	entry := boolToStr.NewBlock(cg.uniqueNames.get("entry"))
-	ifBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.then"))
-	elseBlock := boolToStr.NewBlock(cg.uniqueNames.get("booltostr.else"))
+	entry := printBool.NewBlock(cg.uniqueNames.get("entry"))
+	ifBlock := printBool.NewBlock(cg.uniqueNames.get("printbool.then"))
+	elseBlock := printBool.NewBlock(cg.uniqueNames.get("printbool.else"))
 
 	entry.NewCondBr(arg, ifBlock, elseBlock)
 
@@ -470,7 +470,7 @@ func (cg *CodeGenerator) definePrintBool() *ir.Func {
 	falsePrint := elseBlock.NewCall(cg.functions["printf"], falseStr)
 	elseBlock.NewRet(falsePrint)
 
-	return boolToStr
+	return printBool
 }
 
 // NOTE: We can't use the below function because it uses alloca to

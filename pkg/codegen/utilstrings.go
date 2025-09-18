@@ -82,9 +82,8 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 	strLen := cg.currentBlock.NewCall(cg.functions["strlen"], strVal)
 	strLen.LocalName = cg.uniqueNames.get("str_len")
 	copyBuffer := cg.currentBlock.NewCall(cg.functions["malloc"], strLen)
-	copyBuffer.LocalName = cg.uniqueNames.get("copy_buffer")
-	cg.heapAllocs = append(cg.heapAllocs, copyBuffer)
 	copyBuffer.LocalName = cg.uniqueNames.get("clamp_buf_ptr")
+	cg.heapAllocs = append(cg.heapAllocs, copyBuffer)
 	copyRes := cg.currentBlock.NewCall(cg.functions["strcpy"], copyBuffer, strVal)
 	copyRes.LocalName = cg.uniqueNames.get("clamp_copy_res")
 
@@ -95,8 +94,7 @@ func (cg *CodeGenerator) clampString(strVal value.Value) value.Value {
 	return copyBuffer
 }
 
-// TODO: maybe switch to malloc for string literals so I don't have
-// to differentiate between statically allocated strings and heap allocated strings for function returns
+// TODO: move this into its own function to avoid code repetition
 func (cg *CodeGenerator) concatStrings(lhs value.Value, rhs value.Value) value.Value {
 	// 1) Allocate a destination buffer of size: char[lhsLen + rhsLen + 1] (one more for the zero byte)
 	lhsLen := cg.currentBlock.NewCall(cg.functions["strlen"], lhs)
