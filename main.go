@@ -1,18 +1,17 @@
 package main
 
 import (
+	"chogopy/src/backend"
+	"chogopy/src/codegen"
+	"chogopy/src/lexer"
+	"chogopy/src/parser"
+	"chogopy/src/scopes"
+	"chogopy/src/typechecks"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"chogopy/pkg/backend"
-	"chogopy/pkg/codegen"
-	"chogopy/pkg/lexer"
-	"chogopy/pkg/parser"
-	"chogopy/pkg/scopes"
-	"chogopy/pkg/typechecks"
 
 	"github.com/kr/pretty"
 	"tinygo.org/x/go-llvm"
