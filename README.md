@@ -1,9 +1,9 @@
 <p align="center">
-  <h2 align="center">ChoGoPy</h2>
+  <h2 align="center">chogopy</h2>
 </p>
 
 <p align="center">
-  A ChocoPy compiler written in Go
+  A <b>ChocoPy</b> compiler written in Go
 </p>
 
 <div align="center">
@@ -17,7 +17,7 @@
 
 ## About
 
-**ChoGoPy** is a compiler for the [ChocoPy language](https://chocopy.org/) written purely in Go as a fun way to learn more about compilers and get better at Go.
+**chogopy** is a compiler for the [ChocoPy language](https://chocopy.org/) written purely in **Go** as a fun way to learn more about compilers and get better at **Go**.
 It includes multiple analysis passes that perform type checking, variable scope analysis, and more, and compiles down to LLVM IR for flexibility and platform support.
 
 ## Setup
